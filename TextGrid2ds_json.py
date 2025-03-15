@@ -51,7 +51,7 @@ def run(path_main):
                     # json_data = dict(wav=file)
                     sum_data[file.replace('.TextGrid','.wav')] = dict(wav_long=data[0],phones=data[1])
                     json_data.update(sum_data)
-    print(json_data)
+    # print(json_data)
     json_string = json.dumps(json_data, indent=4, ensure_ascii=False,separators=(',', ':'))
     json_dir = os.path.join(path_main, 'json')
     # 2. 创建目录（如果不存在）

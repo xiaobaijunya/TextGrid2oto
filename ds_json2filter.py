@@ -5,6 +5,24 @@
 
 import json
 
+#音素获取
+def ds_dict_read(ds_dictpath):
+    vowels = []
+    consonant =[]
+    with open(ds_dictpath, 'r') as f:
+        for line in f:
+            line = line.split()
+            if len(line) == 3:
+                consonant.append(line[1])
+                vowels.append(line[2])
+            elif len(line) == 2:
+                vowels.append(line[1])
+    vowels = set(vowels)
+    consonant = set(consonant)
+    print(len(consonant),consonant)
+    print(len(vowels),vowels)
+    return vowels,consonant
+
 #删除不存在的音素
 #传入json数据和有效列表
 def filter_json_data(json_data, valid_list):
@@ -64,30 +82,18 @@ def reorganize_json_data(json_data):
 
     return json_data
 
-def ds_dict_read(ds_dictpath):
-    vowels = []
-    consonant =[]
-    with open(ds_dictpath, 'r') as f:
-        for line in f:
-            line = line.split()
-            if len(line) == 3:
-                consonant.append(line[1])
-                vowels.append(line[2])
-            elif len(line) == 2:
-                vowels.append(line[1])
-    vowels = set(vowels)
-    consonant = set(consonant)
-    print(len(consonant),consonant)
-    print(len(vowels),vowels)
-    return vowels.union(consonant)
+
 
 def run(ds_dict,json_path):
     with open(json_path, 'r', encoding='utf-8') as f:
         json_data = json.load(f)
+    #音素生成
     valid_list = ds_dict_read(ds_dict)
-    filtered_data = filter_json_data(json_data, valid_list)
+    print(valid_list)
+    #过滤
+    filtered_data = filter_json_data(json_data, valid_list[0].union(valid_list[1]))
     # 将过滤后的数据写回文件
-    newjson_path=json_path.split('.')[0]+'_new.json'
+    newjson_path=json_path.split('.')[0]+'_filter.json'
     with open(newjson_path, 'w', encoding='utf-8') as f:
         json.dump(filtered_data, f, ensure_ascii=False, indent=4)
         print('写入成功')

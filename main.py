@@ -1,6 +1,7 @@
 import wavname2lab
 import TextGrid2ds_json
-import ds_json2word_josn
+import ds_json2filter
+import ds_json2word
 # nuitka --standalone --onefile main.py
 
 if __name__ == '__main__':
@@ -22,5 +23,8 @@ if __name__ == '__main__':
     if not ds_dict:
         ds_dict = 'opencpop-extension.txt'
     TextGrid2ds_json.run(TextGrid_path)
-    ds_json2word_josn.run(ds_dict,TextGrid_path+'/json/ds_phone.json')
+    ds_json2filter.run(ds_dict,TextGrid_path+'/json/ds_phone.json')
+    print('3.生成word.json')
+    ds_json2word.run(ds_dict,TextGrid_path+'/json/ds_phone_filter.json')
+    print('4.生成utau音素')
 
