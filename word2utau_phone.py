@@ -1,5 +1,6 @@
 import json
 import re
+import os
 
 #读取presamp.ini文件
 def load_presamp(ini_path):
@@ -77,7 +78,7 @@ def split_pinyin_to_phones(word_data, mappings):
     return new_phones
 
 
-def generate_utau_phone(presamp_path, word_json_path, output_path):
+def generate_utau_phone(presamp_path, word_json_path):
 
     word_phone = load_presamp(presamp_path)
 
@@ -86,8 +87,8 @@ def generate_utau_phone(presamp_path, word_json_path, output_path):
 
     for audio_file, data in word_data.items():
         data['phones'] = split_pinyin_to_phones(data, word_phone)
-
-    with open(output_path, 'w', encoding='utf-8') as f:
+    new_path = os.path.dirname(word_json_path)+'/utau_phone.json'
+    with open(new_path, 'w', encoding='utf-8') as f:
         json.dump(word_data, f, ensure_ascii=False, indent=4)
 
 
@@ -95,5 +96,4 @@ if __name__ == "__main__":
     generate_utau_phone(
         presamp_path='G:/编程/utau自动标注/presamp.ini',
         word_json_path='G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json',
-        output_path='G:/编程/utau自动标注/F3/TextGrid/json/utau_phone.json'
     )

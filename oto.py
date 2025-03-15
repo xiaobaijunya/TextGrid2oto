@@ -71,7 +71,9 @@ def oto_write(file_path,oto_data):
             f.write(f'{oto[0]}={oto[1]},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
     print(f'{GREEN}新oto写入成功：{new_file_path}{RESET}')
 
-
+def run(oto_path):
+    oto=oto_read(oto_path)
+    oto_write(oto_path,oto)
 
 if __name__ == '__main__':
     start_time = time.time()

@@ -2,6 +2,7 @@ import wavname2lab
 import TextGrid2ds_json
 import ds_json2filter
 import ds_json2word
+import word2utau_phone
 # nuitka --standalone --onefile main.py
 
 if __name__ == '__main__':
@@ -27,4 +28,9 @@ if __name__ == '__main__':
     print('3.生成word.json')
     ds_json2word.run(ds_dict,TextGrid_path+'/json/ds_phone_filter.json')
     print('4.生成utau音素')
+    presamp=input('请输入presamp.ini的路径：')
+    if not presamp:
+        presamp = 'presamp.ini'
+    word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/word_phone.json')
+    print('5.生成utau标记')
 
