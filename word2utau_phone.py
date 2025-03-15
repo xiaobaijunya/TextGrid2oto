@@ -30,7 +30,7 @@ def load_presamp(ini_path):
         else:
             word_phone[key]=[value['V']]
     word_phone2 = dict(sorted(word_phone.items(), key=lambda item: len(item[0]), reverse=True))
-    print(word_phone2)
+    # print(word_phone2)
     return word_phone2
 
 

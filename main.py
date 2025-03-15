@@ -3,6 +3,8 @@ import TextGrid2ds_json
 import ds_json2filter
 import ds_json2word
 import word2utau_phone
+import json2oto
+import oto
 # nuitka --standalone --onefile main.py
 
 if __name__ == '__main__':
@@ -32,5 +34,16 @@ if __name__ == '__main__':
     if not presamp:
         presamp = 'presamp.ini'
     word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/word_phone.json')
-    print('5.生成utau标记')
-
+    print('5.生成utauphone_json')
+    word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/utau_phone.json')
+    print('6.生成oto.ini')
+    #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
+    cv_sum = [1,3,1.5,1,2]
+    #VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
+    vc_sum=[3,0,2,1,2]
+    json2oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
+    print('7.合并oto.ini')
+    cv = oto.oto_read(wav_path+'/cv_oto.ini')
+    vc = oto.oto_read(wav_path+'/vc_oto.ini')
+    oto.oto_write(wav_path+'/oto.ini',cv+vc)
+    print('10086.完成！')
