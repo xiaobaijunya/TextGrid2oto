@@ -51,7 +51,7 @@ def oto_check(file_path,oto_data):
 def oto_read(file_path):
     if check_file(file_path):return False
     oto_data=[]
-    with open(file_path, 'r') as f:
+    with open(file_path, 'r',encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             parts = line.split('=')
@@ -63,10 +63,14 @@ def oto_read(file_path):
     print(f'{GREEN}oto文件解析成功：{file_path}{RESET}')
     return oto_check(file_path,oto_data)
 
-def oto_write(file_path,oto_data,pitch):
+def oto_write(file_path,oto_data,pitch,cover):
     #写入 oto 文件
+    if cover=='y' or cover=='Y':
+        print(f'{GREEN}覆盖原文件：{file_path}{RESET}')
+    else:
+        print(f'{GREEN}不覆盖原文件：{file_path}{RESET}')
     new_file_path=oto_path(file_path)
-    with open(new_file_path, 'w') as f:
+    with open(new_file_path, 'w',encoding='utf-8') as f:
         for oto in oto_data:
             f.write(f'{oto[0]}={oto[1]}{pitch},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
     print(f'{GREEN}新oto写入成功：{new_file_path}{RESET}')

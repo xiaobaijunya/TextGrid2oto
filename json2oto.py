@@ -96,7 +96,7 @@ def json2vcoto(vc_data,C_V,sum):
             # 0V 1C
             # CC规则
             if cont['text'] in C_V[1] and cont2['text'] in C_V[1]:
-                print(cont['text'] +''+ cont2['text'])
+                # print(cont['text'] +''+ cont2['text'])
                 i+=1
                 continue
                 # -CV规则
