@@ -5,7 +5,7 @@ import ds_json2word
 import word2utau_phone
 import json2oto
 import oto
-# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.1 main.py
+# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.2 main.py
 
 if __name__ == '__main__':
     try:
@@ -46,7 +46,8 @@ if __name__ == '__main__':
         print('7.合并oto.ini')
         cv = oto.oto_read(wav_path+'/cv_oto.ini')
         vc = oto.oto_read(wav_path+'/vc_oto.ini')
-        oto.oto_write(wav_path+'/oto.ini',cv+vc)
+        pitch = input('请输入音阶后缀：')
+        oto.oto_write(wav_path+'/oto.ini',cv+vc,pitch)
         print('10086.完成！')
     except Exception as e:
         import traceback

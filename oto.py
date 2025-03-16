@@ -63,12 +63,12 @@ def oto_read(file_path):
     print(f'{GREEN}oto文件解析成功：{file_path}{RESET}')
     return oto_check(file_path,oto_data)
 
-def oto_write(file_path,oto_data):
+def oto_write(file_path,oto_data,pitch):
     #写入 oto 文件
     new_file_path=oto_path(file_path)
     with open(new_file_path, 'w') as f:
         for oto in oto_data:
-            f.write(f'{oto[0]}={oto[1]},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
+            f.write(f'{oto[0]}={oto[1]}{pitch},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
     print(f'{GREEN}新oto写入成功：{new_file_path}{RESET}')
 
 def run(oto_path):

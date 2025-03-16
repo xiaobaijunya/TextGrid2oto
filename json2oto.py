@@ -27,7 +27,7 @@ def presamp_read(presamps_path):
         C.append(consonant.split('=')[0])
     V = set(V)
     C = set(C)
-    print(V,C)
+    # print(V,C)
     return V,C
 
 def json2cvoto(cv_data,sum):
@@ -52,9 +52,9 @@ def json2cvoto(cv_data,sum):
                 left = float(cont2['xmin'])*1000/sum[0]
                 #右线占比
                 right = (float(cont2['xmax'])-float(cont2['xmin']))*1000/sum[2]
-                #固定的占比
-                fixed = float(right)/sum[1]
                 Prevoice = (float(cont2['middle']) - float(cont2['xmin'])) * 1000 / sum[3]
+                #固定的占比
+                fixed = Prevoice+(right-Prevoice)/sum[1]
                 cross = float(Prevoice)/sum[4]
                 i+=2
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
@@ -65,9 +65,9 @@ def json2cvoto(cv_data,sum):
             left = float(cont['xmin']) * 1000 / sum[0]
             # 右线占比
             right = (float(cont['xmax']) - float(cont['xmin'])) * 1000 / sum[2]
-            # 固定的占比
-            fixed = float(right) / sum[1]
             Prevoice = (float(cont['middle'])- float(cont['xmin'])) * 1000 / sum[3]
+            # 固定的占比
+            fixed = Prevoice+(right-Prevoice)/sum[1]
             cross = float(Prevoice) / sum[4]
             i += 1
 
@@ -96,7 +96,6 @@ def json2vcoto(vc_data,C_V,sum):
             # 0V 1C
             # CC规则
             if cont['text'] in C_V[1] and cont2['text'] in C_V[1]:
-                print(C_V[1])
                 print(cont['text'] +''+ cont2['text'])
                 i+=1
                 continue
@@ -118,7 +117,10 @@ def json2vcoto(vc_data,C_V,sum):
                     cont2['xmin']) * 1000
                 Prevoice = float(cont2['xmin']) * 1000 - left / sum[3]
                 # 固定的占比
-                fixed = Prevoice / sum[5]
+                if sum[5] ==0:
+                    fixed = Prevoice
+                else:
+                    fixed = Prevoice+(right-Prevoice)/sum[5]
 
                 cross = Prevoice / sum[4]
                 i += 1
@@ -132,9 +134,9 @@ def json2vcoto(vc_data,C_V,sum):
                 Prevoice =float(cont2['xmin'])*1000-left/ sum[3]
                 # 固定的占比
                 if sum[1] ==0:
-                    fixed = 0
+                    fixed = Prevoice
                 else:
-                    fixed = right+(right-Prevoice)/sum[1]
+                    fixed = Prevoice+(right-Prevoice)/sum[1]
 
                 cross = Prevoice / sum[4]
                 i += 1
