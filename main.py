@@ -5,7 +5,7 @@ import ds_json2word
 import word2utau_phone
 import json2oto
 import oto
-# nuitka --standalone --onefile main.py
+# nuitka --standalone --onefile --output-filename='TextGrid2oto' main.py
 
 if __name__ == '__main__':
     print('sofa-UTAU自动标注')
