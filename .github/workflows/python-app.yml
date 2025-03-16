@@ -1,58 +1,79 @@
-name: Python Multi-Platform Build
+name: Build and Release
 
 on:
   push:
-    paths:
-      - 'main.py'
-      - 'hira2roma.py'
-      - '.github/workflows/build.yml'
+    tags:
+      - 'v*'
 
 jobs:
   build:
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10"]
+        include:
+          - os: ubuntu-latest
+            sys-name: linux
+          - os: macos-latest
+            sys-name: macos
+          - os: windows-latest
+            sys-name: windows
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Setup Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.10"
 
-      - name: Install build dependencies
-        run: |
-          if [[ ${{ matrix.os }} == 'ubuntu-latest' ]]; then
-            sudo apt-get update
-            sudo apt-get install -y python3-dev
-          elif [[ ${{ matrix.os }} == 'macos-latest' ]]; then
-            brew install python
-          fi
+      - name: Install system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y gcc python3-dev
 
       - name: Install Nuitka
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install nuitka
+        run: pip install nuitka
 
-      - name: Build executables
+      - name: Build main.py
         run: |
-          # 打包 main.py
-          python -m nuitka --standalone --onefile \
-            --output-filename="TextGrid2oto_${{ matrix.os }}_py${{ matrix.python-version }}" \
-            --output-dir=dist/${{ matrix.os }} main.py
-      
-          # 打包 hira2roma.py
-          python -m nuitka --standalone --onefile \
-            --output-filename="hira2roma_${{ matrix.os }}_py${{ matrix.python-version }}" \
-            --output-dir=dist/${{ matrix.os }} hira2roma.py
+          python -m nuitka --standalone --onefile main.py
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            mv main.exe main-${{ matrix.sys-name }}.exe
+          else
+            mv main main-${{ matrix.sys-name }}
+          fi
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Build hira2roma.py
+        run: |
+          python -m nuitka --standalone --onefile hira2roma.py
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            mv hira2roma.exe hira2roma-${{ matrix.sys-name }}.exe
+          else
+            mv hira2roma hira2roma-${{ matrix.sys-name }}
+          fi
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-binaries
-          path: dist/${{ matrix.os }}/
-          retention-days: 30
+          name: binaries-${{ matrix.sys-name }}
+          path: |
+            *-${{ matrix.sys-name }}*
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir release_assets
+          find artifacts -type f -exec cp {} release_assets \;
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          files: release_assets/*
