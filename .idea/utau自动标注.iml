@@ -4,6 +4,7 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/F3" />
+      <excludeFolder url="file://$MODULE_DIR$/A4" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.11 (CVXY录音表制作) (2)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
