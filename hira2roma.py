@@ -1,6 +1,8 @@
 import os
 import shutil
 
+#nuitka --standalone --onefile --output-filename=hira2roma_v0.1.0 hira2roma.py
+
 def load_conversion_dict(hira2roma_list):
     """加载平假名到罗马字的转换字典"""
     try:
