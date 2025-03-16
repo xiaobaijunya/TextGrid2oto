@@ -24,7 +24,7 @@ jobs:
             sys_name: windows
             arch: x64
           - app: main
-            pkg_name: myapp-main
+            pkg_name: TextGrid2oto
           - app: hira2roma
             pkg_name: hira2roma
 
