@@ -48,6 +48,7 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           else
             VERSION=${GITHUB_REF_NAME#v}
+          fi
           
           # 定义输出文件名模板
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
