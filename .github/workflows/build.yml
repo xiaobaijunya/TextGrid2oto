@@ -17,14 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 缓存Nuitka构建文件
+      - name: 恢复依赖项缓存
+        id: cache-dependencies
         uses: actions/cache@v3
         with:
           path: |
-            ~\.cache\pip
-            ~\.cache\nuitka
-            build\
-          key: ${{ runner.os }}-nuitka-${{ hashFiles('**/requirements.txt') }}
+            ~/.cache/pip
+            ~/.cache/nuitka
+            ~/.cache/build
+          key: ${{ runner.os }}-build-${{ hashFiles('**/requirements.txt') }}
+
 
       # 新增Nuitka安装和打包步骤
       - name: 安装Nuitka
