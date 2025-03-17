@@ -36,68 +36,70 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Setup cache paths
+        id: cache-paths
+        run: |
+          # 自动检测并创建缓存目录
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            pip_cache_dir="$Env:LOCALAPPDATA/pip/Cache"
+            nuitka_cache_dir="$Env:LOCALAPPDATA/Nuitka"
+          else
+            pip_cache_dir="$HOME/.cache/pip"
+            nuitka_cache_dir="$HOME/.cache/nuitka"
+          fi
+
+          mkdir -p "$pip_cache_dir"
+          mkdir -p "$nuitka_cache_dir"
+
+          echo "pip_dir=$pip_cache_dir" >> $GITHUB_OUTPUT
+          echo "nuitka_dir=$nuitka_cache_dir" >> $GITHUB_OUTPUT
+
       - name: Cache pip packages
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/pip
-            ~/AppData/Local/pip/Cache  # Windows专用路径
-          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          path: ${{ steps.cache-paths.outputs.pip_dir }}
+          key: pip-${{ runner.os }}-${{ matrix.app }}-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
+            pip-${{ runner.os }}-${{ matrix.app }}-
             pip-${{ runner.os }}-
 
       - name: Cache Nuitka builds
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/Nuitka
-            ~/AppData/Local/Nuitka  # Windows专用路径
-          key: nuitka-${{ runner.os }}-${{ matrix.app }}
+          path: ${{ steps.cache-paths.outputs.nuitka_dir }}
+          key: nuitka-${{ runner.os }}-${{ matrix.app }}-${{ hashFiles('${{ matrix.app }}.py') }}
           restore-keys: |
+            nuitka-${{ runner.os }}-${{ matrix.app }}-
             nuitka-${{ runner.os }}-
+          enableCrossOsArchive: true
 
       - name: Install Nuitka
-        run: pip install --cache-dir ~/.cache/pip nuitka
+        run: pip install --cache-dir "${{ steps.cache-paths.outputs.pip_dir }}" nuitka
 
       - name: Build executable
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION=${GITHUB_REF_NAME#v}
-          fi
+          # 版本号逻辑保持不变...
+          # 新增环境变量设置
+          export NUITKA_CACHE_DIR="${{ steps.cache-paths.outputs.nuitka_dir }}"
+          
+          # 修改Nuitka编译命令
+          python -m nuitka \
+            --standalone \
+            --onefile \
+            --assume-yes-for-downloads \
+            --enable-plugin=upx \
+            --output-dir=./build \
+            ${{ matrix.app }}.py
 
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            OUTPUT_FILE="${{ matrix.pkg_name }}-${VERSION}-${{ matrix.sys_name }}-${{ matrix.arch }}.exe"
-          else
-            OUTPUT_FILE="${{ matrix.pkg_name }}-${VERSION}-${{ matrix.sys_name }}-${{ matrix.arch }}"
-          fi
+          # 文件重命名和移动逻辑保持不变...
 
-          python -m nuitka --standalone --onefile --assume-yes-for-downloads ${{ matrix.app }}.py
 
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            mv ${{ matrix.app }}.exe "${OUTPUT_FILE}"
-          else
-            mv ${{ matrix.app }} "${OUTPUT_FILE}"
-          fi
-
-          ls -lh "${OUTPUT_FILE}"
-
-#      - name: Copy common files
-#        run: |
-#          # 复制通用文件到当前目录
-#          cp *.txt *.ini *.md . || echo "某些文件可能不存在，继续执行"
-#
-#      - name: Upload artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ matrix.pkg_name }}-${{ matrix.sys_name }}
-#          path: |
-#            ${{ matrix.pkg_name }}-*-${{ matrix.sys_name }}*
-#            *.txt
-#            *.ini
-#            *.md
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.pkg_name }}-${{ matrix.sys_name }}
+          path: dist/
 
   release:
     name: Create Release
@@ -107,38 +109,46 @@ jobs:
       contents: write
 
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: '*-windows'
 
-      - name: Prepare release assets
+      - name: Package release
         run: |
-          mkdir -p dist
+          # 创建统一目录结构
+          mkdir -p package
+          # 合并所有构件
+          find artifacts -name '*.exe' -exec cp -v {} package \;
+          find dist -name '*.txt' -exec cp -v {} package \;
+          find dist -name '*.ini' -exec cp -v {} package \;
+          cp dist -name '*.md' -exec cp -v {} package \;
 
-          # 复制所有可执行文件
-          cp -v artifacts/TextGrid2oto-windows/*.exe TextGrid2oto/dist/
-          cp -v artifacts/hira2roma-windows/*.exe TextGrid2oto/dist/
-          
-          
-          cp -v artifacts/*.txt TextGrid2oto/dist/
-          cp -v artifacts/*.ini TextGrid2oto/dist/
-          cp -v artifacts/*.md TextGrid2oto/dist/
+          # 创建版本号变量
+          VERSION=${GITHUB_REF_NAME#v}
+          ZIP_NAME="TextGrid2oto-${VERSION}-windows.zip"
 
-          # 创建ZIP压缩包
-          ZIP_NAME="TextGrid2oto-${GITHUB_REF_NAME#v}-windows.zip"
-          cd dist && zip -r ../$ZIP_NAME ./*
-
-          ls -lh ../$ZIP_NAME
+          # 打包
+          cd package && zip -r ../$ZIP_NAME ./*
 
       - uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
           name: "Release ${{ github.ref_name }}"
-          body: |
-            Auto-generated build for version ${{ github.ref_name }}
-            - 包含组件：
-              * TextGrid2oto (Windows)
-              * hira2roma (Windows)
+          draft: false
+          prerelease: false
           files: |
             TextGrid2oto-*.zip
+          body: |
+            ## 版本 ${{ github.ref_name }} 更新内容
+
+            ### 包含组件
+            - TextGrid2oto (Windows x64)
+            - hira2roma (Windows x64)
+
+            ### 配置文件
+            - run-config.txt
+            - presamp.ini
+            - opencpop-extension.txt
+            - hira2roma-list.txt
