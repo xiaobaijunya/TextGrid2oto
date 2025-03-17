@@ -70,15 +70,15 @@ jobs:
           # 显示生成文件信息
           ls -lh "${OUTPUT_FILE}"
 
-      - name: Add default files
-        run: |
-          ls
-          # 直接复制仓库根目录下的文件
-          cp run-config.txt .
-          cp presamp.ini .
-          cp opencpop-extension.txt .
-          cp hira2roma-list.txt .
-          cp README.md .
+#      - name: Add default files
+#        run: |
+#          ls
+#          # 直接复制仓库根目录下的文件
+#          cp run-config.txt .
+#          cp presamp.ini .
+#          cp opencpop-extension.txt .
+#          cp hira2roma-list.txt .
+#          cp README.md .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -96,6 +96,10 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
+    # 添加必要的写入权限
+    permissions:
+      contents: write
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -104,14 +108,36 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          mkdir release_assets
-          find artifacts -type f \( -name "*.exe" -o -name "*.txt" -o -name "*.ini" -o -name "*.md" \) -exec cp -v {} release_assets \;
-          ls -lh release_assets
+          # 创建分层目录结构避免文件覆盖
+          mkdir -p release_assets/{TextGrid2oto,hira2roma}/windows
+          
+          # 按组件分类复制文件
+          cp -v artifacts/TextGrid2oto-windows/* release_assets/TextGrid2oto/windows/
+          cp -v artifacts/hira2roma-windows/* release_assets/hira2roma/windows/
+          
+          # 添加公共文件（如果需要）
+          cp -v artifacts/*.txt release_assets/ 2>/dev/null || true
+          cp -v artifacts/*.ini release_assets/ 2>/dev/null || true
+          cp -v artifacts/*.md release_assets/ 2>/dev/null || true
+          
+          # 验证目录结构
+          tree release_assets
 
       - uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
+          # 明确使用标签名称（自动提取）
+          tag_name: ${{ github.ref_name }}
           name: "Release ${{ github.ref_name }}"
-          body: "Auto-generated build for version ${{ github.ref_name }}"
+          body: |
+            Auto-generated build for version ${{ github.ref_name }}
+            - 包含组件：
+              * TextGrid2oto (Windows)
+              * hira2roma (Windows)
+          # 匹配多层目录结构
           files: |
-            release_assets/*
+            release_assets/**/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'dev') }}
+        # 显式传递token确保权限
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
