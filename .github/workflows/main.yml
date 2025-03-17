@@ -36,8 +36,28 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/AppData/Local/pip/Cache  # Windows专用路径
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Cache Nuitka builds
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/Nuitka
+            ~/AppData/Local/Nuitka  # Windows专用路径
+          key: nuitka-${{ runner.os }}-${{ matrix.app }}
+          restore-keys: |
+            nuitka-${{ runner.os }}-
+
       - name: Install Nuitka
-        run: pip install nuitka
+        run: pip install --cache-dir ~/.cache/pip nuitka
 
       - name: Build executable
         shell: bash
@@ -97,12 +117,13 @@ jobs:
           mkdir -p dist
 
           # 复制所有可执行文件
-          cp -v artifacts/**/*.exe dist/
-
-          # 复制所有配置文件，覆盖重复项
-          cp -v artifacts/**/*.txt dist/
-          cp -v artifacts/**/*.ini dist/
-          cp -f artifacts/**/*.md dist/  # 强制覆盖确保只保留一个README
+          cp -v artifacts/TextGrid2oto-windows/*.exe TextGrid2oto/dist/
+          cp -v artifacts/hira2roma-windows/*.exe TextGrid2oto/dist/
+          
+          
+          cp -v artifacts/*.txt TextGrid2oto/dist/
+          cp -v artifacts/*.ini TextGrid2oto/dist/
+          cp -v artifacts/*.md TextGrid2oto/dist/
 
           # 创建ZIP压缩包
           ZIP_NAME="TextGrid2oto-${GITHUB_REF_NAME#v}-windows.zip"
