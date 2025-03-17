@@ -64,20 +64,20 @@ jobs:
 
           ls -lh "${OUTPUT_FILE}"
 
-      - name: Copy common files
-        run: |
-          # 复制通用文件到当前目录
-          cp *.txt *.ini *.md . || echo "某些文件可能不存在，继续执行"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.pkg_name }}-${{ matrix.sys_name }}
-          path: |
-            ${{ matrix.pkg_name }}-*-${{ matrix.sys_name }}*
-            *.txt
-            *.ini
-            *.md
+#      - name: Copy common files
+#        run: |
+#          # 复制通用文件到当前目录
+#          cp *.txt *.ini *.md . || echo "某些文件可能不存在，继续执行"
+#
+#      - name: Upload artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: ${{ matrix.pkg_name }}-${{ matrix.sys_name }}
+#          path: |
+#            ${{ matrix.pkg_name }}-*-${{ matrix.sys_name }}*
+#            *.txt
+#            *.ini
+#            *.md
 
   release:
     name: Create Release
