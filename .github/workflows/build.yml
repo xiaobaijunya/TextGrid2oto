@@ -9,7 +9,7 @@ on:
       version:
         description: '输入自定义版本号 (例如: 1.2.3)'
         required: false
-        default: 'dev'
+        default: '0.1.2'
 
 jobs:
   build:
@@ -56,7 +56,7 @@ jobs:
           # 压缩文件
           Compress-Archive -Path *.md,*.txt,*.ini,*.exe -DestinationPath "TextGrid2oto-$version-windows.zip"
 
-      - name: 上传发布包
+
       - uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
