@@ -38,17 +38,11 @@ jobs:
       - name: 安装Nuitka
         run: pip install nuitka
 
-      - name: 打包main.py
-        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads main.py
+     
 
-      - name: 打包hira2roma.py
-        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
 
-      - name: 重命名主程序并移动文件
-        run: |
-          Rename-Item D:\a\TextGrid2oto\TextGrid2oto\build\main.exe -NewName D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
-          Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto.exe
-          Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\hira2roma.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\hira2roma.exe
+
+
 
     
 
