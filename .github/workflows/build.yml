@@ -50,5 +50,5 @@ jobs:
       - name: 上传发布包
         uses: actions/upload-artifact@v4
         with:
-          name: TextGrid2oto-${{ github.event.inputs.version || github.ref_name.replace('v', '') || 'dev' }}
+          name: TextGrid2oto-$version
           path: TextGrid2oto-*.zip
