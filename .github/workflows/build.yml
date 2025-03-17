@@ -2,7 +2,7 @@ name: 自动打包程序，并上传到Release
 on: push
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: 下载源码
         uses: actions/checkout@v2
