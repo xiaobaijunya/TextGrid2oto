@@ -35,10 +35,12 @@ jobs:
 
       - name: 打包hira2roma.py
         run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build hira2roma.py
-        run: ls
+
 
       - name: 重命名主程序
-        run: ren main.exe TextGrid2oto.exe
+        run: |
+          ls
+          ren main.exe TextGrid2oto.exe
 
       - name: 创建发布压缩包
         shell: pwsh
