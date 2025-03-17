@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '输入自定义版本号 (例如: 1.2.3)'
+        required: false
+        default: 'dev'
 
 jobs:
   build:
@@ -33,11 +39,15 @@ jobs:
       - name: Install Nuitka
         run: pip install nuitka
 
+      # 在构建步骤中处理手动版本号
       - name: Build executable
         shell: bash
         run: |
-          # 提取版本号（去除v前缀）
-          VERSION=${GITHUB_REF_NAME#v}
+          # 如果是手动触发，使用输入的版本号
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF_NAME#v}
           
           # 定义输出文件名模板
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
