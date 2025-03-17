@@ -36,12 +36,30 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Detect cache paths
+        id: cache-paths
+        run: |
+          # 自动检测系统类型
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            PIP_CACHE_DIR="${{ env.LOCALAPPDATA }}\\pip\\Cache"
+            NUITKA_CACHE_DIR="${{ env.LOCALAPPDATA }}\\Nuitka"
+          else
+            PIP_CACHE_DIR="$HOME/.cache/pip"
+            NUITKA_CACHE_DIR="$HOME/.cache/nuitka"
+          fi
+
+          # 创建目录（如果不存在）
+          mkdir -p "$PIP_CACHE_DIR"
+          mkdir -p "$NUITKA_CACHE_DIR"
+
+          # 输出路径到环境变量
+          echo "pip_cache_dir=$PIP_CACHE_DIR" >> $GITHUB_OUTPUT
+          echo "nuitka_cache_dir=$NUITKA_CACHE_DIR" >> $GITHUB_OUTPUT
+
       - name: Cache pip packages
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/pip
-            ~/AppData/Local/pip/Cache  # Windows专用路径
+          path: ${{ steps.cache-paths.outputs.pip_cache_dir }}
           key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             pip-${{ runner.os }}-
@@ -49,15 +67,14 @@ jobs:
       - name: Cache Nuitka builds
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/Nuitka
-            ~/AppData/Local/Nuitka  # Windows专用路径
-          key: nuitka-${{ runner.os }}-${{ matrix.app }}
+          path: ${{ steps.cache-paths.outputs.nuitka_cache_dir }}
+          key: nuitka-${{ runner.os }}-${{ matrix.app }}-${{ hashFiles('${{ matrix.app }}.py') }}
           restore-keys: |
             nuitka-${{ runner.os }}-
 
       - name: Install Nuitka
-        run: pip install --cache-dir ~/.cache/pip nuitka
+        run: |
+          pip install --cache-dir "${{ steps.cache-paths.outputs.pip_cache_dir }}" nuitka
 
       - name: Build executable
         shell: bash
