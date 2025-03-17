@@ -38,7 +38,7 @@ jobs:
 
       - name: 重命名主程序
         run: |
-          Rename-Item -Path \build\main.exe -NewName \build\TextGrid2oto.exe
+          Rename-Item D：\a\TextGrid2oto\TextGrid2oto\build\main.exe -NewName D：\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
 
       - name: 创建发布压缩包
         shell: pwsh
@@ -52,7 +52,7 @@ jobs:
             $version = "dev"
           }
           # 压缩文件
-          Compress-Archive -Path *.md,*.txt,*.ini,*.exe -DestinationPath "TextGrid2oto-$version-windows.zip"
+          Compress-Archive -D：\a\TextGrid2oto\TextGrid2oto *.md,*.txt,*.ini,*.exe -DestinationPath "TextGrid2oto-$version-windows.zip"
 
       - uses: softprops/action-gh-release@v1
         with:
