@@ -31,6 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Dependency Walker
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\Nuitka\Nuitka\Cache\DownloadCache\depends
+          key: ${{ runner.os }}-depends-v2
+
       - name: Setup Python 3.10
         uses: actions/setup-python@v5
         with:
