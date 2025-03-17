@@ -3,7 +3,7 @@ name: 自动打包发布程序
 on:
   push:
     tags:
-      - 'v*'  # 添加标签推送触发
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -39,21 +39,32 @@ jobs:
       - name: 安装Nuitka
         run: pip install nuitka
 
+      # 新增打包步骤
+      - name: 打包main.py
+        run: |
+          python -m nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads main.py
 
+      - name: 打包hira2roma.py
+        run: |
+          python -m nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
 
-      - name: 缓存构建输出
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/nuitka
-            ~/.cache/build
-          key: ${{ runner.os }}-build-output-${{ github.sha }}
+      # 文件操作步骤
+      - name: 重命名并移动文件
+        shell: pwsh
+        run: |
+          $workspace = "$env:GITHUB_WORKSPACE"
+          # 重命名主程序
+          Rename-Item "$workspace\build\main.exe" -NewName "TextGrid2oto.exe"
+          # 移动文件到根目录
+          Move-Item "$workspace\build\TextGrid2oto.exe" -Destination "$workspace\TextGrid2oto.exe" -Force
+          Move-Item "$workspace\build\hira2roma.exe" -Destination "$workspace\hira2roma.exe" -Force
 
+      # 修改后的压缩步骤
       - name: 创建发布压缩包
         shell: pwsh
         run: |
-          # 处理版本号逻辑
+          $workspace = "$env:GITHUB_WORKSPACE"
+          # 处理版本号
           if ("${{ github.event.inputs.version }}" -ne "") {
             $version = "${{ github.event.inputs.version }}"
           } elseif ("${{ github.ref_type }}" -eq "tag") {
@@ -61,18 +72,25 @@ jobs:
           } else {
             $version = "dev"
           }
-          # 压缩文件
-          Compress-Archive -Path dist/* -DestinationPath TextGrid2oto-$version-windows.zip
+          # 收集所有需要打包的文件
+          $files = @(
+            "$workspace\*.exe",
+            "$workspace\*.txt",
+            "$workspace\*.md",
+            "$workspace\*.ini"
+          )
+          # 创建压缩包
+          Compress-Archive -Path $files -DestinationPath "$workspace\TextGrid2oto-$version-windows.zip"
 
       - name: 创建GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name || format('v{0}', github.event.inputs.version || '0.1.2') }}
           name: "Release ${{ github.ref_name || format('v{0}', github.event.inputs.version || '0.1.2') }}"
-          draft: false
-          prerelease: false
           files: |
             TextGrid2oto-*-windows.zip
+          draft: false
+          prerelease: false
           body: |
             ## 版本 ${{ github.ref_name || format('v{0}', github.event.inputs.version || '0.1.2') }} 更新内容
 
