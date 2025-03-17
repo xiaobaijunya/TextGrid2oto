@@ -27,7 +27,6 @@ jobs:
             ~/.cache/build
           key: ${{ runner.os }}-build-${{ hashFiles('**/requirements.txt') }}
 
-
       # 新增Nuitka安装和打包步骤
       - name: 安装Nuitka
         run: pip install nuitka
@@ -38,13 +37,13 @@ jobs:
       - name: 打包hira2roma.py
         run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
 
-      - name: 重命名主程序
+      - name: 重命名主程序并移动文件
         run: |
-          Rename-Item D：\a\TextGrid2oto\TextGrid2oto\build\main.exe -NewName D：\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
-          cp D：\a\TextGrid2oto\TextGrid2oto\build\\TextGrid2oto.exe D：\a\TextGrid2oto\TextGrid2oto\TextGrid2oto.exe
-          cp D：\a\TextGrid2oto\TextGrid2oto\build\hira2roma.exe D：\a\TextGrid2oto\TextGrid2oto\hira2roma.exe
+          Rename-Item D:\a\TextGrid2oto\TextGrid2oto\build\main.exe -NewName D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
+          Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto.exe
+          Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\hira2roma.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\hira2roma.exe
 
-- name: 缓存构建输出
+      - name: 缓存构建输出
         uses: actions/cache@v3
         with:
           path: |
@@ -65,7 +64,7 @@ jobs:
             $version = "dev"
           }
           # 压缩文件
-          Compress-Archive -D：\a\TextGrid2oto\TextGrid2oto *.md,*.txt,*.ini,*.exe -DestinationPath "TextGrid2oto-$version-windows.zip"
+          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe -DestinationPath "TextGrid2oto-$version-windows.zip"
 
       - uses: softprops/action-gh-release@v1
         with:
