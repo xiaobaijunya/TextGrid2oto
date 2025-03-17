@@ -15,7 +15,9 @@ jobs:
   build:
     name: Build ${{ matrix.app }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest]
         app: [main, hira2roma]
@@ -23,73 +25,83 @@ jobs:
           - os: windows-latest
             sys_name: windows
             arch: x64
+            cache_key: win-nuitka-cache
           - app: main
             pkg_name: TextGrid2oto
           - app: hira2roma
             pkg_name: hira2roma
 
+    env:
+      PYTHON_VERSION: "3.10"
+      NUITKA_CACHE_DIR: ${{ runner.temp }}/nuitka_cache
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Dependency Walker
+      - name: Cache dependencies
         uses: actions/cache@v3
         with:
           path: |
-            ~\AppData\Local\Nuitka\Nuitka\Cache\DownloadCache\depends
-          key: ${{ runner.os }}-depends-v2
+            ~\AppData\Local\Nuitka\Nuitka\Cache\DownloadCache
+            ~\AppData\Local\pip\Cache
+          key: ${{ matrix.cache_key }}-${{ hashFiles('**/requirements.txt') }}-v3
+          restore-keys: |
+            ${{ matrix.cache_key }}-${{ hashFiles('**/requirements.txt') }}-
+            ${{ matrix.cache_key }}-
 
-      - name: Setup Python 3.10
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: '**/requirements.txt'
 
       - name: Install Nuitka
-        run: pip install nuitka
+        run: pip install --cache-dir ~\AppData\Local\pip\Cache nuitka
 
-      # 在构建步骤中处理手动版本号
       - name: Build executable
         shell: bash
         run: |
-          # 如果是手动触发，使用输入的版本号
+          # 版本号处理
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.version }}"
           else
             VERSION=${GITHUB_REF_NAME#v}
           fi
+
+          # 输出文件名定义
+          OUTPUT_FILE="${{ matrix.pkg_name }}-${VERSION}-${{ matrix.sys_name }}-${{ matrix.arch }}.exe"
+
+          # Nuitka编译命令
+          python -m nuitka \
+            --standalone \
+            --onefile \
+            --assume-yes-for-downloads \
+            --jobs=2 \
+            --low-memory \
+            --output-dir=${{ env.NUITKA_CACHE_DIR }} \
+            ${{ matrix.app }}.py
+
+          # 文件重命名
+          mv "${{ env.NUITKA_CACHE_DIR }}/${{ matrix.app }}.exe" "$OUTPUT_FILE"
           
-          # 定义输出文件名模板
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            OUTPUT_FILE="${{ matrix.pkg_name }}-${VERSION}-${{ matrix.sys_name }}-${{ matrix.arch }}.exe"
-          else
-            OUTPUT_FILE="${{ matrix.pkg_name }}-${VERSION}-${{ matrix.sys_name }}-${{ matrix.arch }}"
-          fi
+          # 验证输出
+          ls -lh "$OUTPUT_FILE"
+          file "$OUTPUT_FILE"
 
-          # 执行Nuitka打包（添加自动下载许可参数）
-          python -m nuitka --standalone --onefile --assume-yes-for-downloads ${{ matrix.app }}.py
-          
-          # 重命名输出文件
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            mv ${{ matrix.app }}.exe "${OUTPUT_FILE}"
-          else
-            mv ${{ matrix.app }} "${OUTPUT_FILE}"
-          fi
-
-          # 显示生成文件信息
-          ls -lh "${OUTPUT_FILE}"
-
-      - name: Verify existing files
+      - name: Verify required files
         run: |
-          echo "工作目录内容:"
+          echo "工作目录文件列表:"
           ls -l
-          echo "必需配置文件:"
+          echo "必需配置文件验证:"
           ls run-config.txt presamp.ini opencpop-extension.txt hira2roma-list.txt README.md
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.pkg_name }}-${{ matrix.sys_name }}
           path: |
-            ${{ matrix.pkg_name }}-*-${{ matrix.sys_name }}*
+            ${{ matrix.pkg_name }}-*-${{ matrix.sys_name }}*.exe
             run-config.txt
             presamp.ini
             opencpop-extension.txt
@@ -101,21 +113,31 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: '*'
+          merge-multiple: true
 
       - name: Prepare release assets
         run: |
-          mkdir release_assets
-          find artifacts -type f \( -name "*.exe" -o -name "*.txt" -o -name "*.ini" -o -name "*.md" \) -exec cp -v {} release_assets \;
+          mkdir -p release_assets
+          find artifacts -type f \( -name "*.exe" -o -name "*.txt" -o -name "*.ini" -o -name "*.md" \) \
+            -exec cp -v {} release_assets \;
+          
+          echo "最终发布文件列表:"
           ls -lh release_assets
 
       - uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref }}
           name: "Release ${{ github.ref_name }}"
-          body: "Auto-generated build for version ${{ github.ref_name }}"
-          files: |
-            release_assets/*
+          body: |
+            Automated build includes:
+            - Windows executables
+            - Configuration files
+            - Documentation
+          files: release_assets/*
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
