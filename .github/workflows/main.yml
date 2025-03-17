@@ -72,11 +72,12 @@ jobs:
 
       - name: Add default files
         run: |
-          cp ../run-config.txt .
-          cp ../presamp.ini .
-          cp ../opencpop-extension.txt .
-          cp ../hira2roma-list.txt .
-          cp ../README.md .
+          # 直接复制仓库根目录下的文件
+          cp run-config.txt .
+          cp presamp.ini .
+          cp opencpop-extension.txt .
+          cp hira2roma-list.txt .
+          cp README.md .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
