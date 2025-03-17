@@ -42,13 +42,19 @@ jobs:
       - name: 创建发布压缩包
         shell: pwsh
         run: |
-          $version = "${{ github.event.inputs.version || github.ref_name.replace('v', '') || 'dev' }}"
-          Get-ChildItem -Include *.md, *.txt, *.ini, *.exe -Exclude *.dist | Compress-Archive `
-            -DestinationPath "TextGrid2oto-$version.zip" `
-            -Update
+          # 处理版本号逻辑
+          if ("${{ github.event.inputs.version }}" -ne "") {
+            $version = "${{ github.event.inputs.version }}"
+          } elseif ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".Replace("v", "")
+          } else {
+            $version = "dev"
+          }
+          # 压缩文件
+          Compress-Archive -Path *.md,*.txt,*.ini,*.exe -DestinationPath "TextGrid2oto-$version.zip"
 
       - name: 上传发布包
         uses: actions/upload-artifact@v4
         with:
-          name: TextGrid2oto-$version
+          name: TextGrid2oto-${{ github.event.inputs.version || 'dev' }}
           path: TextGrid2oto-*.zip
