@@ -24,15 +24,22 @@ jobs:
         id: get_version
         shell: bash
         run: |
-          # 从 Release 获取已发布的最新版本
-          LATEST_RELEASE=$(gh release list --exclude-drafts --exclude-pre-releases -L 1 --json tagName -q '.[].tagName' || echo "")
+          # 使用 GitHub API 获取最新正式版
+          LATEST_RELEASE=$(curl -sH "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
+            | jq -r '.tag_name // empty')
 
           # 从 Git 标签获取最新版本
           LATEST_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "v0.0.0")
 
-          # 比较两个版本并取最大值
-          MAX_VERSION=$(echo -e "${LATEST_RELEASE#v}\n${LATEST_TAG#v}" | sort -V -r | head -n1)
+          # 比较两个版本并取最大值（使用纯数字格式比较）
+          MAX_VERSION=$(echo -e "${LATEST_RELEASE#v}\n${LATEST_TAG#v}" \
+            | sort -t. -k1,1n -k2,2n -k3,3n | tail -n1)
 
+          # 如果两个版本都为空则使用默认版本
+          [[ -z "$MAX_VERSION" ]] && MAX_VERSION="0.0.0"
+
+          # ... 保留现有的版本号分割和递增逻辑 ...
           # 分割版本号
           MAJOR=$(echo $MAX_VERSION | cut -d. -f1)
           MINOR=$(echo $MAX_VERSION | cut -d. -f2)
