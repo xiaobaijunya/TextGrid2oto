@@ -41,6 +41,17 @@ jobs:
       - name: 重命名主程序
         run: |
           Rename-Item D：\a\TextGrid2oto\TextGrid2oto\build\main.exe -NewName D：\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
+          cp D：\a\TextGrid2oto\TextGrid2oto\build\\TextGrid2oto.exe D：\a\TextGrid2oto\TextGrid2oto\TextGrid2oto.exe
+          cp D：\a\TextGrid2oto\TextGrid2oto\build\hira2roma.exe D：\a\TextGrid2oto\TextGrid2oto\hira2roma.exe
+
+- name: 缓存构建输出
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/nuitka
+            ~/.cache/build
+          key: ${{ runner.os }}-build-output-${{ github.sha }}
 
       - name: 创建发布压缩包
         shell: pwsh
