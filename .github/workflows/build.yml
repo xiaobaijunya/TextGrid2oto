@@ -50,9 +50,7 @@ jobs:
           Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto.exe
           Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\hira2roma.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\hira2roma.exe
 
-      - name: 创建缓存目录（构建输出）
-        run: |
-          mkdir -p ~/.cache/build
+    
 
       - name: 缓存构建输出
         uses: actions/cache@v3
