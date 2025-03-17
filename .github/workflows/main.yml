@@ -39,46 +39,35 @@ jobs:
       - name: Install Nuitka
         run: pip install nuitka
 
-      # 在构建步骤中处理手动版本号
       - name: Build executable
         shell: bash
         run: |
-          # 如果是手动触发，使用输入的版本号
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.version }}"
           else
             VERSION=${GITHUB_REF_NAME#v}
           fi
-          
-          # 定义输出文件名模板
+
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             OUTPUT_FILE="${{ matrix.pkg_name }}-${VERSION}-${{ matrix.sys_name }}-${{ matrix.arch }}.exe"
           else
             OUTPUT_FILE="${{ matrix.pkg_name }}-${VERSION}-${{ matrix.sys_name }}-${{ matrix.arch }}"
           fi
 
-          # 执行Nuitka打包（添加自动下载许可参数）
           python -m nuitka --standalone --onefile --assume-yes-for-downloads ${{ matrix.app }}.py
-          
-          # 重命名输出文件
+
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             mv ${{ matrix.app }}.exe "${OUTPUT_FILE}"
           else
             mv ${{ matrix.app }} "${OUTPUT_FILE}"
           fi
 
-          # 显示生成文件信息
           ls -lh "${OUTPUT_FILE}"
 
-#      - name: Add default files
-#        run: |
-#          ls
-#          # 直接复制仓库根目录下的文件
-#          cp run-config.txt .
-#          cp presamp.ini .
-#          cp opencpop-extension.txt .
-#          cp hira2roma-list.txt .
-#          cp README.md .
+      - name: Copy common files
+        run: |
+          # 复制通用文件到当前目录
+          cp *.txt *.ini *.md . || echo "某些文件可能不存在，继续执行"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -86,17 +75,14 @@ jobs:
           name: ${{ matrix.pkg_name }}-${{ matrix.sys_name }}
           path: |
             ${{ matrix.pkg_name }}-*-${{ matrix.sys_name }}*
-            run-config.txt
-            presamp.ini
-            opencpop-extension.txt
-            hira2roma-list.txt
-            README.md
+            *.txt
+            *.ini
+            *.md
 
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    # 添加必要的写入权限
     permissions:
       contents: write
 
@@ -108,23 +94,21 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          # 创建统一目录结构
-          mkdir -p TextGrid2oto/dist
-          
-          # 合并所有组件和依赖文件
-          cp -v artifacts/TextGrid2oto-windows/*.exe TextGrid2oto/dist/
-          cp -v artifacts/hira2roma-windows/*.exe TextGrid2oto/dist/
-          cp -v artifacts/*.txt TextGrid2oto/dist/
-          cp -v artifacts/*.ini TextGrid2oto/dist/
-          cp -v artifacts/*.md TextGrid2oto/dist/
-          
-          # 创建ZIP压缩包（版本号自动提取）
+          mkdir -p dist
+
+          # 复制所有可执行文件
+          cp -v artifacts/**/*.exe dist/
+
+          # 复制所有配置文件，覆盖重复项
+          cp -v artifacts/**/*.txt dist/
+          cp -v artifacts/**/*.ini dist/
+          cp -f artifacts/**/*.md dist/  # 强制覆盖确保只保留一个README
+
+          # 创建ZIP压缩包
           ZIP_NAME="TextGrid2oto-${GITHUB_REF_NAME#v}-windows.zip"
-          cd TextGrid2oto/dist && zip -r ../../$ZIP_NAME ./*
-          cd ../..
-          
-          # 显示压缩包信息
-          ls -lh $ZIP_NAME
+          cd dist && zip -r ../$ZIP_NAME ./*
+
+          ls -lh ../$ZIP_NAME
 
       - uses: softprops/action-gh-release@v1
         with:
