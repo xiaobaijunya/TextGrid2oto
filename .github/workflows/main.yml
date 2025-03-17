@@ -36,23 +36,23 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Setup cache paths
-        id: cache-paths
-        run: |
-          # 自动检测并创建缓存目录
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            pip_cache_dir="$Env:LOCALAPPDATA/pip/Cache"
-            nuitka_cache_dir="$Env:LOCALAPPDATA/Nuitka"
-          else
-            pip_cache_dir="$HOME/.cache/pip"
-            nuitka_cache_dir="$HOME/.cache/nuitka"
-          fi
-
-          mkdir -p "$pip_cache_dir"
-          mkdir -p "$nuitka_cache_dir"
-
-          echo "pip_dir=$pip_cache_dir" >> $GITHUB_OUTPUT
-          echo "nuitka_dir=$nuitka_cache_dir" >> $GITHUB_OUTPUT
+#      - name: Setup cache paths
+#        id: cache-paths
+#        run: |
+#          # 自动检测并创建缓存目录
+#          if [ "$RUNNER_OS" == "Windows" ]; then
+#            pip_cache_dir="$Env:LOCALAPPDATA/pip/Cache"
+#            nuitka_cache_dir="$Env:LOCALAPPDATA/Nuitka"
+#          else
+#            pip_cache_dir="$HOME/.cache/pip"
+#            nuitka_cache_dir="$HOME/.cache/nuitka"
+#          fi
+#
+#          mkdir -p "$pip_cache_dir"
+#          mkdir -p "$nuitka_cache_dir"
+#
+#          echo "pip_dir=$pip_cache_dir" >> $GITHUB_OUTPUT
+#          echo "nuitka_dir=$nuitka_cache_dir" >> $GITHUB_OUTPUT
 
       - name: Cache pip packages
         uses: actions/cache@v3
