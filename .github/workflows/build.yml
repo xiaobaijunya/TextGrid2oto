@@ -34,8 +34,7 @@ jobs:
         run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build main.py
 
       - name: 打包hira2roma.py
-        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build hira2roma.py
-
+        run: run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
 
       - name: 重命名主程序
         run: |
