@@ -14,6 +14,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -64,7 +65,7 @@ jobs:
             $version = "dev"
           }
           # 压缩文件
-          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe -DestinationPath "TextGrid2oto-$version-windows.zip"
+          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
 
       - uses: softprops/action-gh-release@v1
         with:
