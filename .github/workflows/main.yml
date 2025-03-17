@@ -11,15 +11,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [windows-latest]  # 仅保留 Windows
         app: [main, hira2roma]
         include:
-          - os: ubuntu-latest
-            sys_name: linux
-            arch: x86_64
-          - os: macos-latest
-            sys_name: macos
-            arch: universal
           - os: windows-latest
             sys_name: windows
             arch: x64
@@ -70,6 +64,15 @@ jobs:
 
           # 显示生成文件信息
           ls -lh "${OUTPUT_FILE}"
+          
+          - name: Add default files
+              run: 
+          cp ../run-config.txt
+          cp ../presamp.ini
+          cp ../opencpop-extension.txt
+          cp ../hira2roma list.txt
+          cp ../README.md
+  
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -91,7 +94,8 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir release_assets
-          find artifacts -type f -exec cp -v {} release_assets \;
+          # 同时包含可执行文件和配置文件
+          find artifacts -type f \( -name "*.exe" -o -name "*.txt" -o -name "*.ini" \) -exec cp -v {} release_assets \;
           ls -lh release_assets
 
       - uses: softprops/action-gh-release@v1
