@@ -105,16 +105,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          patterns: '*-windows'
+          name: ${{ matrix.pkg_name }}-${{ matrix.sys_name }}
 
       - name: Package release
         run: |
-          ls
           mkdir -p package
-          find artifacts -name '*.exe' -exec cp -v {} package \;
-          find ./ -name '*.txt' -exec cp -v {} package \;
-          find ./ -name '*.ini' -exec cp -v {} package \;
-          find ./ -name '*.md' -exec cp -v {} package \;
+          find ./artifacts -name '*.exe' -exec cp -v {} package \;
+          find ./artifacts -name '*.txt' -exec cp -v {} package \;
+          find ./artifacts -name '*.ini' -exec cp -v {} package \;
+          find ./artifacts -name '*.md' -exec cp -v {} package \;
 
           VERSION=${GITHUB_REF_NAME#v}
           ZIP_NAME="TextGrid2oto-${VERSION}-windows.zip"
