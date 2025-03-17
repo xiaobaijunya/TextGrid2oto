@@ -70,14 +70,12 @@ jobs:
           # 显示生成文件信息
           ls -lh "${OUTPUT_FILE}"
 
-      - name: Add default files
+      - name: Verify existing files
         run: |
-          # 直接复制仓库根目录下的文件
-          cp run-config.txt .
-          cp presamp.ini .
-          cp opencpop-extension.txt .
-          cp hira2roma-list.txt .
-          cp README.md .
+          echo "工作目录内容:"
+          ls -l
+          echo "必需配置文件:"
+          ls run-config.txt presamp.ini opencpop-extension.txt hira2roma-list.txt README.md
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
