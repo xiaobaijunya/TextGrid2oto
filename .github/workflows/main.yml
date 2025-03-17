@@ -109,11 +109,12 @@ jobs:
 
       - name: Package release
         run: |
+          ls
           mkdir -p package
           find artifacts -name '*.exe' -exec cp -v {} package \;
-          find dist -name '*.txt' -exec cp -v {} package \;
-          find dist -name '*.ini' -exec cp -v {} package \;
-          find dist -name '*.md' -exec cp -v {} package \;
+          find ./ -name '*.txt' -exec cp -v {} package \;
+          find ./ -name '*.ini' -exec cp -v {} package \;
+          find ./ -name '*.md' -exec cp -v {} package \;
 
           VERSION=${GITHUB_REF_NAME#v}
           ZIP_NAME="TextGrid2oto-${VERSION}-windows.zip"
