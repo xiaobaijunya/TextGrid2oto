@@ -110,7 +110,7 @@ jobs:
       - name: Package release
         run: |
           mkdir -p package
-          find artifacts -name '*.exe' -exec cp -v {} package \;
+          find D:\a\TextGrid2oto\TextGrid2oto\build\ -name '*.exe' -exec cp -v {} package \;
           find dist -name '*.txt' -exec cp -v {} package \;
           find dist -name '*.ini' -exec cp -v {} package \;
           find dist -name '*.md' -exec cp -v {} package \;
