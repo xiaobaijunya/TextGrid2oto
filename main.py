@@ -111,7 +111,6 @@ def auto_run(config):
         return 0
 
 if __name__ == '__main__':
-    auto_run('run-config.txt')
     print(sys.argv)
     if len(sys.argv)>1:
         for arg in sys.argv[1:]:
