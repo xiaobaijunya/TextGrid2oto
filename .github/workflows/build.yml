@@ -31,13 +31,14 @@ jobs:
         run: pip install nuitka
 
       - name: 打包main.py
-        run: nuitka --standalone --enable-plugin=tk-inter --output-dir=build main.py
+        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build main.py
 
       - name: 打包hira2roma.py
-        run: nuitka --standalone --enable-plugin=tk-inter --output-dir=build hira2roma.py
+        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build hira2roma.py
+        run: ls
 
       - name: 重命名主程序
-        run: ren build\main.exe build\TextGrid2oto.exe
+        run: ren main.exe TextGrid2oto.exe
 
       - name: 创建发布压缩包
         shell: pwsh
@@ -51,10 +52,26 @@ jobs:
             $version = "dev"
           }
           # 压缩文件
-          Compress-Archive -Path *.md,*.txt,*.ini,*.exe -DestinationPath "TextGrid2oto-$version.zip"
+          Compress-Archive -Path *.md,*.txt,*.ini,*.exe -DestinationPath "TextGrid2oto-$version-windows.zip"
 
       - name: 上传发布包
-        uses: actions/upload-artifact@v4
+      - uses: softprops/action-gh-release@v1
         with:
-          name: TextGrid2oto-${{ github.event.inputs.version || 'dev' }}
-          path: TextGrid2oto-*.zip
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          files: |
+            TextGrid2oto-*-windows.zip
+          body: |
+            ## 版本 ${{ github.ref_name }} 更新内容
+
+            ### 包含组件
+            - TextGrid2oto (Windows x64)
+            - hira2roma (Windows x64)
+
+            ### 配置文件
+            - run-config.txt
+            - presamp.ini
+            - opencpop-extension.txt
+            - hira2roma-list.txt
