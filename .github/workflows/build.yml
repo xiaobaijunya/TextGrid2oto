@@ -3,7 +3,7 @@ name: 自动打包发布程序
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # 添加标签推送触发
   workflow_dispatch:
     inputs:
       version:
@@ -14,8 +14,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -36,35 +34,39 @@ jobs:
             ~/.cache/build
           key: ${{ runner.os }}-build-${{ hashFiles('**/requirements.txt') }}
 
+      # 新增Nuitka安装和打包步骤
       - name: 安装Nuitka
         run: pip install nuitka
 
-      # 新增打包步骤
       - name: 打包main.py
-        run: |
-          python -m nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads main.py
+        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads main.py
 
       - name: 打包hira2roma.py
-        run: |
-          python -m nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
+        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
 
-      # 文件操作步骤
-      - name: 重命名并移动文件
-        shell: pwsh
+      - name: 重命名主程序并移动文件
         run: |
-          $workspace = "$env:GITHUB_WORKSPACE"
-          # 重命名主程序
-          Rename-Item "$workspace\build\main.exe" -NewName "TextGrid2oto.exe"
-          # 移动文件到根目录
-          Move-Item "$workspace\build\TextGrid2oto.exe" -Destination "$workspace\TextGrid2oto.exe" -Force
-          Move-Item "$workspace\build\hira2roma.exe" -Destination "$workspace\hira2roma.exe" -Force
+          Rename-Item D:\a\TextGrid2oto\TextGrid2oto\build\main.exe -NewName D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
+          Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto.exe
+          Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\hira2roma.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\hira2roma.exe
 
-      # 修改后的压缩步骤
+      - name: 创建缓存目录（构建输出）
+        run: |
+          mkdir -p ~/.cache/build
+
+      - name: 缓存构建输出
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/nuitka
+            ~/.cache/build
+          key: ${{ runner.os }}-build-output-${{ github.sha }}
+
       - name: 创建发布压缩包
         shell: pwsh
         run: |
-          $workspace = "$env:GITHUB_WORKSPACE"
-          # 处理版本号
+          # 处理版本号逻辑
           if ("${{ github.event.inputs.version }}" -ne "") {
             $version = "${{ github.event.inputs.version }}"
           } elseif ("${{ github.ref_type }}" -eq "tag") {
@@ -72,27 +74,20 @@ jobs:
           } else {
             $version = "dev"
           }
-          # 收集所有需要打包的文件
-          $files = @(
-            "$workspace\*.exe",
-            "$workspace\*.txt",
-            "$workspace\*.md",
-            "$workspace\*.ini"
-          )
-          # 创建压缩包
-          Compress-Archive -Path $files -DestinationPath "$workspace\TextGrid2oto-$version-windows.zip"
+          # 压缩文件
+          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
 
-      - name: 创建GitHub Release
+      - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref_name || format('v{0}', github.event.inputs.version || '0.1.2') }}
-          name: "Release ${{ github.ref_name || format('v{0}', github.event.inputs.version || '0.1.2') }}"
-          files: |
-            TextGrid2oto-*-windows.zip
+          tag_name: ${{ github.ref_name }}
+          name: "Release $version"
           draft: false
           prerelease: false
+          files: |
+            TextGrid2oto-*-windows.zip
           body: |
-            ## 版本 ${{ github.ref_name || format('v{0}', github.event.inputs.version || '0.1.2') }} 更新内容
+            ## 版本 $version 更新内容
 
             ### 包含组件
             - TextGrid2oto (Windows x64)
@@ -103,3 +98,5 @@ jobs:
             - presamp.ini
             - opencpop-extension.txt
             - hira2roma-list.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
