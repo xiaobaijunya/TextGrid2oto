@@ -117,9 +117,7 @@ jobs:
           mkdir -p dist
 
           # 复制所有可执行文件
-          cp -v artifacts/TextGrid2oto-windows/*.exe TextGrid2oto/dist/
-          cp -v artifacts/hira2roma-windows/*.exe TextGrid2oto/dist/
-          
+          cp -v D：\a\TextGrid2oto\TextGrid2oto\hira2roma.exe*.exe TextGrid2oto/dist/
           
           cp -v artifacts/*.txt TextGrid2oto/dist/
           cp -v artifacts/*.ini TextGrid2oto/dist/
