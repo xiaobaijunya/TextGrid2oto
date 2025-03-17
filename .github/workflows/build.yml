@@ -31,15 +31,14 @@ jobs:
         run: pip install nuitka
 
       - name: 打包main.py
-        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build main.py
+        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads main.py
 
       - name: 打包hira2roma.py
-        run: run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
+        run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
 
       - name: 重命名主程序
         run: |
-          ls
-          ren main.exe TextGrid2oto.exe
+          Rename-Item -Path main.exe -NewName TextGrid2oto.exe
 
       - name: 创建发布压缩包
         shell: pwsh
@@ -54,7 +53,6 @@ jobs:
           }
           # 压缩文件
           Compress-Archive -Path *.md,*.txt,*.ini,*.exe -DestinationPath "TextGrid2oto-$version-windows.zip"
-
 
       - uses: softprops/action-gh-release@v1
         with:
