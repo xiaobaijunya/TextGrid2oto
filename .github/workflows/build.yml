@@ -38,7 +38,7 @@ jobs:
 
       - name: 重命名主程序
         run: |
-          Rename-Item -Path main.exe -NewName TextGrid2oto.exe
+          Rename-Item -Path \build\main.exe -NewName \build\TextGrid2oto.exe
 
       - name: 创建发布压缩包
         shell: pwsh
