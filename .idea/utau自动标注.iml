@@ -17,7 +17,7 @@
       <excludeFolder url="file://$MODULE_DIR$/main.onefile-build/static_src" />
       <excludeFolder url="file://$MODULE_DIR$/Baimu Delta" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.11 (CVXY录音表制作) (2)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.10 (utau自动标注) (2)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
