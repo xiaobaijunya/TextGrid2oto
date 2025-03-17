@@ -1,0 +1,55 @@
+name: 自动打包发布程序
+
+on:
+  push:
+    tags:
+      - 'v*'  # 添加标签推送触发
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '输入自定义版本号 (例如: 1.2.3)'
+        required: false
+        default: 'auto'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取所有历史记录用于检测标签
+
+      - name: 获取最新版本号
+        id: get_version
+        shell: bash
+        run: |
+          # 从 Release 获取已发布的最新版本
+          LATEST_RELEASE=$(gh release list --exclude-drafts --exclude-pre-releases -L 1 --json tagName -q '.[].tagName' || echo "")
+
+          # 从 Git 标签获取最新版本
+          LATEST_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "v0.0.0")
+
+          # 比较两个版本并取最大值
+          MAX_VERSION=$(echo -e "${LATEST_RELEASE#v}\n${LATEST_TAG#v}" | sort -V -r | head -n1)
+
+          # 分割版本号
+          MAJOR=$(echo $MAX_VERSION | cut -d. -f1)
+          MINOR=$(echo $MAX_VERSION | cut -d. -f2)
+          PATCH=$(echo $MAX_VERSION | cut -d. -f3)
+
+          # 递增最后一位版本号
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+
+          # 输出结果
+          if [[ "${{ inputs.version }}" == "auto" ]]; then
+            echo "自动生成版本号: $NEW_VERSION (基于 Release:${LATEST_RELEASE:-无} 和 Tag:${LATEST_TAG})"
+            echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          else
+            echo "使用手动输入版本号: ${{ inputs.version }}"
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+          fi
+
+      # ... 你现有的构建步骤 ...
+      # 在后续步骤中可以用 ${{ env.VERSION }} 使用版本号
