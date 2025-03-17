@@ -39,16 +39,16 @@ jobs:
       - name: Setup cache paths
         id: cache-paths
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            pip_cache_dir="$Env:LOCALAPPDATA/pip/Cache"
-            nuitka_cache_dir="$Env:LOCALAPPDATA/Nuitka"
-          else
-            pip_cache_dir="$HOME/.cache/pip"
-            nuitka_cache_dir="$HOME/.cache/nuitka"
-          fi
+          if ($Env:RUNNER_OS -eq 'Windows') {
+            $pip_cache_dir = "$Env:LOCALAPPDATA\pip\Cache"
+            $nuitka_cache_dir = "$Env:LOCALAPPDATA\Nuitka"
+          } else {
+            $pip_cache_dir = "$HOME/.cache/pip"
+            $nuitka_cache_dir = "$HOME/.cache/nuitka"
+          }
 
-          mkdir -p "$pip_cache_dir"
-          mkdir -p "$nuitka_cache_dir"
+          mkdir -p $pip_cache_dir
+          mkdir -p $nuitka_cache_dir
 
           echo "pip_dir=$pip_cache_dir" >> $GITHUB_OUTPUT
           echo "nuitka_dir=$nuitka_cache_dir" >> $GITHUB_OUTPUT
@@ -110,7 +110,7 @@ jobs:
       - name: Package release
         run: |
           mkdir -p package
-          find D:\a\TextGrid2oto\TextGrid2oto\build\ -name '*.exe' -exec cp -v {} package \;
+          find artifacts -name '*.exe' -exec cp -v {} package \;
           find dist -name '*.txt' -exec cp -v {} package \;
           find dist -name '*.ini' -exec cp -v {} package \;
           find dist -name '*.md' -exec cp -v {} package \;
