@@ -80,13 +80,13 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: "Release $version"
+          name: "Release ${{version}}"
           draft: false
           prerelease: false
           files: |
             TextGrid2oto-*-windows.zip
           body: |
-            ## 版本 $version 更新内容
+            ## 版本 ${version} 更新内容
 
             ### 包含组件
             - TextGrid2oto (Windows x64)
