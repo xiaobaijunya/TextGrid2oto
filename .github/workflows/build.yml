@@ -33,8 +33,9 @@ jobs:
             ~/.cache/nuitka
             ~/.cache/build
           key: ${{ runner.os }}-build-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
 
-      # 新增Nuitka安装和打包步骤
       - name: 安装Nuitka
         run: pip install nuitka
 
@@ -62,6 +63,8 @@ jobs:
             ~/.cache/nuitka
             ~/.cache/build
           key: ${{ runner.os }}-build-output-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-output-
 
       - name: 创建发布压缩包
         shell: pwsh
@@ -99,4 +102,4 @@ jobs:
             - opencpop-extension.txt
             - hira2roma-list.txt
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
