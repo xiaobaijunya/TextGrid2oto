@@ -78,16 +78,6 @@ jobs:
 
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v1
-        run: |
-          # 处理版本号逻辑
-          if ("${{ github.event.inputs.version }}" -ne "") {
-            $version = "${{ github.event.inputs.version }}"
-          } elseif ("${{ github.ref_type }}" -eq "tag") {
-            $version = "${{ github.ref_name }}".Replace("v", "")
-          } else {
-            $version = "dev"
-          }
-          Write-Host "版本号: $version"
         with:
           tag_name: ${{ github.ref_name }}
           name: "Release $version"
