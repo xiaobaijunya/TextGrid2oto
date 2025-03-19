@@ -69,7 +69,7 @@ def split_pinyin_to_phones(word_data, mappings):
             phone_counter += 2
         else:  # 单个音素
             new_phones[str(phone_counter)] = {
-                "xmin": item['xmin'],
+                "xmin": item['middle'],
                 "xmax": item['xmax'],
                 "text": phones[0]
             }
