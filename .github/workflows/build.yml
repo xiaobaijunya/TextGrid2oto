@@ -45,16 +45,16 @@ jobs:
       - name: 打包hira2roma.py
         run: nuitka --standalone --onefile --enable-plugin=tk-inter --output-dir=build --assume-yes-for-downloads hira2roma.py
           
-         - name: 重命名主程序并移动文件
-         run: |
-           # 检查目标文件是否存在，如果存在则删除
-           if (Test-Path D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe) {
-             Remove-Item D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
-           }
-           Rename-Item D:\a\TextGrid2oto\TextGrid2oto\build\main.exe -NewName D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
-           Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto.exe
-           Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\hira2roma.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\hira2roma.exe
-         shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+      - name: 重命名主程序并移动文件
+        run: |
+         # 检查目标文件是否存在，如果存在则删除
+         if (Test-Path D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe) {
+           Remove-Item D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
+         }
+         Rename-Item D:\a\TextGrid2oto\TextGrid2oto\build\main.exe -NewName D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe
+         Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\TextGrid2oto.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto.exe
+         Copy-Item D:\a\TextGrid2oto\TextGrid2oto\build\hira2roma.exe -Destination D:\a\TextGrid2oto\TextGrid2oto\hira2roma.exe
+        shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
 
       - name: 缓存构建输出
         uses: actions/cache@v3
