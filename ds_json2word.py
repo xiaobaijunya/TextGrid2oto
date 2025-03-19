@@ -39,11 +39,12 @@ def build_pinyin_map(ds_dictpath):
                 cv_map[(parts[1], parts[2])] = parts[0]  # 辅音+元音映射
             elif len(parts) == 2:
                 v_map[parts[1]] = parts[0]  # 单独元音映射
+    print(cv_map, v_map)
     return cv_map, v_map
 
 
-def phones2word(json_data):
-    cv_map, v_map = build_pinyin_map('opencpop-extension.txt')
+def phones2word(json_data,ds_dictpath):
+    cv_map, v_map = build_pinyin_map(ds_dictpath)
 
     for audio_file, data in json_data.items():
         phones = data.get('phones', {})
@@ -103,7 +104,7 @@ def run(ds_dictpath,json_path):
     # valid_list = ds_dict_read(ds_dictpath)
     with open(json_path, 'r', encoding='utf-8') as f:
         json_data = json.load(f)
-    phones2word(json_data)
+    phones2word(json_data,ds_dictpath)
     new_path = os.path.dirname(json_path)+'/word_phone.json'
     with open(new_path, 'w', encoding='utf-8') as f:
         json.dump(json_data, f, ensure_ascii=False, indent=4)
@@ -111,6 +112,6 @@ def run(ds_dictpath,json_path):
 
 
 if __name__ == "__main__":
-    ds_dictpath = 'opencpop-extension.txt'
-    json_path = 'G:\编程/utau自动标注\F3\TextGrid\json\ds_phone_filter.json'
+    ds_dictpath = 'Baimu Delta/japanese-dictionary.txt'
+    json_path = 'Baimu Delta/TextGrid/json/ds_phone_filter.json'
     run(ds_dictpath,json_path)

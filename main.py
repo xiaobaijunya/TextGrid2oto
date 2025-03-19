@@ -6,7 +6,7 @@ import word2utau_phone
 import json2oto
 import oto
 import sys
-# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.5 main.py
+# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.7 main.py
 
 def run():
     try:
@@ -24,7 +24,7 @@ def run():
         TextGrid_path=input('请输入TextGrid的路径：')
         ds_dict=input('请输入sofa模型对应ds字典的路径：')
         if not TextGrid_path:
-            TextGrid_path = wav_path+'/TextGrid'
+            TextGrid_path = wav_path+ '/TextGrid'
         if not ds_dict:
             ds_dict = 'opencpop-extension.txt'
         TextGrid2ds_json.run(TextGrid_path)
@@ -68,6 +68,8 @@ def auto_run(config):
     try:
         with open(config,'r',encoding='utf-8') as f:
             config = f.read().split('\n')
+            for i in range(len(config)):
+                config[i]=config[i].strip()
             #转为字典
             config = {config[i].split('=')[0]:config[i].split('=')[1] for i in range(len(config)) if config[i]!='' and '#' not in config[i]}
             # 将字符串转换为列表并将每个元素转换为float类型
@@ -114,5 +116,5 @@ if __name__ == '__main__':
     print(sys.argv)
     if len(sys.argv)>1:
         for arg in sys.argv[1:]:
-            auto_run(sys.argv)
+            auto_run(arg)
     run()
