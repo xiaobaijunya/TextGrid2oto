@@ -22,12 +22,12 @@ def run(path,cut='_'):
         # 写入.lab文件
         with open(path + '/' + lab_file_name, 'w', encoding='utf-8') as lab_file:
             lab_file.write(lab_content)
-
+        print(lab_content)
         print(f"已生成 {lab_file_name}")
 
 
 if __name__ == '__main__':
-    path = 'G:\编程/utau自动标注\F3'
+    path = 'E:\OpenUtau\Singers\Baimu Delta'
     # 获取当前目录下所有的WAV文件
     run(path)
 

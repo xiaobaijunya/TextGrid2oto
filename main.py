@@ -6,7 +6,7 @@ import word2utau_phone
 import json2oto
 import oto
 import sys
-# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.9 main.py
+# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.10 main.py
 
 def run():
     try:

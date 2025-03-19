@@ -50,11 +50,15 @@ def json2cvoto(cv_data,sum):
                 phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont2['xmin'])*1000/sum[0]
-                #右线占比
-                right = (float(cont2['xmax'])-float(cont2['xmin']))*1000/sum[2]
+
                 Prevoice = (float(cont2['middle']) - float(cont2['xmin'])) * 1000 / sum[3]
-                #固定的占比
-                fixed = Prevoice+(right-Prevoice)/sum[1]
+                #右线占比
+                right = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[2] + Prevoice
+                # 固定的占比
+                if sum[1] ==0:
+                    fixed = Prevoice
+                else:
+                    fixed = Prevoice+(right-Prevoice)/sum[1]
                 cross = float(Prevoice)/sum[4]
                 i+=2
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
@@ -63,11 +67,15 @@ def json2cvoto(cv_data,sum):
             phone_name =cont['text']
             # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
             left = float(cont['xmin']) * 1000 / sum[0]
-            # 右线占比
-            right = (float(cont['xmax']) - float(cont['xmin'])) * 1000 / sum[2]
+
             Prevoice = (float(cont['middle'])- float(cont['xmin'])) * 1000 / sum[3]
+            # 右线占比
+            right = (float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[2] + Prevoice
             # 固定的占比
-            fixed = Prevoice+(right-Prevoice)/sum[1]
+            if sum[1] == 0:
+                fixed = Prevoice
+            else:
+                fixed = Prevoice+(right-Prevoice)/sum[1]
             cross = float(Prevoice) / sum[4]
             i += 1
 
