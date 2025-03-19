@@ -67,6 +67,7 @@ def oto_write(file_path,oto_data,pitch,cover):
     #写入 oto 文件
     if cover=='y' or cover=='Y':
         print(f'{GREEN}覆盖原文件：{file_path}{RESET}')
+        new_file_path = file_path
     else:
         print(f'{GREEN}不覆盖原文件：{file_path}{RESET}')
         new_file_path=oto_path(file_path)
