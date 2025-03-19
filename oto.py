@@ -69,7 +69,7 @@ def oto_write(file_path,oto_data,pitch,cover):
         print(f'{GREEN}覆盖原文件：{file_path}{RESET}')
     else:
         print(f'{GREEN}不覆盖原文件：{file_path}{RESET}')
-    new_file_path=oto_path(file_path)
+        new_file_path=oto_path(file_path)
     with open(new_file_path, 'w',encoding='utf-8') as f:
         for oto in oto_data:
             f.write(f'{oto[0]}={oto[1]}{pitch},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
