@@ -6,7 +6,7 @@
 import json
 
 #音素获取
-def ds_dict_read(ds_dictpath):
+def ds_dict_read(ds_dictpath,ignore):
     vowels = []
     consonant =[]
     with open(ds_dictpath, 'r') as f:
@@ -17,6 +17,10 @@ def ds_dict_read(ds_dictpath):
                 vowels.append(line[2])
             elif len(line) == 2:
                 vowels.append(line[1])
+    ignore = ignore.split(',')
+    #忽略音素
+    vowels = [vowel for vowel in vowels if vowel not in ignore]
+    consonant = [con for con in consonant if con not in ignore]
     vowels = set(vowels)
     consonant = set(consonant)
     print(len(consonant),consonant)
@@ -84,12 +88,12 @@ def reorganize_json_data(json_data):
 
 
 
-def run(ds_dict,json_path):
+def run(ds_dict,json_path,ignore):
     with open(json_path, 'r', encoding='utf-8') as f:
         json_data = json.load(f)
     #音素生成
-    valid_list = ds_dict_read(ds_dict)
-    print(valid_list)
+    valid_list = ds_dict_read(ds_dict,ignore)
+    # print(valid_list)
     #过滤
     filtered_data = filter_json_data(json_data, valid_list[0].union(valid_list[1]))
     # 将过滤后的数据写回文件
@@ -99,6 +103,7 @@ def run(ds_dict,json_path):
         print('写入成功')
 
 if __name__ == '__main__':
-    json_path = 'G:\编程/utau自动标注\F3\TextGrid\json\ds_phone.json'
-    ds_dict = 'opencpop-extension.txt'
-    run(ds_dict,json_path)
+    json_path = 'E:\OpenUtau\Singers\Baimu Delta\TextGrid\json\ds_phone.json'
+    ds_dict = 'E:\OpenUtau\Singers\Baimu Delta\japanese-dictionary.txt'
+    ignore = 'AP,SP'
+    run(ds_dict,json_path,ignore)

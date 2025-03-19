@@ -2,6 +2,8 @@
 wav_path=F3
 #字符分隔符
 cut=_,-
+#忽略ds音素
+ignore=AP,SP
 #是否生成lab,y or Y 生成，其他不生成
 lab=Y
 #TextGrid路径（必改）

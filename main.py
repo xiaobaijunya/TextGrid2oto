@@ -6,7 +6,7 @@ import word2utau_phone
 import json2oto
 import oto
 import sys
-# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.7 main.py
+# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.8 main.py
 
 def run():
     try:
@@ -27,8 +27,11 @@ def run():
             TextGrid_path = wav_path+ '/TextGrid'
         if not ds_dict:
             ds_dict = 'opencpop-extension.txt'
+        ignore=input('请输入忽略音素，多个用,分隔：')
+        if not ignore:
+            ignore = 'AP,SP'
         TextGrid2ds_json.run(TextGrid_path)
-        ds_json2filter.run(ds_dict,TextGrid_path+'/json/ds_phone.json')
+        ds_json2filter.run(ds_dict,TextGrid_path+'/json/ds_phone.json',ignore)
         print('3.生成word.json')
         ds_json2word.run(ds_dict,TextGrid_path+'/json/ds_phone_filter.json')
         print('4.生成utau音素')
@@ -85,7 +88,7 @@ def auto_run(config):
             input('生成完成后,请输入任意键继续')
         print('3.生成json')
         TextGrid2ds_json.run(config['TextGrid_path'])
-        ds_json2filter.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone.json')
+        ds_json2filter.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone.json',config['ignore'])
         print('3.生成word.json')
         ds_json2word.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone_filter.json')
         print('4.生成utau音素')
