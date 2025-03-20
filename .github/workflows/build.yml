@@ -69,6 +69,7 @@ jobs:
             ### 配置文件
             - run-config.txt
             - presamp.ini
+            - 樗儿中文VCV-presamp.ini
             - opencpop-extension.txt
             - hira2roma-list.txt
         env:
