@@ -9,7 +9,7 @@ def process_wav_name(wav_name,cut):
     return cleaned_name
 
 #传入wav路径（可选加入自定义分隔符号）
-def run(path,cut='_'):
+def run(path,cut):
     wav_files = [f for f in os.listdir(path) if f.endswith('.wav')]
     # 处理每个WAV文件
     for wav_file in wav_files:
