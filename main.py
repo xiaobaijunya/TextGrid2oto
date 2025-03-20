@@ -40,7 +40,7 @@ def run():
             presamp = 'presamp.ini'
         word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/word_phone.json')
         print('5.生成utauphone_json')
-        word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/utau_phone.json')
+        # word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/utau_phone.json')
         print('6.生成oto.ini')
         # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
         cv_sum = [1, 3, 1.5, 1, 2]
@@ -94,7 +94,7 @@ def auto_run(config):
         print('4.生成utau音素')
         word2utau_phone.generate_utau_phone(config['presamp'], config['TextGrid_path'] + '/json/word_phone.json')
         print('5.生成utauphone_json')
-        word2utau_phone.generate_utau_phone(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json')
+        # word2utau_phone.generate_utau_phone(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json')
         print('6.生成oto.ini')
         # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
         # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
