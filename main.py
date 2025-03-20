@@ -88,6 +88,7 @@ def auto_run(config):
     try:
         with open(config,'r',encoding='utf-8') as f:
             config = f.read().split('\n')
+            # print(config)
             for i in range(len(config)):
                 config[i]=config[i].strip()
             #转为字典
