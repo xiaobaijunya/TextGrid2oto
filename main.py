@@ -1,9 +1,11 @@
+import json2VCV_oto
 import wavname2lab
 import TextGrid2ds_json
 import ds_json2filter
 import ds_json2word
 import word2utau_phone
 import json2oto
+import json2VCV_oto
 import oto
 import sys
 # nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.11 main.py
@@ -16,6 +18,9 @@ def run():
         cut=input('请输入分隔符默认为_')
         if not cut:
             cut = '_'
+        VCV_mode=input('是否是VCV音源？Y/N')
+        if not VCV_mode:
+            VCV_mode = 'N'
         wavname2lab.run(wav_path,cut)
         print('2.生成TextGrid')
         print('需要自己前往sofa生成TextGrid')
@@ -37,19 +42,31 @@ def run():
         print('4.生成utau音素')
         presamp=input('请输入presamp.ini的路径：')
         if not presamp:
-            presamp = 'presamp.ini'
+            presamp = 'presamp/presamp.ini'
         word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/word_phone.json')
         print('5.生成utauphone_json')
         # word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/utau_phone.json')
         print('6.生成oto.ini')
-        # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
-        cv_sum = [1, 3, 1.5, 1, 2]
-        # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
-        vc_sum = [3, 0, 2, 1, 2, 3]
-        json2oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
+        if VCV_mode=='Y' or VCV_mode=='y':
+            # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
+            cv_sum = [1, 3, 1.5, 1, 2]
+            # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
+            vc_sum = [3, 0, 2, 1, 2, 3]
+            json2VCV_oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
+        else:
+            # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
+            cv_sum = [1, 3, 1.5, 1, 2]
+            # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
+            vc_sum = [3, 0, 2, 1, 2, 3]
+            json2oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
         print('7.合并oto.ini')
         cv = oto.oto_read(wav_path+'/cv_oto.ini')
         vc = oto.oto_read(wav_path+'/vc_oto.ini')
+        CV_repeat = input('输入CV最大重复次数：')
+        VC_repeat = input('输入VC最大重复次数：')
+        print('8.剔除重复并，合并oto.ini')
+        cv = oto.oto_repeat(cv, int(CV_repeat))
+        vc = oto.oto_repeat(vc, int(VC_repeat))
         pitch = input('请输入音阶后缀：')
         if not pitch:
             pitch = ''
@@ -86,6 +103,9 @@ def auto_run(config):
             print('2.生成TextGrid')
             print('需要自己前往sofa生成TextGrid')
             input('生成完成后,请输入任意键继续')
+        VCV_mode=config['VCV_mode']
+        if not VCV_mode:
+            VCV_mode = 'N'
         print('3.生成json')
         TextGrid2ds_json.run(config['TextGrid_path'])
         ds_json2filter.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone.json',config['ignore'])
@@ -98,12 +118,19 @@ def auto_run(config):
         print('6.生成oto.ini')
         # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
         # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
-        json2oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
-                     config['wav_path'], config['cv_sum'], config['vc_sum'])
+        if VCV_mode=='True' or VCV_mode=='y' or VCV_mode=='Y':
+            json2VCV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
+                         config['wav_path'], config['cv_sum'], config['vc_sum'])
+        else:
+            json2oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
+                         config['wav_path'], config['cv_sum'], config['vc_sum'])
         print('7.合并oto.ini')
+
         cv = oto.oto_read(config['wav_path'] + '/cv_oto.ini')
         vc = oto.oto_read(config['wav_path'] + '/vc_oto.ini')
-
+        print('8.剔除重复并，合并oto.ini')
+        cv = oto.oto_repeat(cv, int(config['CV_repeat']))
+        vc = oto.oto_repeat(vc, int(config['VC_repeat']))
         oto.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])
         print('10086.完成！')
     except Exception as e:
@@ -120,4 +147,5 @@ if __name__ == '__main__':
     if len(sys.argv)>1:
         for arg in sys.argv[1:]:
             auto_run(arg)
+        quit()
     run()
