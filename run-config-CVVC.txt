@@ -1,7 +1,7 @@
 #wav路径（必改）
 wav_path=F3
 #字符分隔符
-cut=_,-
+cut=_
 #忽略ds音素
 ignore=AP,SP
 #VCV:True CVVC:False
