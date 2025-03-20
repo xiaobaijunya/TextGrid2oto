@@ -1,0 +1,28 @@
+#wav路径（必改）
+wav_path=F3
+#字符分隔符
+cut=_,-
+#忽略ds音素
+ignore=AP,SP
+#VCV:True CVVC:False
+VCV_mode=False
+#是否生成lab,y or Y 生成，其他不生成
+lab=Y
+#TextGrid路径（必改）
+TextGrid_path=F3/TextGrid
+#sofa模型对应ds字典路径
+ds_dict=opencpop-extension.txt
+#presamp.ini的路径（必改）
+presamp=presamp.ini
+#-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
+cv_sum=1,3,1.5,1,2
+#VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
+vc_sum=3,0,2,1,2,3
+#音阶后缀
+pitch=
+#保留多少个重复音素
+CV_repeat=1
+VC_repeat=1
+#是否覆盖oto，Y or y覆盖，其他不覆盖
+cover=Y
+
