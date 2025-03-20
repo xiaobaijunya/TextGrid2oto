@@ -62,6 +62,24 @@ def oto_read(file_path):
             #wav+别名+四舍五入后的数值
     print(f'{GREEN}oto文件解析成功：{file_path}{RESET}')
     return oto_check(file_path,oto_data)
+#没写完
+def oto_repeat(oto_data,repeat):
+    phone_count = {}
+    new_oto_data = []
+    for oto in oto_data:
+        phone = oto[1]
+        if phone not in phone_count:
+            phone_count[phone] = 1
+            new_oto_data.append(oto)
+        else:
+            count = phone_count[phone]
+            if count < repeat:
+                oto[1] = f"{phone}_{count}"
+                new_oto_data.append(oto)
+            phone_count[phone] += 1
+            # print(count)
+    return new_oto_data
+
 
 def oto_write(file_path,oto_data,pitch,cover):
     #写入 oto 文件
@@ -85,7 +103,7 @@ if __name__ == '__main__':
 
     path = "G:\编程\\UU2VV\E3 - 副本\oto.ini"
     oto=oto_read(path)
-    oto_write("G:\编程\\UU2VV\E3\oto.ini",oto)
+    oto_write("G:\编程\\UU2VV\F3\oto.ini",oto)
 
     end_time = time.time()
     elapsed_time = end_time - start_time
