@@ -16,7 +16,7 @@ def load_conversion_dict(hira2roma_list):
         print("错误：未找到 hira2roma list.txt 文件")
         exit(1)
     except UnicodeDecodeError:
-        print("错误：文件编码不匹配，请尝试使用 shift-jis 编码保存文件")
+        print("错误：文件编码不匹配，请尝试使用 utf-8 编码保存文件")
         exit(1)
 
 
