@@ -19,11 +19,17 @@ def load_presamp(ini_path):
         phone = vowel[0]
         for v in vowel[2].split(','):
             word2phone.update({v:{'V':phone}})
-    for consonant in consonant_section.split('\n'):
-        consonant2 = consonant.split('=')
-        phone = consonant2[0]
-        for c in consonant2[1].split(','):
-            word2phone[c].update({'C': phone})
+    if consonant_section != '':
+        for consonant in consonant_section.split('\n'):
+            consonant2 = consonant.split('=')
+            phone = consonant2[0]
+            for c in consonant2[1].split(','):
+                word2phone[c].update({'C': phone})
+    else:
+        for vowel in vowel_section.split('\n'):
+            vowel = vowel.split('=')
+            for c in vowel[2].split(','):
+                word2phone[c].update({'C': c})
     for key, value in word2phone.items():
         if 'C' in value:
             word_phone[key]=[value['C'],value['V']]
@@ -54,7 +60,10 @@ def split_pinyin_to_phones(word_data, mappings):
 
         # 时间分配逻辑
         if len(phones) == 2:  # CV结构
+            # print(phones)
+            # print(item)
             consonant = {
+
                 "xmin": item['xmin'],
                 "xmax": item['middle'],
                 "text": phones[0]
@@ -69,7 +78,7 @@ def split_pinyin_to_phones(word_data, mappings):
             phone_counter += 2
         else:  # 单个音素
             new_phones[str(phone_counter)] = {
-                "xmin": item['middle'],
+                "xmin": item['xmin'],
                 "xmax": item['xmax'],
                 "text": phones[0]
             }
@@ -94,6 +103,6 @@ def generate_utau_phone(presamp_path, word_json_path):
 
 if __name__ == "__main__":
     generate_utau_phone(
-        presamp_path='G:/编程/utau自动标注/presamp.ini',
-        word_json_path='G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json',
+        presamp_path='E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\中文VCV-presamp.ini',
+        word_json_path='E:\OpenUtau\Singers\空气音中文VCV_自动oto测试/VCV/TextGrid/json/word_phone.json',
     )
