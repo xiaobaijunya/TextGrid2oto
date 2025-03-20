@@ -77,7 +77,7 @@ jobs:
           # 设置输出变量
           echo "version=$version" >> $env:GITHUB_OUTPUT
           # 压缩文件
-          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
+          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe,D:\a\TextGrid2oto\TextGrid2oto\presamp\*.ini -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
 
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v1
