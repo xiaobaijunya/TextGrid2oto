@@ -68,6 +68,8 @@ jobs:
             
             ### 配置文件
             - run-config.txt
+            - run-config-CVVC.txt
+            - run-config-VCV.txt
             - presamp.ini
             - 樗儿中文VCV-presamp.ini
             - opencpop-extension.txt
