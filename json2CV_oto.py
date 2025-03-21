@@ -25,7 +25,7 @@ def presamp_read(presamps_path):
         V.append(vowel.split('=')[0])
         C.extend(vowel.split('=')[2].split(','))
     V = set(V)
-    C = set('Y')
+    C = set(['R','AP','SP'])
     # print(V,C)
     return V,C
 
@@ -113,6 +113,10 @@ def json2vcoto(vc_data,C_V,sum):
 
         sorted_phones = sorted(phones.items(), key=lambda x: int(x[0]))
         i = 0
+        for key, item in sorted_phones:
+            if item['text'] in ('AP', 'SP'):
+                # 修改 text 为 R
+                item['text'] = 'R'
 
         while i < len(sorted_phones) - 2:
             key, cont = sorted_phones[i]
@@ -121,7 +125,9 @@ def json2vcoto(vc_data,C_V,sum):
             # print(cont['text'], cont1['text'], cont2['text'])
             # 0V 1C
             # CC规则
-            # print(cont['text'], cont1['text'], cont2['text'])
+            # 后续删除此功能
+
+
             if  cont['text'] in C_V[0] and cont1['text'] in C_V[1]:
                 phone_name = cont['text'] + ' ' + cont1['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
@@ -139,7 +145,7 @@ def json2vcoto(vc_data,C_V,sum):
                 i += 1
                 # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
-            elif cont1['text'] in C_V[0] and cont2['text'] == 'R':
+            elif cont1['text'] in C_V[0] and cont2['text'] in C_V[1]:
                 phone_name = cont1['text'] + ' ' + cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont1["xmin"]) * 1000 + ((float(cont1['xmax']) - float(cont1['xmin'])) * 1000 / sum[0])
