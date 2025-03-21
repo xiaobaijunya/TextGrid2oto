@@ -97,13 +97,15 @@ def run(ds_dict,json_path,ignore):
     #过滤
     filtered_data = filter_json_data(json_data, valid_list[0].union(valid_list[1]))
     # 将过滤后的数据写回文件
-    newjson_path=json_path.split('.')[0]+'_filter.json'
+    # print(filtered_data)
+    newjson_path=json_path.split('.json')[0]+'_filter.json'
+    # print(newjson_path)
     with open(newjson_path, 'w', encoding='utf-8') as f:
         json.dump(filtered_data, f, ensure_ascii=False, indent=4)
         print('写入成功')
 
 if __name__ == '__main__':
-    json_path = 'E:\OpenUtau\Singers\Baimu Delta\TextGrid\json\ds_phone.json'
-    ds_dict = 'E:\OpenUtau\Singers\Baimu Delta\japanese-dictionary.txt'
+    json_path = r'E:\OpenUtau\Singers\Weiyin3.0\combined\TextGrid\json\ds_phone.json'
+    ds_dict = 'E:\OpenUtau\Singers\Weiyin3.0\opencpop-extension.txt'
     ignore = 'AP,SP'
     run(ds_dict,json_path,ignore)

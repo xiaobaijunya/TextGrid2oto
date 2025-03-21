@@ -6,8 +6,8 @@ cut=_
 ignore=AP,SP
 #VCV:True CVVC:False
 VCV_mode=False
-#是否生成lab,y or Y 生成，其他不生成
-lab=Y
+#CVVC:0 VCV:1 CV(多字单独音(连单音)):2
+VCV_mode=0
 #TextGrid路径（必改）
 TextGrid_path=F3/TextGrid
 #sofa模型对应ds字典路径

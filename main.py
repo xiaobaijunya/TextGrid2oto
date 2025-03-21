@@ -6,6 +6,7 @@ import ds_json2word
 import word2utau_phone
 import json2oto
 import json2VCV_oto
+import json2CV_oto
 import oto
 import sys
 # nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.11 main.py
@@ -18,9 +19,9 @@ def run():
         cut=input('请输入分隔符默认为_')
         if not cut:
             cut = '_'
-        VCV_mode=input('是否是VCV音源？Y/N')
+        VCV_mode=input('输入数字，选择模式：\n(默认使用CVVC模式)\nCVVC:0 \nVCV:1 \nCV(多字单独音(连单音)):2\n')
         if not VCV_mode:
-            VCV_mode = 'N'
+            VCV_mode = '0'
         wavname2lab.run(wav_path,cut)
         print('2.生成TextGrid')
         print('需要自己前往sofa生成TextGrid')
@@ -47,12 +48,18 @@ def run():
         print('5.生成utauphone_json')
         # word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/utau_phone.json')
         print('6.生成oto.ini')
-        if VCV_mode=='Y' or VCV_mode=='y':
+        if VCV_mode=='1':
             # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
             cv_sum = [1, 3, 1.5, 1, 2]
             # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
             vc_sum = [3, 0, 2, 1, 2, 3]
             json2VCV_oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
+        elif VCV_mode=='2':
+            # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
+            cv_sum = [1, 3, 1.5, 1, 2]
+            # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
+            vc_sum = [3, 0, 2, 1, 2, 3]
+            json2CV_oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
         else:
             # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
             cv_sum = [1, 3, 1.5, 1, 2]
@@ -106,7 +113,7 @@ def auto_run(config):
             input('生成完成后,请输入任意键继续')
         VCV_mode=config['VCV_mode']
         if not VCV_mode:
-            VCV_mode = 'N'
+            VCV_mode = '0'
         print('3.生成json')
         TextGrid2ds_json.run(config['TextGrid_path'])
         ds_json2filter.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone.json',config['ignore'])
@@ -119,9 +126,13 @@ def auto_run(config):
         print('6.生成oto.ini')
         # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
         # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
-        if VCV_mode=='True' or VCV_mode=='y' or VCV_mode=='Y':
+        if VCV_mode=='1':
             json2VCV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
                          config['wav_path'], config['cv_sum'], config['vc_sum'])
+        elif VCV_mode=='2':
+            json2CV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json',
+                             config['TextGrid_path'] + '/json/word_phone.json',
+                             config['wav_path'], config['cv_sum'], config['vc_sum'])
         else:
             json2oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
                          config['wav_path'], config['cv_sum'], config['vc_sum'])
