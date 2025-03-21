@@ -103,6 +103,8 @@ def auto_run(config):
             # 将字符串转换为列表并将每个元素转换为float类型
             config['cv_sum'] = [float(i) for i in config['cv_sum'].strip('[]').split(',')]
             config['vc_sum'] = [float(i) for i in config['vc_sum'].strip('[]').split(',')]
+            config['cv_offset'] = [float(i) for i in config['cv_offset'].strip('[]').split(',')]
+            config['vc_offset'] = [float(i) for i in config['vc_offset'].strip('[]').split(',')]
             print(config)
         print('sofa-UTAU自动标注')
         if config['lab']=='Y' or config['lab']=='y':
@@ -136,13 +138,16 @@ def auto_run(config):
         else:
             json2oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
                          config['wav_path'], config['cv_sum'], config['vc_sum'])
-        print('7.合并oto.ini')
-
+        print('7.读取CV和VC oto.ini')
         cv = oto.oto_read(config['wav_path'] + '/cv_oto.ini')
         vc = oto.oto_read(config['wav_path'] + '/vc_oto.ini')
-        print('8.剔除重复并合并oto.ini')
+        print('8.剔除重复项')
         cv = oto.oto_repeat(cv, int(config['CV_repeat']))
         vc = oto.oto_repeat(vc, int(config['VC_repeat']))
+        print('9.偏移oto数值.ini')
+        cv = oto.oto_offset(cv, config['cv_offset'])
+        vc = oto.oto_offset(vc, config['vc_offset'])
+        print('10.合并oto.ini')
         oto.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])
         print('10086.完成！')
     except Exception as e:
