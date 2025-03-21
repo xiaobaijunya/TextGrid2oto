@@ -140,7 +140,7 @@ def auto_run(config):
 
         cv = oto.oto_read(config['wav_path'] + '/cv_oto.ini')
         vc = oto.oto_read(config['wav_path'] + '/vc_oto.ini')
-        print('8.剔除重复并，合并oto.ini')
+        print('8.剔除重复并合并oto.ini')
         cv = oto.oto_repeat(cv, int(config['CV_repeat']))
         vc = oto.oto_repeat(vc, int(config['VC_repeat']))
         oto.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])

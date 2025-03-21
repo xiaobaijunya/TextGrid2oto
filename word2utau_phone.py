@@ -48,7 +48,7 @@ def split_pinyin_to_phones(word_data, mappings):
     for idx, (key, item) in enumerate(sorted(word_data['phones'].items(),
                                              key=lambda x: int(x[0]))):
         pinyin = item['text']
-
+        # print(item)
         # 保留特殊符号
         if pinyin in ('-', 'R'):
             new_phones[str(phone_counter)] = item
@@ -77,13 +77,13 @@ def split_pinyin_to_phones(word_data, mappings):
             new_phones[str(phone_counter + 1)] = vowel
             phone_counter += 2
         else:  # 单个音素
+            # print(phones)
             new_phones[str(phone_counter)] = {
                 "xmin": item['xmin'],
                 "xmax": item['xmax'],
                 "text": phones[0]
             }
             phone_counter += 1
-
     return new_phones
 
 
@@ -103,6 +103,6 @@ def generate_utau_phone(presamp_path, word_json_path):
 
 if __name__ == "__main__":
     generate_utau_phone(
-        presamp_path='E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\中文VCV-presamp.ini',
-        word_json_path='E:\OpenUtau\Singers\空气音中文VCV_自动oto测试/VCV/TextGrid/json/word_phone.json',
+        presamp_path='presamp/CVR-presamp.ini',
+        word_json_path='E:\OpenUtau\Singers/baini_Chn_CVXY\E3/TextGrid/json/word_phone.json',
     )
