@@ -145,8 +145,12 @@ def auto_run(config):
         cv = oto.oto_repeat(cv, int(config['CV_repeat']))
         vc = oto.oto_repeat(vc, int(config['VC_repeat']))
         print('9.偏移oto数值.ini')
-        cv = oto.oto_offset(cv, config['cv_offset'])
-        vc = oto.oto_offset(vc, config['vc_offset'])
+        if config['cv_offset']!=[0.0, 0.0, 0.0, 0.0, 0.0]:
+            cv = oto.oto_offset(cv, config['cv_offset'])
+            print('9.1.偏移CV数值,运行成功')
+        if config['vc_offset']!=[0.0, 0.0, 0.0, 0.0, 0.0]:
+            vc = oto.oto_offset(vc, config['vc_offset'])
+            print('9.1.偏移VC数值,运行成功')
         print('10.合并oto.ini')
         oto.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])
         print('10086.完成！')
