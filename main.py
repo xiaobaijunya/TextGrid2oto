@@ -9,7 +9,7 @@ import json2VCV_oto
 import json2CV_oto
 import oto
 import sys
-# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.11 main.py
+# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.12 main.py
 
 def run():
     try:
@@ -135,9 +135,13 @@ def auto_run(config):
             json2CV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json',
                              config['TextGrid_path'] + '/json/word_phone.json',
                              config['wav_path'], config['cv_sum'], config['vc_sum'])
-        else:
+        elif VCV_mode=='0':
             json2oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
                          config['wav_path'], config['cv_sum'], config['vc_sum'])
+        else:
+            print('VCV_mode数值错误')
+            input('退出')
+            quit()
         print('7.读取CV和VC oto.ini')
         cv = oto.oto_read(config['wav_path'] + '/cv_oto.ini')
         vc = oto.oto_read(config['wav_path'] + '/vc_oto.ini')

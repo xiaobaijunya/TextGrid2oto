@@ -88,7 +88,7 @@ def oto_offset(oto_data,offset):
     # 遍历 oto_data 列表中的每个元素
     for oto in oto_data:
         # 0文件名=1别名,2左边界,3固定,4右边界（负值）,5预发声,6交叉
-        oto_sum=[oto[2] - offset[0],oto[3] - offset[1],oto[4]*-1 - offset[2],oto[5] - offset[3],oto[6] - offset[4]]
+        oto_sum=[oto[2] + offset[0],oto[3] + offset[1],oto[4]*-1 + offset[2],oto[5] + offset[3],oto[6] + offset[4]]
 
         if oto_sum[0] >= 0:oto[2] = oto_sum[0]  # 左
         else:print(f'{oto[1]}修改后的左边界为{oto_sum[0]}，跳过偏移操作')
@@ -97,11 +97,11 @@ def oto_offset(oto_data,offset):
             oto[6] = 20
             print(f'{oto[1]}错误的交叉：{oto_sum[4]}，交叉设为20')
         if oto_sum[3] >= 0:oto[5] = oto_sum[3]
-        else:print(f'{oto[1]}错误的预发声:{oto[5] - offset[0]}，跳过偏移操作')
+        else:print(f'{oto[1]}错误的预发声:{oto[5] + offset[0]}，跳过偏移操作')
         if oto_sum[1] >= oto[5]:oto[3] = oto_sum[1]
         else:
             oto[3] = oto[5]
-            print(f'{oto[1]}错误的固定:{oto[3] - offset[1]}，设为{oto[5]}')
+            print(f'{oto[1]}错误的固定:{oto[3] + offset[1]}，设为{oto[5]}')
         if oto_sum[2] >= oto[3]:oto[4] = oto_sum[2]*-1
         else:
             oto[4] = (oto[3]+10)*-1
