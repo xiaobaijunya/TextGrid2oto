@@ -2,6 +2,8 @@
 
 这是一个把TextGrid转换为oto的程序，本程序目前**仅支持两段式标记**的转换。请您在使用前先了解utau的**presamp.ini**字典以及**SOFA模型字典**，目前暂时**不支持多语种标记**的转换，但您可以通过修改多语种字典为您需要的单语种，进行使用。
 
+## 现已支持**CVVC,VCV,CVVR,扩张整音四种utau标记类型
+
 ## 使用此程序，你需要准备：
 
 1. [SOFA](https://github.com/qiuqiao/SOFA)：TextGrid标记生成
