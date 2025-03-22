@@ -142,6 +142,18 @@ def json2vcoto(vc_data,C_V,sum):
                     fixed = Prevoice + (right - Prevoice) / sum[1]
 
                 cross = Prevoice / sum[4]
+                # i += 1
+                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+
+                phone_name = '_'+cont['text']
+                left = float(cont["xmin"]) * 1000 + ((float(cont['xmax']) - float(cont['xmin'])) * 1000 / sum[0])
+                # 右线占比
+                right = float(cont1['xmin']) * 1000 - left
+                Prevoice = right / 4
+                # 固定的占比
+                fixed = (right - Prevoice) /4 +Prevoice
+                cross = Prevoice / 2
                 i += 1
                 # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
@@ -160,6 +172,18 @@ def json2vcoto(vc_data,C_V,sum):
                     fixed = Prevoice + (right - Prevoice) / sum[1]
 
                 cross = Prevoice / sum[4]
+                i += 1
+                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+
+                phone_name = '_'+cont1['text']
+                left = float(cont1["xmin"]) * 1000 + ((float(cont1['xmax']) - float(cont1['xmin'])) * 1000 / sum[0])
+                # 右线占比
+                right = float(cont2['xmin']) * 1000 - left
+                Prevoice = right / 4
+                # 固定的占比
+                fixed = (right - Prevoice) /4 + Prevoice
+                cross = Prevoice / 2
                 i += 1
                 # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
