@@ -15,6 +15,10 @@ def ds_dict_read(ds_dictpath,ignore):
             if len(line) == 3:
                 consonant.append(line[1])
                 vowels.append(line[2])
+            elif len(line) == 4:
+                consonant.append(line[2])
+                vowels.append(line[2])
+                vowels.append(line[3])
             elif len(line) == 2:
                 vowels.append(line[1])
     ignore = ignore.split(',')
@@ -105,7 +109,7 @@ def run(ds_dict,json_path,ignore):
         print('写入成功')
 
 if __name__ == '__main__':
-    json_path = r'E:\OpenUtau\Singers\Weiyin3.0\combined\TextGrid\json\ds_phone.json'
-    ds_dict = 'E:\OpenUtau\Singers\Weiyin3.0\opencpop-extension.txt'
+    json_path = r'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3/TextGrid\json\ds_phone.json'
+    ds_dict = 'F:/aising\SOFA_AI-main\sofa_ckpt\Mandarin_three-stage\Mandarin_three-stage_dictionary_New.txt'
     ignore = 'AP,SP'
     run(ds_dict,json_path,ignore)
