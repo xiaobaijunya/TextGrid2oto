@@ -1,8 +1,10 @@
 # **TextGrid2oto**
 
-这是一个把TextGrid转换为oto的程序，本程序目前**仅支持两段式标记**的转换。请您在使用前先了解utau的**presamp.ini**字典以及**SOFA模型字典**，目前暂时**不支持多语种标记**的转换，但您可以通过修改多语种字典为您需要的单语种，进行使用。
+这是一个把TextGrid转换为oto的程序，本程序*现**已支持多段标注模型***。请您在使用前先了解utau的**presamp.ini**字典以及**SOFA模型字典**，目前暂时**不支持多语种标记**的转换，但您可以通过修改多语种字典为您需要的单语种，进行使用。
 
-## 现已支持**CVVC,VCV,CVVR,扩张整音四种utau标记类型
+## 现已支持	***CVVC,VCV,CVVR,扩张整音***	四种utau标记类型
+
+## *现已支持多段标注模型*
 
 ## 使用此程序，你需要准备：
 
@@ -28,8 +30,11 @@
 4. 程序完全不读取TextGrid的words层，所以如果您需要修改TextGrid标记只需修改phones层
 5. 您可以修改cv_sum和vc_sum，来改变CV和VC每一条线的占比，不建议修改左线和预发声这种位置比较固定的线的数值。。。
 6. 您可以修改cv_offset和vc_offset来调整oto的偏移，可以实现一些例如辅音长度缩短和CVR音源的连贯性优化
+7. 如果缺少CV部分，可以检查sofa模型字典的拼音是否与utau里面的不同，可以修改sofa字典的拼音列，让它符合utau
 
 ## 模型推荐：
+
+中文普通话三段式模型：[汉语三段式自动标注模型](https://github.com/Isogelun/Singing-Synthesis/releases/tag/20250115)【准确度较高，非常推荐】
 
 中文两段式模型：[SOFA_Models](https://github.com/BaiShuoQwQ/SOFA_Models)：【支持opencpop-extension字典的两段式模型】
 
