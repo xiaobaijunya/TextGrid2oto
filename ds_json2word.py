@@ -90,6 +90,17 @@ def phones2word(json_data,ds_dictpath):
                     # 修复缩进问题
                     start_phone = sorted_phones[i][1]
                     end_phone = sorted_phones[i + k - 1][1]
+                    if start_phone['xmax'] == end_phone['xmax']:
+                        new_phones[str(phone_counter)] = {
+                            "xmin": start_phone['xmin'],
+                            "middle": start_phone['xmin'],
+                            "xmax": end_phone['xmax'],
+                            "text": phone_map[current_sequence]
+                        }
+                        phone_counter += 1
+                        i += k
+                        matched = True
+                        break
                     new_phones[str(phone_counter)] = {
                         "xmin": start_phone['xmin'],
                         "middle": start_phone['xmax'],
