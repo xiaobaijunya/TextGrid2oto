@@ -525,7 +525,7 @@ wo	w o
 wong	w ong
 wou	w ou
 wu	w u
-u   w u
+u	w u
 xi	x i
 xia	x ia
 xian	x ian
