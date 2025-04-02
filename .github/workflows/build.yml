@@ -47,8 +47,6 @@ jobs:
           # 压缩文件
           Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\LICENSE,D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe,D:\a\TextGrid2oto\TextGrid2oto\presamp\ -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
 
-      // ... existing code ...
-
       - name: 创建发布压缩包
         id: create_release
         shell: pwsh
