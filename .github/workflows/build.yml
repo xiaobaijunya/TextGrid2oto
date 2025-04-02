@@ -34,7 +34,7 @@ jobs:
         id: create_release  # 添加步骤ID用于后续引用
         shell: pwsh
         run: |
-                    # 获取前一个tag
+          # 获取前一个tag
           $previous_tag = git describe --tags --abbrev=0 HEAD^ 2>$null
           if (-not $previous_tag) { $previous_tag = "v0.1.0" }  # 设置默认初始版本
           # 处理版本号逻辑
