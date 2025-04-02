@@ -7,11 +7,12 @@ import word2utau_phone
 import json2oto
 import json2VCV_oto
 import json2CV_oto
+import oto_check
 import oto
 import sys
 # nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.12 main.py
 
-def run():
+def run_oto():
     try:
         print('sofa-UTAU自动标注')
         print('1.生成lab')
@@ -157,6 +158,8 @@ def auto_run(config):
             print('9.1.偏移VC数值,运行成功')
         print('10.合并oto.ini')
         oto.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])
+        print('11.检测缺少的音素')
+        oto_check.run(config['wav_path'] + '/oto.ini', config['presamp'],config['pitch'],config['VCV_mode'] )
         print('10086.完成！')
     except Exception as e:
         import traceback
@@ -173,4 +176,24 @@ if __name__ == '__main__':
         for arg in sys.argv[1:]:
             auto_run(arg)
         quit()
-    run()
+    print('------------------------------')
+    print('sofa-UTAU自动标注')
+    print('1.手动生成oto模式')
+    print('2.检测缺少的音素')
+    A=input('请输入数字：')
+    if A=='1':
+        run_oto()
+    elif A=='2':
+        try:
+            oto_path = input('请输入oto路径：')
+            presamps_path = input('请输入presamps.ini路径：')
+            pitch = input('请输入音阶后缀：')
+            vcv_mode = input('请输入数字选择VCV模式：0-CVVC 1-VCV 2-CVV或CVVR')
+            oto_check.run(oto_path,presamps_path,pitch,vcv_mode)
+        except Exception as e:
+            import traceback
+            print("\n发生错误：")
+            print(traceback.format_exc())
+            print("请联系开发者检查错误")
+        finally:
+            input('输入任意键退出')
