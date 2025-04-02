@@ -550,7 +550,9 @@ yei	y ei
 yi	y i
 i	i
 yin	y in
+in	in
 ying	y ing
+ing	ing
 yo	y o
 yong	y ong
 you	y ou
