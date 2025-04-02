@@ -10,7 +10,7 @@ import json2CV_oto
 import oto_check
 import oto
 import sys
-# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.12 main.py
+# nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.18 main.py
 
 def run_oto():
     try:
@@ -130,13 +130,16 @@ def auto_run(config):
         # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
         # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
         if VCV_mode=='1':
+            print('生成模式：VCV')
             json2VCV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
                          config['wav_path'], config['cv_sum'], config['vc_sum'])
         elif VCV_mode=='2':
+            print('生成模式：CVV')
             json2CV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json',
                              config['TextGrid_path'] + '/json/word_phone.json',
                              config['wav_path'], config['cv_sum'], config['vc_sum'])
         elif VCV_mode=='0':
+            print('生成模式：CVVC')
             json2oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
                          config['wav_path'], config['cv_sum'], config['vc_sum'])
         else:

@@ -24,11 +24,13 @@ def cvvc_presamp_read(presamps_path):
         consonant_match = re.search(r'\[CONSONANT\](.*?)\[', ini_text, re.DOTALL)
     if consonant_match:
         consonants = consonant_match.group(1).strip()
-        for consonant in consonants.split('\n'):
-            C.append(consonant.split('=')[0])
-            for CV2 in consonant.split('=')[1].split(','):
-                if CV2 != '':
-                    CV_C.append(CV2)
+        print(consonants)
+        if consonants == None:
+            for consonant in consonants.split('\n'):
+                C.append(consonant.split('=')[0])
+                for CV2 in consonant.split('=')[1].split(','):
+                    if CV2 != '':
+                        CV_C.append(CV2)
 
     V = set(V)
     C = set(C)
