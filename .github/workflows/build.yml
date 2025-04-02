@@ -47,24 +47,55 @@ jobs:
           # 压缩文件
           Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\LICENSE,D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe,D:\a\TextGrid2oto\TextGrid2oto\presamp\ -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
 
+      // ... existing code ...
+
+      - name: 创建发布压缩包
+        id: create_release
+        shell: pwsh
+        run: |
+          # 新增获取git日志
+          $changelog = git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD^)..HEAD
+          if (-not $changelog) { $changelog = "- 初始版本" }
+          
+          # 处理版本号逻辑
+          if ("${{ github.event.inputs.version }}" -ne "") {
+            $version = "${{ github.event.inputs.version }}"
+          } elseif ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".Replace("v", "")
+          } else {
+            $version = "Test"
+          }
+          
+          # 设置输出变量
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "changelog<<EOF" >> $env:GITHUB_OUTPUT
+          echo "$changelog" >> $env:GITHUB_OUTPUT
+          echo "EOF" >> $env:GITHUB_OUTPUT
+          
+          # 压缩文件（原有代码保持不变）
+          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\LICENSE,D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe,D:\a\TextGrid2oto\TextGrid2oto\presamp\ -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
+
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: "Release ${{ steps.create_release.outputs.version }}"  # 使用上一步的输出变量
+          name: "Release ${{ steps.create_release.outputs.version }}"
           draft: false
           prerelease: false
           files: |
             TextGrid2oto-*-windows.zip
           body: |
             ## 版本 ${{ steps.create_release.outputs.version }} 更新内容
-
+            
+            ### 变更记录
+            ${{ steps.create_release.outputs.changelog }}
+            
             ### 包含组件
             - TextGrid2oto (Windows x64)
             - hira2roma (Windows x64)
             ### 说明文件
             - README.md
-            ### 配置文件
+            ### 配置文件（原有列表保持不变）
             - run-config.txt
             - run-config-CVVC.txt
             - run-config-VCV.txt
