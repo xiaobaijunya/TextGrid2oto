@@ -6,43 +6,38 @@ import os
 def load_presamp(ini_path):
     word2phone = {}
     word_phone = {}
-    try:
-        with open(ini_path, 'r', encoding='utf-8') as file:
-            ini_text = file.read()
-            # 提取 [VOWEL] 部分
-            vowel_match = re.search(r'\[VOWEL\](.*?)\[', ini_text, re.DOTALL)
-            vowel_section = vowel_match.group(1).strip()
-            # 提取 [CONSONANT] 部分
-            consonant_match = re.search(r'\[CONSONANT\](.*?)\[', ini_text, re.DOTALL)
-            consonant_section = consonant_match.group(1).strip()
+    with open(ini_path, 'r', encoding='utf-8') as file:
+        ini_text = file.read()
+        # 提取 [VOWEL] 部分
+        vowel_match = re.search(r'\[VOWEL\](.*?)\[', ini_text, re.DOTALL)
+        vowel_section = vowel_match.group(1).strip()
+        # 提取 [CONSONANT] 部分
+        consonant_match = re.search(r'\[CONSONANT\](.*?)\[', ini_text, re.DOTALL)
+        consonant_section = consonant_match.group(1).strip()
+    for vowel in vowel_section.split('\n'):
+        vowel = vowel.split('=')
+        phone = vowel[0]
+        for v in vowel[2].split(','):
+            word2phone.update({v:{'V':phone}})
+    if consonant_section != '':
+        for consonant in consonant_section.split('\n'):
+            consonant2 = consonant.split('=')
+            phone = consonant2[0]
+            for c in consonant2[1].split(','):
+                word2phone[c].update({'C': phone})
+    else:
         for vowel in vowel_section.split('\n'):
             vowel = vowel.split('=')
-            phone = vowel[0]
-            for v in vowel[2].split(','):
-                word2phone.update({v:{'V':phone}})
-        if consonant_section != '':
-            for consonant in consonant_section.split('\n'):
-                consonant2 = consonant.split('=')
-                phone = consonant2[0]
-                for c in consonant2[1].split(','):
-                    word2phone[c].update({'C': phone})
+            for c in vowel[2].split(','):
+                word2phone[c].update({'C': c})
+    for key, value in word2phone.items():
+        if 'C' in value:
+            word_phone[key]=[value['C'],value['V']]
         else:
-            for vowel in vowel_section.split('\n'):
-                vowel = vowel.split('=')
-                for c in vowel[2].split(','):
-                    word2phone[c].update({'C': c})
-        for key, value in word2phone.items():
-            if 'C' in value:
-                word_phone[key]=[value['C'],value['V']]
-            else:
-                word_phone[key]=[value['V']]
-        word_phone2 = dict(sorted(word_phone.items(), key=lambda item: len(item[0]), reverse=True))
-        # print(word_phone2)
-        return word_phone2
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        input(f"读取presamp.ini失败: \n请检查是否存在[VOWEL]和[CONSONANT]部分")
+            word_phone[key]=[value['V']]
+    word_phone2 = dict(sorted(word_phone.items(), key=lambda item: len(item[0]), reverse=True))
+    # print(word_phone2)
+    return word_phone2
 
 
 def split_pinyin_to_phones(word_data, mappings):
