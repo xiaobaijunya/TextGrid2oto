@@ -31,23 +31,6 @@ jobs:
           Get-Job | Wait-Job
 
       - name: 创建发布压缩包
-        id: create_release  # 添加步骤ID用于后续引用
-        shell: pwsh
-        run: |
-          # 处理版本号逻辑
-          if ("${{ github.event.inputs.version }}" -ne "") {
-            $version = "${{ github.event.inputs.version }}"
-          } elseif ("${{ github.ref_type }}" -eq "tag") {
-            $version = "${{ github.ref_name }}".Replace("v", "")
-          } else {
-            $version = "Test"
-          }
-          # 设置输出变量
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          # 压缩文件
-          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\LICENSE,D:\a\TextGrid2oto\TextGrid2oto\*.md,D:\a\TextGrid2oto\TextGrid2oto\*.txt,D:\a\TextGrid2oto\TextGrid2oto\*.ini,D:\a\TextGrid2oto\TextGrid2oto\*.exe,D:\a\TextGrid2oto\TextGrid2oto\presamp\ -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
-
-      - name: 创建发布压缩包
         id: create_release
         shell: pwsh
         run: |
