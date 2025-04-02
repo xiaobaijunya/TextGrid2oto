@@ -43,7 +43,7 @@ def run():
         print('4.生成utau音素')
         presamp=input('请输入presamp.ini的路径：')
         if not presamp:
-            presamp = 'presamp/presamp.ini'
+            presamp = 'presamp/risku中文CVVCpresamp.ini'
         word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/word_phone.json')
         print('5.生成utauphone_json')
         # word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/utau_phone.json')

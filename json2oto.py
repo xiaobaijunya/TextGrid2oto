@@ -174,7 +174,7 @@ def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum):
 
 
 if __name__ == '__main__':
-    # presamp_path = 'presamp.ini'
+    # presamp_path = 'risku中文CVVCpresamp.ini'
     # utau_phone = 'G:/编程/utau自动标注/F3/TextGrid/json/utau_phone.json'
     # word_phone_json = 'G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json'
     # wav_path = 'G:/编程/utau自动标注/F3'
