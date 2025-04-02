@@ -525,7 +525,7 @@ wo	w o
 wong	w ong
 wou	w ou
 wu	w u
-u	w u
+u	u
 xi	x i
 xia	x ia
 xian	x ian
@@ -548,7 +548,7 @@ yao	y ao
 ye	y E
 yei	y ei
 yi	y i
-i	y i
+i	i
 yin	y in
 ying	y ing
 yo	y o
