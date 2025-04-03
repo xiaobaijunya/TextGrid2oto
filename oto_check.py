@@ -22,15 +22,14 @@ def cvvc_presamp_read(presamps_path):
         # print(vowels)
         # 提取 [CONSONANT] 部分
         consonant_match = re.search(r'\[CONSONANT\](.*?)\[', ini_text, re.DOTALL)
-    if consonant_match:
+    if consonant_match != None:
         consonants = consonant_match.group(1).strip()
-        print(consonants)
-        if consonants == None:
-            for consonant in consonants.split('\n'):
-                C.append(consonant.split('=')[0])
-                for CV2 in consonant.split('=')[1].split(','):
-                    if CV2 != '':
-                        CV_C.append(CV2)
+        # print(consonants)
+        for consonant in consonants.split('\n'):
+            C.append(consonant.split('=')[0])
+            for CV2 in consonant.split('=')[1].split(','):
+                if CV2 != '':
+                    CV_C.append(CV2)
 
     V = set(V)
     C = set(C)
@@ -41,7 +40,6 @@ def cvvc_presamp_read(presamps_path):
     CV = set(CV)
     CV_C = set(CV_C)
     CV_V = CV - CV_C
-    # print(CV_V)
     for V1 in V:
         for C1 in CV_V:
             VV.append(V1+' '+C1)
