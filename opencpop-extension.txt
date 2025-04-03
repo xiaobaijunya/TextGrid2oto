@@ -295,7 +295,6 @@ lun	l un
 luo	l uo
 lv	l v
 lue	l ve
-lve	l ve
 ma	m a
 mai	m ai
 man	m an
@@ -360,7 +359,6 @@ nun	n un
 nuo	n uo
 nv	n v
 nue	n ve
-nve	n ve
 o	o
 ong	ong
 ou	ou
