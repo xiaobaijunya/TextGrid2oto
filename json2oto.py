@@ -85,7 +85,7 @@ def json2cvoto(cv_data,sum):
     return oto
 
 
-def json2vcoto(vc_data,C_V,sum):
+def json2vcoto(vc_data,C_V,sum,vv_sum):
 
     oto = []
     for audio_file, data in vc_data.items():
@@ -119,16 +119,16 @@ def json2vcoto(vc_data,C_V,sum):
             elif cont['text'] in C_V[0] and cont2['text'] in C_V[0]:
                 phone_name = cont['text'] + ' ' + cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
-                left = float(cont["xmin"]) * 1000 + ((float(cont['xmax']) - float(cont['xmin'])) * 1000 / sum[0])
+                left = float(cont["xmin"]) * 1000 + ((float(cont['xmax']) - float(cont['xmin'])) * 1000 / vv_sum[0])
                 # 右线占比
-                right = (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 / sum[2] - left + float(
+                right = (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 / vv_sum[2] - left + float(
                     cont2['xmin']) * 1000
-                Prevoice = float(cont2['xmin']) * 1000 - left / sum[3]
+                Prevoice = float(cont2['xmin']) * 1000 - left / vv_sum[3]
                 # 固定的占比
-                if sum[5] ==0:
+                if vv_sum[1] ==0:
                     fixed = Prevoice
                 else:
-                    fixed = (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 /sum[5] + Prevoice
+                    fixed = (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 /vv_sum[1] + Prevoice
 
                 cross = Prevoice / sum[4]
                 i += 1
@@ -153,7 +153,7 @@ def json2vcoto(vc_data,C_V,sum):
 
 
 
-def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum):
+def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum):
     C_V = presamp_read(presamp_path)
     with open(utau_phone_json, 'r', encoding='utf-8') as f:
         vc_data = json.load(f)
@@ -165,7 +165,7 @@ def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum):
         for i in oto:
             f.write(i)
         print('cv_oto.ini生成成功')
-    oto = json2vcoto(vc_data,C_V, vc_sum)
+    oto = json2vcoto(vc_data,C_V, vc_sum,vv_sum)
     # print(oto)
     with open(wav_path+'/vc_oto.ini', 'w', encoding='utf-8') as f:
         for i in oto:

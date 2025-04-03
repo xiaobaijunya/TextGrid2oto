@@ -53,20 +53,23 @@ def run_oto():
             # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
             cv_sum = [1, 3, 1.5, 1, 2]
             # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
-            vc_sum = [3, 0, 2, 1, 2, 3]
-            json2VCV_oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
+            vc_sum = [3, 0, 2, 1, 2]
+            vv_sum = [3,3,1.5,1,1.5]
+            json2VCV_oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum,vv_sum)
         elif VCV_mode=='2':
             # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
             cv_sum = [1, 3, 1.5, 1, 2]
             # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
-            vc_sum = [3, 0, 2, 1, 2, 3]
-            json2CV_oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
+            vc_sum = [3, 0, 2, 1, 2]
+            vv_sum = [3,3,1.5,1,1.5]
+            json2CV_oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum,vv_sum)
         else:
             # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
             cv_sum = [1, 3, 1.5, 1, 2]
             # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
-            vc_sum = [3, 0, 2, 1, 2, 3]
-            json2oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum)
+            vc_sum = [3, 0, 2, 1, 2]
+            vv_sum = [3,3,1.5,1,1.5]
+            json2oto.run(presamp,TextGrid_path+'/json/utau_phone.json',TextGrid_path+'/json/word_phone.json',wav_path,cv_sum,vc_sum,vv_sum)
         print('7.合并oto.ini')
         cv = oto.oto_read(wav_path+'/cv_oto.ini')
         vc = oto.oto_read(wav_path+'/vc_oto.ini')
@@ -104,6 +107,7 @@ def auto_run(config):
             # 将字符串转换为列表并将每个元素转换为float类型
             config['cv_sum'] = [float(i) for i in config['cv_sum'].strip('[]').split(',')]
             config['vc_sum'] = [float(i) for i in config['vc_sum'].strip('[]').split(',')]
+            config['vv_sum'] = [float(i) for i in config['vv_sum'].strip('[]').split(',')]
             config['cv_offset'] = [float(i) for i in config['cv_offset'].strip('[]').split(',')]
             config['vc_offset'] = [float(i) for i in config['vc_offset'].strip('[]').split(',')]
             print(config)
@@ -132,16 +136,16 @@ def auto_run(config):
         if VCV_mode=='1':
             print('生成模式：VCV')
             json2VCV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
-                         config['wav_path'], config['cv_sum'], config['vc_sum'])
+                         config['wav_path'], config['cv_sum'], config['vc_sum'],config['vv_sum'])
         elif VCV_mode=='2':
             print('生成模式：CVV')
             json2CV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json',
                              config['TextGrid_path'] + '/json/word_phone.json',
-                             config['wav_path'], config['cv_sum'], config['vc_sum'])
+                             config['wav_path'], config['cv_sum'], config['vc_sum'],config['vv_sum'])
         elif VCV_mode=='0':
             print('生成模式：CVVC')
             json2oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json', config['TextGrid_path'] + '/json/word_phone.json',
-                         config['wav_path'], config['cv_sum'], config['vc_sum'])
+                         config['wav_path'], config['cv_sum'], config['vc_sum'],config['vv_sum'])
         else:
             print('VCV_mode数值错误')
             input('退出')

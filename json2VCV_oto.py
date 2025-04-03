@@ -146,7 +146,7 @@ def json2vcoto(vc_data,C_V,sum):
 
 
 
-def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum):
+def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum):
     C_V = presamp_read(presamp_path)
     C_V[1].add('R')
     print(C_V)
