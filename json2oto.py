@@ -58,7 +58,7 @@ def json2cvoto(cv_data,sum):
                 if sum[1] ==0:
                     fixed = Prevoice
                 else:
-                    fixed = Prevoice+(right-Prevoice)/sum[1]
+                    fixed = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[1]+ Prevoice
                 cross = float(Prevoice)/sum[4]
                 i+=2
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
@@ -75,7 +75,7 @@ def json2cvoto(cv_data,sum):
             if sum[1] == 0:
                 fixed = Prevoice
             else:
-                fixed = Prevoice+(right-Prevoice)/sum[1]
+                fixed = (float(cont['xmax'])-float(cont['middle']))*1000/sum[1]+ Prevoice
             cross = float(Prevoice) / sum[4]
             i += 1
 
@@ -128,7 +128,7 @@ def json2vcoto(vc_data,C_V,sum):
                 if sum[5] ==0:
                     fixed = Prevoice
                 else:
-                    fixed = Prevoice+(right-Prevoice)/sum[5]
+                    fixed = (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 /sum[5] + Prevoice
 
                 cross = Prevoice / sum[4]
                 i += 1
