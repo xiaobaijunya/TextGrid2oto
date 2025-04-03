@@ -104,8 +104,37 @@ def json2vcoto(vc_data,C_V,sum):
             # print(cont['text'], cont1['text'], cont2['text'])
             # 0V 1C
             # CC规则
-            # print(cont['text'], cont1['text'], cont2['text'])
-            if  cont['text'] in C_V[0] and cont1['text'] in C_V[1]:
+            # print(autio_name)
+            if cont['text'] == cont1['text']:
+                #如果是V V R的情况会取不到VR
+                if cont1['text'] == cont2['text']:
+                    if i + 3 < len(sorted_phones) - 2:
+                        key3, cont3 = sorted_phones[i + 3]
+                    else:
+                        cont3 = cont2
+                        cont1 = cont
+                        print(cont1)
+                        print(cont3)
+                    phone_name = cont1['text'] + ' ' + cont3['text']
+                    # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
+                    left = float(cont1["xmin"]) * 1000 + ((float(cont1['xmax']) - float(cont1['xmin'])) * 1000 / sum[0])
+                    # 右线占比
+                    right = (float(cont3['xmax']) - float(cont3['xmin'])) * 1000 / sum[2] - left + float(
+                        cont3['xmin']) * 1000
+                    Prevoice = float(cont3['xmin']) * 1000 - left / sum[3]
+                    # 固定的占比
+                    if sum[1] == 0:
+                        fixed = Prevoice
+                    else:
+                        fixed = Prevoice + (float(cont3['xmax']) - float(cont3['xmin'])) * 1000 / sum[1]
+                    cross = (float(cont1['xmax']) - float(cont1['xmin'])) * 1000 / sum[4]
+                    oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                    i += 1
+                    continue
+                else:
+                    i+=1
+                    continue
+            elif  cont['text'] in C_V[0] and cont1['text'] in C_V[1]:
                 phone_name = cont['text'] + ' ' + cont1['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont["xmin"]) * 1000 + ((float(cont['xmax']) - float(cont['xmin'])) * 1000 / sum[0])
@@ -118,9 +147,7 @@ def json2vcoto(vc_data,C_V,sum):
                 else:
                     fixed = Prevoice + (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 / sum[1]
                 cross =(float(cont['xmax']) - float(cont['xmin'])) *1000 / sum[4]
-
                 i += 1
-                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             elif cont1['text'] in C_V[0] and cont2['text'] == 'R':
                 phone_name = cont1['text'] + ' ' + cont2['text']
