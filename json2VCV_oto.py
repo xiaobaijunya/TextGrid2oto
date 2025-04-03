@@ -116,9 +116,9 @@ def json2vcoto(vc_data,C_V,sum):
                 if sum[1] == 0:
                     fixed = Prevoice
                 else:
-                    fixed = Prevoice + (right - Prevoice) / sum[1]
+                    fixed = Prevoice + (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 / sum[1]
+                cross =(float(cont['xmax']) - float(cont['xmin'])) *1000 / sum[4]
 
-                cross = Prevoice / sum[4]
                 i += 1
                 # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
@@ -134,9 +134,8 @@ def json2vcoto(vc_data,C_V,sum):
                 if sum[1] == 0:
                     fixed = Prevoice
                 else:
-                    fixed = Prevoice + (right - Prevoice) / sum[1]
-
-                cross = Prevoice / sum[4]
+                    fixed = Prevoice + (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 / sum[1]
+                cross = (float(cont1['xmax']) - float(cont1['xmin'])) * 1000 / sum[4]
                 i += 1
                 # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
