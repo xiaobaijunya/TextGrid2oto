@@ -1,5 +1,7 @@
 AP	AP
 SP	SP
+nve	n ve
+lve	l ve
 a	a
 ai	ai
 an	an
