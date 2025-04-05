@@ -32,6 +32,13 @@
 6. 您可以修改cv_offset和vc_offset来调整oto的偏移，可以实现一些例如辅音长度缩短和CVR音源的连贯性优化
 7. 如果缺少CV部分，可以检查sofa模型字典的拼音是否与utau里面的不同，可以修改sofa字典的拼音列，让它符合utau
 
+## uatu采样征集
+
+提交采样，助力我们训练全新的专用于拼接声库的标注模型
+
+huggingface（需要梯子）：https://baibaibai-utau-vocalbank-collect.hf.space/
+阿里魔塔社区（直连）：https://modelscope.cn/studios/xiaobaijunya/utau_Vocalbank_collect
+
 ## 模型推荐：
 
 中文普通话三段式模型：[汉语三段式自动标注模型](https://github.com/Isogelun/Singing-Synthesis/releases/tag/20250115)【准确度较高，非常推荐】
