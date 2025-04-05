@@ -37,6 +37,7 @@
 提交采样，助力我们训练全新的专用于拼接声库的标注模型
 
 huggingface（需要梯子）：https://baibaibai-utau-vocalbank-collect.hf.space/
+
 阿里魔塔社区（直连）：https://modelscope.cn/studios/xiaobaijunya/utau_Vocalbank_collect
 
 ## 模型推荐：
