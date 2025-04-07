@@ -48,14 +48,26 @@ def cvvc_presamp_read(presamps_path):
     # print(V,C,VV)
     return V,C,CV,VC,VV
 
-
+def oto_read(file_path):
+    oto_data=[]
+    with open(file_path, 'r',encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            parts = line.split('=')
+            # print(parts)
+            parts2 = parts[1].split(',')
+            # print(parts2)
+            oto_data.append([parts[0]]+[parts2[0]]+[int(round(float(num_str))) for num_str in parts2[1:]])
+            #wav+别名+四舍五入后的数值
+    print(f'oto文件解析成功：{file_path}')
+    return oto_data
 
 def run(oto_path,presamps_path,pitch,vcv_mode):
     phone_name = []
     if vcv_mode == '0':
         print('音源类型：CVVC')
         V_C = cvvc_presamp_read(presamps_path)
-        oto_data = oto.oto_read(oto_path)
+        oto_data = oto_read(oto_path)
         for byname in oto_data:
             phone_name.append(byname[1].replace(pitch, ''))
         print('缺少的CV音素：', end='')
