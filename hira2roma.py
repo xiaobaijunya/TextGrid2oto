@@ -32,7 +32,7 @@ def main_process():
     convert_encoding = input("需要将文件名编码从Shift_JIS转换为GBK吗？(y/n): ").lower() == "y"
 
     # 源目录输入
-    src_root = input("请输入源目录路径: ")
+    src_root = input("请输入WAV目录路径: ")
     dest_root = os.path.join(src_root, "new_wav")
     print(f"目标目录设置为：{dest_root}")
 
@@ -69,6 +69,8 @@ def main_process():
                         encoding_errors += 1
                         print(f"编码转换失败：{filename}，错误：{str(e)}")
                         filename_gbk = filename
+                else:
+                    filename_gbk=filename
 
                 # 构建目标路径
                 rel_path = os.path.relpath(root, src_root)
