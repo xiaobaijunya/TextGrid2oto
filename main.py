@@ -178,6 +178,8 @@ def auto_run(config):
         return 0
 
 if __name__ == '__main__':
+    #测试
+    # auto_run('E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\\run-config-VCV.txt')
     print(sys.argv)
     if len(sys.argv)>1:
         for arg in sys.argv[1:]:
