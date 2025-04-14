@@ -103,7 +103,7 @@ def auto_run(config):
             for i in range(len(config)):
                 config[i]=config[i].strip()
             #转为字典
-            config = {config[i].split('=')[0]:config[i].split('=')[1] for i in range(len(config)) if config[i]!='' and '#' not in config[i]}
+            config = {config[i].split('=')[0]:config[i].split('=')[1] for i in range(len(config)) if config[i]!='' and not config[i].startswith('#')}  # 修改判断条件为跳过以#开头的行
             # 将字符串转换为列表并将每个元素转换为float类型
             config['cut'] = config['cut'].split(',')
             config['cv_sum'] = [float(i) for i in config['cv_sum'].strip('[]').split(',')]
@@ -180,7 +180,7 @@ def auto_run(config):
 
 if __name__ == '__main__':
     #测试
-    # auto_run('E:\OpenUtau\Singers\Sakarou Jo [Ver.2.02] Test\\run-config-VCV.txt')
+    auto_run('run-config-VCV.txt')
     print(sys.argv)
     if len(sys.argv)>1:
         for arg in sys.argv[1:]:
