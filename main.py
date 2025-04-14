@@ -33,7 +33,7 @@ def run_oto():
         if not TextGrid_path:
             TextGrid_path = wav_path+ '/TextGrid'
         if not ds_dict:
-            ds_dict = 'opencpop-extension.txt'
+            ds_dict = 'SOFA-UTAUCHN-dic.txt'
         ignore=input('请输入忽略音素，多个用,分隔：')
         if not ignore:
             ignore = 'AP,SP'
@@ -105,6 +105,7 @@ def auto_run(config):
             #转为字典
             config = {config[i].split('=')[0]:config[i].split('=')[1] for i in range(len(config)) if config[i]!='' and '#' not in config[i]}
             # 将字符串转换为列表并将每个元素转换为float类型
+            config['cut'] = config['cut'].split(',')
             config['cv_sum'] = [float(i) for i in config['cv_sum'].strip('[]').split(',')]
             config['vc_sum'] = [float(i) for i in config['vc_sum'].strip('[]').split(',')]
             config['vv_sum'] = [float(i) for i in config['vv_sum'].strip('[]').split(',')]
@@ -179,7 +180,7 @@ def auto_run(config):
 
 if __name__ == '__main__':
     #测试
-    # auto_run('E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\\run-config-VCV.txt')
+    auto_run('E:\OpenUtau\Singers\Sakarou Jo [Ver.2.02] Test\\run-config-VCV.txt')
     print(sys.argv)
     if len(sys.argv)>1:
         for arg in sys.argv[1:]:
