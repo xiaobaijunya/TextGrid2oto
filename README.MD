@@ -46,6 +46,8 @@ huggingface（需要梯子）：https://baibaibai-utau-vocalbank-collect.hf.spac
 
 中文两段式模型：[SOFA_Models](https://github.com/BaiShuoQwQ/SOFA_Models)：【支持opencpop-extension字典的两段式模型】
 
+日语模型：[ Japanese Quadrilx SOFA model ](https://github.com/Muzium/muzium.github.io/releases/tag/v1.0.2)【支持假名和罗马音音源】
+
 ## 联系我们：
 
 QQ群聊：1036935644
