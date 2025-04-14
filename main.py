@@ -111,6 +111,7 @@ def auto_run(config):
             config['vv_sum'] = [float(i) for i in config['vv_sum'].strip('[]').split(',')]
             config['cv_offset'] = [float(i) for i in config['cv_offset'].strip('[]').split(',')]
             config['vc_offset'] = [float(i) for i in config['vc_offset'].strip('[]').split(',')]
+            config['TextGrid_path'] = config['wav_path']+'/TextGrid'
             print(config)
         print('sofa-UTAU自动标注')
         if config['lab']=='Y' or config['lab']=='y':
