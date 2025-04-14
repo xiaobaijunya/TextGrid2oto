@@ -50,7 +50,7 @@ def cvvc_presamp_read(presamps_path):
 
 def oto_read(file_path):
     oto_data=[]
-    with open(file_path, 'r',encoding='utf-8') as f:
+    with open(file_path, 'r') as f:
         for line in f:
             line = line.strip()
             parts = line.split('=')

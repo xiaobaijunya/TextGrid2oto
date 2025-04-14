@@ -51,15 +51,26 @@ def oto_check(file_path,oto_data):
 def oto_read(file_path):
     if check_file(file_path):return False
     oto_data=[]
-    with open(file_path, 'r',encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            parts = line.split('=')
-            # print(parts)
-            parts2 = parts[1].split(',')
-            # print(parts2)
-            oto_data.append([parts[0]]+[parts2[0]]+[int(round(float(num_str))) for num_str in parts2[1:]])
-            #wav+别名+四舍五入后的数值
+    encodings = ['utf-8', 'shift-jis','gbk']
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                for line in f:
+                    line = line.strip()
+                    parts = line.split('=')
+                    # print(parts)
+                    parts2 = parts[1].split(',')
+                    # print(parts2)
+                    oto_data.append([parts[0]] + [parts2[0]] + [int(round(float(num_str))) for num_str in parts2[1:]])
+                    # wav+别名+四舍五入后的数值
+            print(f'成功使用 {encoding} 编码读取文件。')
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        print('无法使用尝试的编码读取oto文件，请检查文件编码。')
+        input('按任意键退出')
+        quit()
     print(f'{GREEN}oto文件解析成功：{file_path}{RESET}')
     return oto_check(file_path,oto_data)
 #没写完
@@ -119,7 +130,7 @@ def oto_write(file_path,oto_data,pitch,cover):
     else:
         print(f'{GREEN}不覆盖原文件：{file_path}{RESET}')
         new_file_path=oto_path(file_path)
-    with open(new_file_path, 'w',encoding='utf-8') as f:
+    with open(new_file_path, 'w',encoding='shift-jis') as f:
         for oto in oto_data:
             f.write(f'{oto[0]}={oto[1]}{pitch},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
     print(f'{GREEN}新oto写入成功：{new_file_path}{RESET}')
