@@ -61,18 +61,18 @@ def reorganize_json_data(json_data):
         # 处理第一个元素
         first_key = sorted_keys[0]
         first_phone = phones[first_key]
-        if float(first_phone['xmin']) != 0:
-            new_phone = {
-                "xmin": "0.0",
-                "xmax": first_phone['xmin'],
-                "text": "-"
-            }
-            # 创建新的有序字典
-            new_phones = {"1": new_phone}
-            for i, key in enumerate(sorted_keys, 2):
-                new_phones[str(i)] = phones[key]
-            data['phones'] = new_phones
-            sorted_keys = sorted(new_phones.keys(), key=lambda x: int(x))  # 更新排序后的keys
+        # if float(first_phone['xmin']) != 0:
+        new_phone = {
+            "xmin": "0.0",
+            "xmax": first_phone['xmin'],
+            "text": "-"
+        }
+        # 创建新的有序字典
+        new_phones = {"1": new_phone}
+        for i, key in enumerate(sorted_keys, 2):
+            new_phones[str(i)] = phones[key]
+        data['phones'] = new_phones
+        sorted_keys = sorted(new_phones.keys(), key=lambda x: int(x))  # 更新排序后的keys
 
         # 处理最后一个元素
         last_key = sorted_keys[-1]
