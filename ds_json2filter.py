@@ -9,18 +9,23 @@ import json
 def ds_dict_read(ds_dictpath,ignore):
     vowels = []
     consonant =[]
-    with open(ds_dictpath, 'r') as f:
-        for line in f:
-            line = line.split()
-            if len(line) == 3:
-                consonant.append(line[1])
-                vowels.append(line[2])
-            elif len(line) == 4:
-                consonant.append(line[2])
-                vowels.append(line[2])
-                vowels.append(line[3])
-            elif len(line) == 2:
-                vowels.append(line[1])
+    try:
+        with open(ds_dictpath, 'r') as f:
+            for line in f:
+                line = line.split()
+                if len(line) == 3:
+                    consonant.append(line[1])
+                    vowels.append(line[2])
+                elif len(line) == 4:
+                    consonant.append(line[2])
+                    vowels.append(line[2])
+                    vowels.append(line[3])
+                elif len(line) == 2:
+                    vowels.append(line[1])
+    except FileNotFoundError:
+        print(f"错误：指定的文件 {ds_dictpath} 读取失败，请检查文件路径是否正确。")
+        input('按任意键退出')
+        exit()
     ignore = ignore.split(',')
     #忽略音素
     vowels = [vowel for vowel in vowels if vowel not in ignore]
@@ -110,6 +115,6 @@ def run(ds_dict,json_path,ignore):
 
 if __name__ == '__main__':
     json_path = r'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3/TextGrid\json\ds_phone.json'
-    ds_dict = 'F:/aising\SOFA_AI-main\sofa_ckpt\Mandarin_three-stage\Mandarin_three-stage_dictionary_New.txt'
+    ds_dict = 'SOFA-UTAUCHN-dic.txt'
     ignore = 'AP,SP'
     run(ds_dict,json_path,ignore)
