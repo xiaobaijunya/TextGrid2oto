@@ -1,13 +1,24 @@
 import os
-
+import re
 # 定义函数来处理文件名
 def process_wav_name(wav_name,cuts):
     # 移除文件扩展名
     cleaned_name = os.path.splitext(wav_name)[0]
     # 剔除下划线
+    hira_list=sorted(['いぇ','うぇ','うぃ','うぉ','きゃ','きゅ','きぇ','きょ','ぎゃ','ぎゅ','ぎぇ','ぎょ','くぁ','くぃ','くぇ','くぉ','ぐぁ','ぐぃ','ぐぇ','ぐぉ','しゃ','しゅ','しぇ','しょ','じゃ','じぇ','じゅ','じょ','すぃ','ずぃ','ちゃ','ちゅ','ちぇ','ちょ','つぁ','つぃ','つぇ','つぉ','てぃ','てゅ','でぃ','でゅ','とぅ','どぅ','にゃ','にぇ','にゅ','にょ','ひゃ','ひゅ','ひぇ','ひょ','びゃ','びゅ','びぇ','びょ','ぴゃ','ぴゅ','ぴぇ','ぴょ','ふぁ','ふぃ','ふぇ','ふぉ','ぶぁ','ぶぃ','ぶぇ','ぶぉ','みゃ','みゅ','みぇ','みょ','りゃ','りゅ','りぇ','りょ','ヴぁ','ヴぃ','ヴぇ','ヴぉ','ヴ','ガ','ギ','グ','ゲ','ゴ','あ','い','う','え','お','か','が','き','ぎ','く','ぐ','け','げ','こ','ご','さ','ざ','し','じ','す','ず','せ','ぜ','そ','ぞ','た','だ','ち','つ','て','で','と','ど','な','に','ぬ','ね','の','は','ば','ぱ','ひ','び','ぴ','ふ','ぶ','ぷ','へ','べ','ぺ','ほ','ぼ','ぽ','ま','み','む','め','も','や','ゆ','よ','ら','り','る','れ','ろ','わ','ん']
+                     , key=lambda x: len(x), reverse=True)
+
     for cut in cuts:
         cleaned_name = cleaned_name.replace(cut,' ')
+    # 构建正则表达式模式（转义特殊字符）
+
+    pattern = re.compile('|'.join(map(re.escape, hira_list)))  # 使用正则表达式优化匹配[4,7](@ref)
+
+    # 执行替换：匹配项之间插入空格
+    cleaned_name = pattern.sub(lambda m: f'{m.group()} ', cleaned_name)
+
     cleaned_name=cleaned_name.replace('  ',' ')
+
     if cleaned_name[0]==' ':
         cleaned_name=cleaned_name[1:]
     return cleaned_name
@@ -31,7 +42,7 @@ def run(path,cuts):
 
 
 if __name__ == '__main__':
-    path = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3'
+    path = 'E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV'
     # 获取当前目录下所有的WAV文件
     run(path,['_','-'])
 
