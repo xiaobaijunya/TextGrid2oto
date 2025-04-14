@@ -11,7 +11,7 @@
 1. [SOFA](https://github.com/qiuqiao/SOFA)：TextGrid标记生成
 2. [qiuqiao/SOFA · Discussions · GitHub](https://github.com/qiuqiao/SOFA/discussions)：在SOFA社区选择一个您的语言的SOFA模型
 3. SOFA模型自带的字典(一般在模型文件里面)
-4. [vlabeler](https://github.com/sdercolin/vlabeler)：TextGrid标记修改软件（需要安装TextGrid标注插件（好像是这样））
+4. [vlabeler](https://github.com/sdercolin/vlabeler)：TextGrid标记修改软件（[下载vlabeler的textgrid插件](https://github.com/sdercolin/vlabeler-textgrid)）
 5. utau音制工具：setParam 或者 [vlabeler](https://github.com/sdercolin/vlabeler)的utau标注模式（推荐）
 6. utau录音完成的wav文件(请先了解utau声库如何制作)
 7. utau录音表配套的：presamp.ini（**现已支持CVVC和VCV**，请参考presamp文件夹内的文件）
