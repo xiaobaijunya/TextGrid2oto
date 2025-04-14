@@ -7,7 +7,7 @@ def load_presamp(ini_path):
     word2phone = {}
     word_phone = {}
     try:
-        with open(ini_path, 'r', encoding='utf-8') as file:
+        with open(ini_path, 'r') as file:
             ini_text = file.read()
             # 提取 [VOWEL] 部分
             vowel_match = re.search(r'\[VOWEL\](.*?)\[', ini_text, re.DOTALL)
