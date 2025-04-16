@@ -75,7 +75,12 @@ jobs:
               Remove-Item -Path $folder -Force -Recurse
             }
           }
-
+          
+          # 删除 .gitignore 文件
+          $gitignorePath = "D:\a\TextGrid2oto\TextGrid2oto\.gitignore"
+          if (Test-Path -Path $gitignorePath) {
+            Remove-Item -Path $gitignorePath -Force
+          }
 
           # 压缩主目录
           Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\* -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
