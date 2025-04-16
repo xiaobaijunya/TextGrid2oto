@@ -25,8 +25,8 @@ jobs:
       - name: 并行打包
         run: |
           # 启动两个后台任务进行打包
-          Start-Job -ScriptBlock { nuitka --standalone --python-debug --windows-icon-from-ico=img/TextGrid2oto.ico --output-filename=TextGrid2oto --assume-yes-for-downloads main.py }
-          Start-Job -ScriptBlock { nuitka --standalone --python-debug --assume-yes-for-downloads hira2roma.py }
+          Start-Job -ScriptBlock { nuitka --standalone --windows-icon-from-ico=img/TextGrid2oto.ico --output-filename=TextGrid2oto --assume-yes-for-downloads --output-dir=output main.py }
+          Start-Job -ScriptBlock { nuitka --standalone --assume-yes-for-downloads --output-dir=output hira2roma.py }
           # 等待所有任务完成
           Get-Job | Wait-Job
 
@@ -44,10 +44,24 @@ jobs:
           }
           # 设置输出变量
           echo "version=$version" >> $env:GITHUB_OUTPUT
+# 删除所有py文件
+          Get-ChildItem -Path D:\a\TextGrid2oto\TextGrid2oto\ -Filter *.py -Recurse | Remove-Item -Force
+
+          # 删除空文件夹
+          Get-ChildItem -Path D:\a\TextGrid2oto\TextGrid2oto\ -Directory -Recurse | Where-Object { (Get-ChildItem -Path $_.FullName | Measure-Object).Count -eq 0 } | Remove-Item -Force -Recurse
+
+          # 把output文件里面的dll和exe复制到主目录
+          $sourceDir = "D:\a\TextGrid2oto\TextGrid2oto\output"
+          $destinationDir = "D:\a\TextGrid2oto\TextGrid2oto"
+          Get-ChildItem -Path $sourceDir -Filter *.dll -Recurse | Copy-Item -Destination $destinationDir
+          Get-ChildItem -Path $sourceDir -Filter *.exe -Recurse | Copy-Item -Destination $destinationDir
+
+          # 删除output文件夹
+          Remove-Item -Path $sourceDir -Force -Recurse
+
+          # 压缩主目录
+          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\* -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
           ls D:\a\TextGrid2oto\TextGrid2oto\
-          # 压缩文件
-          # 修改为压缩除 .py 以外的所有文件
-           Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\ -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
 
 
       - name: 发布到 GitHub Releases
