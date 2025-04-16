@@ -92,7 +92,7 @@ jobs:
             TextGrid2oto-*-windows.zip
           body: |
             ## 版本 ${{ steps.create_release.outputs.version }} 更新内容
-            查看 [变更对比](https://github.com/xiaobaijunya/TextGrid2oto/compare/v${{ steps.create_release.outputs.previous_version }}...v${{ steps.create_release.outputs.version }})
+            查看 [变更对比](https://github.com/xiaobaijunya/TextGrid2oto/compare/v${{ steps.create_release.outputs.latestTag }}...v${{ steps.create_release.outputs.version }})
 
             ### 包含组件
             - TextGrid2oto (Windows x64)
