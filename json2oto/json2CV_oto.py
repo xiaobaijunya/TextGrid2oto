@@ -222,7 +222,7 @@ if __name__ == '__main__':
     # word_phone_json = 'G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json'
     # wav_path = 'G:/编程/utau自动标注/F3'
 
-    presamp_path = 'presamp/樗儿式中文VCV-presamp.ini'
+    presamp_path = '../presamp/樗儿式中文VCV-presamp.ini'
     utau_phone = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试/VCV/TextGrid/json/utau_phone.json'
     word_phone_json = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试/VCV/TextGrid/json/word_phone.json'
     wav_path = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试\VCV'

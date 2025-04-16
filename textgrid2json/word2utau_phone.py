@@ -112,6 +112,6 @@ def generate_utau_phone(presamp_path, word_json_path):
 
 if __name__ == "__main__":
     generate_utau_phone(
-        presamp_path='presamp/CVR-presamp.ini',
+        presamp_path='../presamp/CVR-presamp.ini',
         word_json_path='E:\OpenUtau\Singers/baini_Chn_CVXY\E3/TextGrid/json/word_phone.json',
     )

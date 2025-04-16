@@ -129,6 +129,6 @@ if __name__ == '__main__':
     print('CVVC')
     run('E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3\oto.ini','E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini',' F3','0')
     print('VCV')
-    run('E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\VCV\oto.ini','presamp/樗儿式中文VCV-presamp.ini','','1')
+    run('E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\VCV\oto.ini', '../presamp/樗儿式中文VCV-presamp.ini', '', '1')
     print('CVVR')
-    run('E:\OpenUtau\Singers\Weiyin3.0\combined\oto.ini','presamp/CVR-presamp.ini','','2')
+    run('E:\OpenUtau\Singers\Weiyin3.0\combined\oto.ini', '../presamp/CVR-presamp.ini', '', '2')
