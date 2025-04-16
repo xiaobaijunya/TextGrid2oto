@@ -46,7 +46,7 @@ jobs:
           echo "version=$version" >> $env:GITHUB_OUTPUT
           # 压缩文件
           # 修改为压缩除 .py 以外的所有文件
-          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\*, -Exclude *.py -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
+          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\* -Exclude *.py -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
 
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v1
