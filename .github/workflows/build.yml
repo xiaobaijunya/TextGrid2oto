@@ -26,7 +26,7 @@ jobs:
         run: |
           # 启动两个后台任务进行打包
           Start-Job -ScriptBlock { nuitka --standalone --windows-icon-from-ico=img/TextGrid2oto.ico --output-filename=TextGrid2oto --assume-yes-for-downloads --output-dir=output main.py }
-          Start-Job -ScriptBlock { nuitka --standalone --assume-yes-for-downloads --output-dir=output hira2roma.py }
+          Start-Job -ScriptBlock { nuitka --standalone --onefile --assume-yes-for-downloads --output-dir=output hira2roma.py }
           # 等待所有任务完成
           Get-Job | Wait-Job
 
