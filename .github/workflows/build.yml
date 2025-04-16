@@ -66,6 +66,15 @@ jobs:
 
           # 删除output文件夹
           Remove-Item -Path $sourceDir -Force -Recurse
+          
+          # 删除 img、.idea 和 .github 文件夹
+          $foldersToDelete = "D:\a\TextGrid2oto\TextGrid2oto\img", "D:\a\TextGrid2oto\TextGrid2oto\.idea", "D:\a\TextGrid2oto\TextGrid2oto\.github"
+          foreach ($folder in $foldersToDelete) {
+            if (Test-Path -Path $folder) {
+              Remove-Item -Path $folder -Force -Recurse
+            }
+          }
+
 
           # 压缩主目录
           Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\* -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
