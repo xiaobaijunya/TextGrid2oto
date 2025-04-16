@@ -44,9 +44,11 @@ jobs:
           }
           # 设置输出变量
           echo "version=$version" >> $env:GITHUB_OUTPUT
+          ls D:\a\TextGrid2oto\TextGrid2oto\
           # 压缩文件
           # 修改为压缩除 .py 以外的所有文件
-          Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\* -Exclude *.py -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
+           Compress-Archive -Path D:\a\TextGrid2oto\TextGrid2oto\ -DestinationPath D:\a\TextGrid2oto\TextGrid2oto\TextGrid2oto-$version-windows.zip
+
 
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v1
@@ -65,16 +67,6 @@ jobs:
             - hira2roma (Windows x64)
             ### 说明文件
             - README.md
-            ### 配置文件
-            - run-config.txt
-            - run-config-CVVC.txt
-            - run-config-VCV.txt
-            - run-config-VCR.txt
-            - opencpop-extension.txt
-            - hira2roma-list.txt
-            - jp-romaji-presamp.ini
-            - presamp.ini（中文CVVC用）
-            - 樗儿中文VCV-presamp.ini
-            - CVR-presamp.ini（中文CV音源用）
+
         env:
           GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
