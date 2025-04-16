@@ -11,9 +11,9 @@ def run_oto():
         print('sofa-UTAU自动标注')
         print('1.生成lab')
         wav_path=input('请输入wav的路径：')
-        cut=input('请输入分隔符默认为_')
+        cut=input('请输入分隔符默认为_,-(多个用,分隔)')
         if not cut:
-            cut = '_'
+            cut = '_,-'
         VCV_mode=input('输入数字，选择模式：\n(默认使用CVVC模式)\nCVVC:0 \nVCV:1 \nCV(多字单独音(连单音)):2\n')
         if not VCV_mode:
             VCV_mode = '0'
@@ -27,7 +27,7 @@ def run_oto():
         if not TextGrid_path:
             TextGrid_path = wav_path+ '/TextGrid'
         if not ds_dict:
-            ds_dict = 'SOFA-UTAUCHN-dic.txt'
+            ds_dict = 'sofa-dic/SOFA-UTAUCHN-dic.txt'
         ignore=input('请输入忽略音素，多个用,分隔：')
         if not ignore:
             ignore = 'AP,SP'

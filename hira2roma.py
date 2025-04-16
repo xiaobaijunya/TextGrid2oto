@@ -4,7 +4,7 @@ import shutil
 
 def main_process():
     # 自定义转换表路径
-    default_table = "hira2roma_list.txt"
+    default_table = "sofa-dic/hira2roma_list.txt"
     table_path = input(f"请输入转换表路径（回车使用默认值 {default_table}）: ") or default_table
 
     # 加载转换表
