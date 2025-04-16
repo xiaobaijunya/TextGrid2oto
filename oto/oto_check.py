@@ -1,5 +1,5 @@
 import re
-import oto
+from oto import oto_rw
 def cvvc_presamp_read(presamps_path):
     V = []
     C = []
@@ -90,7 +90,7 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
     elif vcv_mode == '1':
         print('音源类型：VCV')
         V_C = cvvc_presamp_read(presamps_path)
-        oto_data = oto.oto_read(oto_path)
+        oto_data = oto_rw.oto_read(oto_path)
         for byname in oto_data:
             phone_name.append(byname[1].replace(pitch, ''))
         print('缺少的VCV音素：', end='')
@@ -105,7 +105,7 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
     elif vcv_mode == '2':
         print('音源类型：CVV或CVVR')
         V_C = cvvc_presamp_read(presamps_path)
-        oto_data = oto.oto_read(oto_path)
+        oto_data = oto_rw.oto_read(oto_path)
         for byname in oto_data:
             phone_name.append(byname[1].replace(pitch, ''))
         print('缺少的CV音素：', end='')

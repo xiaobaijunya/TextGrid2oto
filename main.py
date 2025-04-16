@@ -2,7 +2,7 @@ import wavname2lab
 from textgrid2json import ds_json2filter, word2utau_phone, TextGrid2ds_json, ds_json2word
 from json2oto import json2CV_oto, json2oto, json2VCV_oto
 from oto import oto_check
-from oto import oto
+from oto import oto_rw
 import sys
 # nuitka --standalone --onefile --output-filename=TextGrid2oto_v0.1.18 main.py
 
@@ -65,20 +65,20 @@ def run_oto():
             vv_sum = [3,3,1.5,1,1.5]
             json2oto.run(presamp, TextGrid_path + '/json/utau_phone.json', TextGrid_path + '/json/word_phone.json', wav_path, cv_sum, vc_sum, vv_sum)
         print('7.合并oto.ini')
-        cv = oto.oto_read(wav_path+'/cv_oto.ini')
-        vc = oto.oto_read(wav_path+'/vc_oto.ini')
+        cv = oto_rw.oto_read(wav_path+'/cv_oto.ini')
+        vc = oto_rw.oto_read(wav_path+'/vc_oto.ini')
         CV_repeat = input('输入CV最大重复次数：')
         VC_repeat = input('输入VC最大重复次数：')
         print('8.剔除重复并，合并oto.ini')
-        cv = oto.oto_repeat(cv, int(CV_repeat))
-        vc = oto.oto_repeat(vc, int(VC_repeat))
+        cv = oto_rw.oto_repeat(cv, int(CV_repeat))
+        vc = oto_rw.oto_repeat(vc, int(VC_repeat))
         pitch = input('请输入音阶后缀：')
         if not pitch:
             pitch = ''
         cover = input('是否覆盖原文件？y/n(默认为n)')
         if not cover:
             cover = 'n'
-        oto.oto_write(wav_path+'/oto.ini',cv+vc,pitch,cover)
+        oto_rw.oto_write(wav_path+'/oto.ini',cv+vc,pitch,cover)
         print('10086.完成！')
     except Exception as e:
         import traceback
@@ -147,20 +147,20 @@ def auto_run(config):
             input('退出')
             quit()
         print('7.读取CV和VC oto.ini')
-        cv = oto.oto_read(config['wav_path'] + '/cv_oto.ini')
-        vc = oto.oto_read(config['wav_path'] + '/vc_oto.ini')
+        cv = oto_rw.oto_read(config['wav_path'] + '/cv_oto.ini')
+        vc = oto_rw.oto_read(config['wav_path'] + '/vc_oto.ini')
         print('8.剔除重复项')
-        cv = oto.oto_repeat(cv, int(config['CV_repeat']))
-        vc = oto.oto_repeat(vc, int(config['VC_repeat']))
+        cv = oto_rw.oto_repeat(cv, int(config['CV_repeat']))
+        vc = oto_rw.oto_repeat(vc, int(config['VC_repeat']))
         print('9.偏移oto数值.ini')
         if config['cv_offset']!=[0.0, 0.0, 0.0, 0.0, 0.0]:
-            cv = oto.oto_offset(cv, config['cv_offset'])
+            cv = oto_rw.oto_offset(cv, config['cv_offset'])
             print('9.1.偏移CV数值,运行成功')
         if config['vc_offset']!=[0.0, 0.0, 0.0, 0.0, 0.0]:
-            vc = oto.oto_offset(vc, config['vc_offset'])
+            vc = oto_rw.oto_offset(vc, config['vc_offset'])
             print('9.1.偏移VC数值,运行成功')
         print('10.合并oto.ini')
-        oto.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])
+        oto_rw.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])
         print('11.检测缺少的音素')
         oto_check.run(config['wav_path'] + '/oto.ini', config['presamp'], config['pitch'], config['VCV_mode'])
         print('10086.完成！')
