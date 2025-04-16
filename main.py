@@ -175,7 +175,7 @@ def auto_run(config):
 
 if __name__ == '__main__':
     #测试
-    auto_run('E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV\\run-config-VCV.txt')
+    # auto_run('E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV\\run-config-VCV.txt')
     print(sys.argv)
     if len(sys.argv)>1:
         for arg in sys.argv[1:]:
