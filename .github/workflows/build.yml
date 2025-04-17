@@ -19,8 +19,8 @@ jobs:
       - uses: actions/checkout@v4
 
 
-      - name: 安装Nuitka
-        run: pip install nuitka
+      - name: 安装requirements
+        run: pip install -r requirements.txt
 
       - name: 并行打包
         run: |
@@ -69,17 +69,11 @@ jobs:
           Remove-Item -Path $sourceDir -Force -Recurse
           
           # 删除 img、.idea 和 .github 文件夹
-          $foldersToDelete = "D:\a\TextGrid2oto\TextGrid2oto\img", "D:\a\TextGrid2oto\TextGrid2oto\.idea", "D:\a\TextGrid2oto\TextGrid2oto\.github"
+          $foldersToDelete = "D:\a\TextGrid2oto\TextGrid2oto\img", "D:\a\TextGrid2oto\TextGrid2oto\.idea", "D:\a\TextGrid2oto\TextGrid2oto\.github", "D:\a\TextGrid2oto\TextGrid2oto\requirements.txt","D:\a\TextGrid2oto\TextGrid2oto\.gitignore"
           foreach ($folder in $foldersToDelete) {
             if (Test-Path -Path $folder) {
               Remove-Item -Path $folder -Force -Recurse
             }
-          }
-          
-          # 删除 .gitignore 文件
-          $gitignorePath = "D:\a\TextGrid2oto\TextGrid2oto\.gitignore"
-          if (Test-Path -Path $gitignorePath) {
-            Remove-Item -Path $gitignorePath -Force
           }
 
           # 压缩主目录
