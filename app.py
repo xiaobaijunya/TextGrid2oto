@@ -1,6 +1,11 @@
 import gradio as gr
-import main
+import subprocess
 from tkinter import Tk, filedialog  # 导入文件对话框库
+import tkinter as tk
+from tkinter import filedialog
+import queue
+import threading
+import main
 
 def run():
     demo.launch(server_port=7860, show_error=True, inbrowser=False)
@@ -20,6 +25,32 @@ def generate_config(
 
     yield "✅ 配置文件已生成，开始执行主程序..."
     main.auto_run('config.txt')
+    # exe_path = "TextGrid2oto.exe"
+    # try:
+    #     # 明确指定 encoding 为 utf-8
+    #     result = subprocess.run([exe_path, 'config.txt'], capture_output=True, text=True, check=True, encoding='utf-8')
+    #     yield result.stdout
+    # except subprocess.CalledProcessError as e:
+    #     error_msg = f"❌ 错误：执行 {exe_path} 时出错，返回码: {e.returncode}，错误信息: {e.stderr}"
+    #     print(error_msg)
+    #     yield error_msg
+    # # print(result.stdout)
+    #
+    # except FileNotFoundError:
+    #     # 处理文件未找到的错误
+    #     error_msg = f"❌ 错误：未找到指定的可执行文件 {exe_path}，请检查路径。"
+    #     print(error_msg)
+    #     yield error_msg
+    # except PermissionError:
+    #     # 处理权限不足的错误
+    #     error_msg = f"❌ 错误：没有执行 {exe_path} 的权限，请检查文件权限。"
+    #     print(error_msg)
+    #     yield error_msg
+    # except subprocess.CalledProcessError as e:
+    #     # 处理可执行文件执行失败的错误
+    #     error_msg = f"❌ 错误：执行 {exe_path} 时出错，返回码: {e.returncode}，错误信息: {e.stderr}"
+    #     print(error_msg)
+    #     yield error_msg
     yield "🎉 任务完成！最终结果：..."
 
 # 定义文件夹选择函数
@@ -31,15 +62,27 @@ def select_folder():
     return folder_path
 
 
-def select_file():
-    root = Tk()
-    root.withdraw()  # 隐藏主窗口
+# 创建一个队列用于线程间通信
+file_dialog_queue = queue.Queue()
 
-    file_path = filedialog.askopenfilename(
-        title="选择文本或INI文件",
-        filetypes=[("Text Files", "*.txt;*.ini")]  # 限制文件类型[4,6](@ref)
-    )
-    return file_path
+def select_file():
+    def show_dialog():
+        root = tk.Tk()
+        root.withdraw()
+        file_path = filedialog.askopenfilename(
+            title="选择文本或INI文件",
+            filetypes=[("Text Files", "*.txt;*.ini")]
+        )
+        file_dialog_queue.put(file_path)
+        root.destroy()  # 销毁 Tkinter 窗口
+
+    # 在主线程中执行 Tkinter 操作
+    if threading.current_thread() is threading.main_thread():
+        show_dialog()
+    else:
+        threading.Thread(target=show_dialog).start()
+
+    return file_dialog_queue.get()
 
 def model_file():
     root = Tk()

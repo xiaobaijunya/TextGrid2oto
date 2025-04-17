@@ -20,7 +20,7 @@ jobs:
 
 
       - name: 安装requirements
-        run: pip install -r requirements.txt
+        run: pip install nuitka
 
       - name: 并行打包
         run: |
