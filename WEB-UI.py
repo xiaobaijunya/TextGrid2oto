@@ -1,7 +1,7 @@
 import webview
 import app
 import threading
-
+# nuitka --standalone --windows-icon-from-ico=img/TextGrid2oto.ico --output-dir=output --output-filename=TextGrid2oto-WEBUI WEB-UI.py
 
 def run_app():
     app.run()
