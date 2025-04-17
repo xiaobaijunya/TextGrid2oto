@@ -28,7 +28,6 @@ jobs:
           # --onefile
           Start-Job -ScriptBlock { nuitka --standalone --windows-icon-from-ico=img/TextGrid2oto.ico --output-filename=TextGrid2oto --assume-yes-for-downloads --output-dir=output main.py }
           Start-Job -ScriptBlock { nuitka --standalone --assume-yes-for-downloads --output-dir=output hira2roma.py }
-          Start-Job -ScriptBlock { nuitka --standalone --windows-icon-from-ico=img/TextGrid2oto.ico --output-dir=output --assume-yes-for-downloads --output-filename=TextGrid2oto-WEBUI WEB-UI.py }
           # 等待所有任务完成
           Get-Job | Wait-Job
 
