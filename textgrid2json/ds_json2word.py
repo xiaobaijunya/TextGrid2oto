@@ -32,7 +32,7 @@ import os
 def build_pinyin_map(ds_dictpath):
     phone_map = {}  # 音素序列 -> 拼音
     max_length = 0
-    with open(ds_dictpath, 'r') as f:
+    with open(ds_dictpath, 'r',encoding='utf-8') as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) >= 2:

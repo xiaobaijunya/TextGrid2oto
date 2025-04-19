@@ -10,7 +10,7 @@ def ds_dict_read(ds_dictpath,ignore):
     vowels = []
     consonant =[]
     try:
-        with open(ds_dictpath, 'r') as f:
+        with open(ds_dictpath, 'r',encoding='utf-8') as f:
             for line in f:
                 line = line.split()
                 if len(line) == 3:
