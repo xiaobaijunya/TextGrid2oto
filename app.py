@@ -62,7 +62,7 @@ def generate_config(
     if config['lab'] == 'Y' or config['lab'] == 'y':
         progress(0.2,'1.生成lab')
         wavname2lab.run(config['wav_path'], config['cut'])
-    if SOFA_type == 0:
+    if SOFA_mode == 0:
         progress(0.3, '2.正在前往sofa生成TextGrid')
         sys.path.append('SOFA')
         from SOFA import infer
