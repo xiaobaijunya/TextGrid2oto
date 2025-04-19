@@ -1,5 +1,21 @@
 #pip install -r requirements.txt
 
-nuitka
 pywebview
 gradio
+click
+einops
+h5py
+librosa
+lightning
+matplotlib
+numpy
+PyYAML
+tensorboard
+tensorboardX
+tqdm
+textgrid
+chardet
+numba
+torch
+torchaudio
+pandas
