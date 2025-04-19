@@ -139,8 +139,8 @@ def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_s
     CV_V = presamp_read(presamp_path)
     CV_V['R']='R'
     print(CV_V)
-    with open(utau_phone_json, 'r', encoding='utf-8') as f:
-        vc_data = json.load(f)
+    # with open(utau_phone_json, 'r', encoding='utf-8') as f:
+    #     vc_data = json.load(f)
     with open(word_phone_json, 'r', encoding='utf-8') as f:
         cv_data = json.load(f)
     oto = json2cvoto(cv_data,cv_sum)
