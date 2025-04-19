@@ -235,7 +235,7 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
         with gr.Row():
             cv_sum = gr.Textbox(label="CV规则比例", value="1,3,1.5,1,2")
             vc_sum = gr.Textbox(label="VC规则比例", value="3,3,1.5,1,3,3")
-            vv_sum = gr.Textbox(label="VV规则比例", value="0,0,0,0,0")
+            vv_sum = gr.Textbox(label="VV规则比例", value="3,3,1.5,1,1.5")
 
             cv_offset = gr.Textbox(label="CV数值偏移量", value="0,0,0,0,0")
             vc_offset = gr.Textbox(label="VC数值偏移量", value="0,0,0,0,0")
