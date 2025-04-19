@@ -1,5 +1,6 @@
 import wavname2lab
-from textgrid2json import ds_json2filter, word2utau_phone, TextGrid2ds_json, ds_json2word
+from textgrid2json import ds_json2filter, TextGrid2ds_json, ds_json2word
+# from textgrid2json import word2utau_phone
 from json2oto import json2CV_oto, json2oto, json2VCV_oto
 from oto import oto_check
 from oto import oto_rw
@@ -39,7 +40,7 @@ def run_oto():
         presamp=input('请输入presamp.ini的路径：')
         if not presamp:
             presamp = 'presamp/risku中文CVVCpresamp.ini'
-        word2utau_phone.generate_utau_phone(presamp, TextGrid_path + '/json/word_phone.json')
+        # word2utau_phone.generate_utau_phone(presamp, TextGrid_path + '/json/word_phone.json')
         print('5.生成utauphone_json')
         # word2utau_phone.generate_utau_phone(presamp,TextGrid_path+'/json/utau_phone.json')
         print('6.生成oto.ini')
@@ -122,8 +123,8 @@ def auto_run(config):
         ds_json2filter.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone.json', config['ignore'])
         print('3.生成word.json')
         ds_json2word.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone_filter.json')
-        print('4.生成utau音素')
-        word2utau_phone.generate_utau_phone(config['presamp'], config['TextGrid_path'] + '/json/word_phone.json')
+        # print('4.生成utau音素')
+        # word2utau_phone.generate_utau_phone(config['presamp'], config['TextGrid_path'] + '/json/word_phone.json')
         print('5.生成utauphone_json')
         # word2utau_phone.generate_utau_phone(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json')
         print('6.生成oto.ini')
