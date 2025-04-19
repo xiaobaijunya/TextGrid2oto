@@ -16,10 +16,25 @@ def generate_config(
         cv_offset, vc_offset, pitch, CV_repeat,
         VC_repeat, cover, sofa_model
 ):
-    config = (f"""wav_path={wav_path}\nds_dict={ds_dict}\npresamp={presamp}\ncut={cut}\nignore={ignore}\n
-              VCV_mode={VCV_mode}\nlab={lab}\ncv_sum={cv_sum}\nvc_sum={vc_sum}\nvv_sum={vv_sum}\ncv_offset={cv_offset}\n
-              vc_offset={vc_offset}\npitch={pitch}\nCV_repeat={CV_repeat}\nVC_repeat={VC_repeat}\ncover={cover}\n
-              sofa_model={sofa_model}""")
+    config = (
+        f"wav_path={wav_path}\n"
+        f"ds_dict={ds_dict}\n"
+        f"presamp={presamp}\n"
+        f"cut={cut}\n"
+        f"ignore={ignore}\n"
+        f"VCV_mode={VCV_mode}\n"
+        f"lab={lab}\n"
+        f"cv_sum={cv_sum}\n"
+        f"vc_sum={vc_sum}\n"
+        f"vv_sum={vv_sum}\n"
+        f"cv_offset={cv_offset}\n"
+        f"vc_offset={vc_offset}\n"
+        f"pitch={pitch}\n"
+        f"CV_repeat={CV_repeat}\n"
+        f"VC_repeat={VC_repeat}\n"
+        f"cover={cover}\n"
+        f"sofa_model={sofa_model}"
+    )
     with open('config.txt', 'w', encoding='utf-8') as f:
         f.write(config)
 
