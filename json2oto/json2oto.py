@@ -8,8 +8,9 @@ import re
 #CV(V),VC(VV)(VR),-CV（-V）
 
 def presamp_read(presamps_path):
-    V = []
-    C = []
+    CV_V = {}
+    CV_C = {}
+    V_V = []
     with open(presamps_path, 'r') as file:
         ini_text = file.read()
         # 提取 [VOWEL] 部分
@@ -22,14 +23,18 @@ def presamp_read(presamps_path):
         consonants = consonant_match.group(1).strip()
         # print(consonants)
     for vowel in vowels.split('\n'):
-        V.append(vowel.split('=')[0])
+        V0=(vowel.split('=')[0])
+        for vowel in vowel.split('=')[2].split(','):
+            CV_V[vowel]=V0
     for consonant in consonants.split('\n'):
-        C.append(consonant.split('=')[0])
-    V = set(V)
-    C = set(C)
-    # print(V,C)
-    return V,C
+        C0=(consonant.split('=')[0])
+        for consonant in consonant.split('=')[1].split(','):
+            CV_C[consonant]=C0
+    V_V = [key for key in CV_V if key not in CV_C]
+    print(f"CV_V:{CV_V}\nCV_C:{CV_C}\n,V_V:{V_V}")
+    return CV_V, CV_C,V_V
 
+#VV_CV_VC
 def json2cvoto(cv_data,sum):
     oto = []
     for audio_file, data in cv_data.items():
@@ -85,10 +90,10 @@ def json2cvoto(cv_data,sum):
     return oto
 
 
-def json2vcoto(vc_data,C_V,sum,vv_sum):
+def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum):
 
     oto = []
-    for audio_file, data in vc_data.items():
+    for audio_file, data in cv_data.items():
         autio_name = audio_file
         phones = data.get('phones', {})
         long = data.get('long', [])
@@ -100,61 +105,65 @@ def json2vcoto(vc_data,C_V,sum,vv_sum):
 
         while i < len(sorted_phones) - 1:
             key, cont = sorted_phones[i]
-            key1, cont2 = sorted_phones[i + 1]
-            # 0V 1C
-            # CC规则
-            if cont['text'] in C_V[1] and cont2['text'] in C_V[1]:
-                # print(cont['text'] +''+ cont2['text'])
-                i+=1
+            key1, cont1 = sorted_phones[i + 1]
+            if cont['text'] == '-':
+                i += 1
                 continue
-                # -CV规则
-            elif cont['text'] == '-' :
-                i+=1
-                continue
-                #CV规则
-            elif cont['text'] in C_V[1] and cont2['text'] in C_V[0]:
-                i+=1
-                continue
-                #VV规则
-            elif cont['text'] in C_V[0] and cont2['text'] in C_V[0]:
-                phone_name = cont['text'] + ' ' + cont2['text']
+            elif cont1['text'] == 'R':
+                phone_name = CV_V[cont['text']] + ' ' + cont1['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
-                left = float(cont["xmin"]) * 1000 + ((float(cont['xmax']) - float(cont['xmin'])) * 1000 / vv_sum[0])
+                left = float(cont["middle"]) * 1000 + ((float(cont['xmax']) - float(cont['middle'])) * 1000 / vc_sum[0])
                 # 右线占比
-                right = (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 / vv_sum[2] - left + float(
-                    cont2['xmin']) * 1000
-                Prevoice = float(cont2['xmin']) * 1000 - left / vv_sum[3]
+                Prevoice = float(cont1['middle']) * 1000 - left / vc_sum[3]
+                right = (float(cont1['xmax']) - float(cont1['middle'])) * 1000 / vc_sum[2] + Prevoice
                 # 固定的占比
-                if vv_sum[1] ==0:
+                if vc_sum[1] == 0:
                     fixed = Prevoice
                 else:
-                    fixed = (float(cont2['xmax']) - float(cont2['xmin'])) * 1000 /vv_sum[1] + Prevoice
-
-                cross = Prevoice / sum[4]
+                    fixed = Prevoice + (float(cont1['xmax']) - float(cont1['middle'])) * 1000 / vc_sum[1]
+                cross = (float(cont['xmax']) - float(cont['middle'])) * 1000 / vc_sum[4]
+                i += 1
+                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+            elif cont1['text'] in V_V:
+                phone_name = CV_V[cont['text']] + ' ' + cont1['text']
+                # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
+                left = float(cont["middle"]) * 1000 + ((float(cont['xmax']) - float(cont['middle'])) * 1000 / vv_sum[0])
+                # 右线占比
+                Prevoice = float(cont1['middle']) * 1000 - left / vv_sum[3]
+                right = (float(cont1['xmax']) - float(cont1['middle'])) * 1000 / vv_sum[2] + Prevoice
+                # 固定的占比
+                if vv_sum[1] == 0:
+                    fixed = Prevoice
+                else:
+                    fixed = Prevoice + (float(cont1['xmax']) - float(cont1['middle'])) * 1000 / vv_sum[1]
+                cross = (float(cont['xmax']) - float(cont['middle'])) * 1000 / vv_sum[4]
+                i += 1
+                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+            elif cont1['text'] in CV_C:
+                phone_name = CV_V[cont['text']] + ' ' + CV_C[cont1['text']]
+                # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
+                left = float(cont["middle"]) * 1000 + ((float(cont['xmax']) - float(cont['middle'])) * 1000 / vc_sum[0])
+                # 右线占比
+                Prevoice = float(cont1['xmin']) * 1000 - left / vc_sum[3]
+                right = (float(cont1['middle']) - float(cont1['xmin'])) * 1000 / vc_sum[2] + Prevoice
+                # 固定的占比
+                if vc_sum[1] == 0:
+                    fixed = Prevoice
+                else:
+                    fixed = Prevoice + (float(cont1['middle']) - float(cont1['xmin'])) * 1000 / vc_sum[1]
+                cross = (float(cont['xmax']) - float(cont['middle'])) * 1000 / vc_sum[4]
                 i += 1
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             else:
-                phone_name = cont['text'] +' ' + cont2['text']
-                # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
-                left = float(cont["xmin"])*1000+((float(cont['xmax'])-float(cont['xmin'])) * 1000 / sum[0])
-                # 右线占比
-                right = (float(cont2['xmax'])-float(cont2['xmin']))* 1000/ sum[2] - left+float(cont2['xmin'])*1000
-                Prevoice =float(cont2['xmin'])*1000-left/ sum[3]
-                # 固定的占比
-                if sum[1] ==0:
-                    fixed = Prevoice
-                else:
-                    fixed = Prevoice+(right-Prevoice)/sum[1]
-
-                cross = Prevoice / sum[4]
                 i += 1
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                continue
     return oto
 
 
 
 def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum):
-    C_V = presamp_read(presamp_path)
+    CV_V, CV_C,V_V = presamp_read(presamp_path)
     with open(utau_phone_json, 'r', encoding='utf-8') as f:
         vc_data = json.load(f)
     with open(word_phone_json, 'r', encoding='utf-8') as f:
@@ -165,7 +174,7 @@ def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_s
         for i in oto:
             f.write(i)
         print('cv_oto.ini生成成功')
-    oto = json2vcoto(vc_data,C_V, vc_sum,vv_sum)
+    oto = json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum)
     # print(oto)
     with open(wav_path+'/vc_oto.ini', 'w', encoding='utf-8') as f:
         for i in oto:
@@ -179,13 +188,14 @@ if __name__ == '__main__':
     # word_phone_json = 'G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json'
     # wav_path = 'G:/编程/utau自动标注/F3'
 
-    presamp_path = 'E:\\UTAU\\voice\yuezheng_longya\presamp.ini'
-    utau_phone = 'E:\\UTAU\\voice\yuezheng_longya\D4/TextGrid/json/utau_phone.json'
-    word_phone_json = 'E:\\UTAU\\voice\yuezheng_longya\D4/TextGrid/json/word_phone.json'
-    wav_path = 'E:\\UTAU\\voice\yuezheng_longya\D4'
+    presamp_path = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini'
+    utau_phone = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3/TextGrid/json/utau_phone.json'
+    word_phone_json = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3/TextGrid/json/word_phone.json'
+    wav_path = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3'
 
     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
     cv_sum = [1,3,1.5,1,2]
     #VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
     vc_sum=[3,0,2,1,2,3]
-    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum)
+    vv_sum=[3,3,1.5,1,1.5]
+    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum)
