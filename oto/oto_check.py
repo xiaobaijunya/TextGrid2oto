@@ -50,15 +50,26 @@ def cvvc_presamp_read(presamps_path):
 
 def oto_read(file_path):
     oto_data=[]
-    with open(file_path, 'r',encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            parts = line.split('=')
-            # print(parts)
-            parts2 = parts[1].split(',')
-            # print(parts2)
-            oto_data.append([parts[0]]+[parts2[0]]+[int(round(float(num_str))) for num_str in parts2[1:]])
-            #wav+别名+四舍五入后的数值
+    encodings = ['shift-jis','utf-8', 'gbk']
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    parts = line.split('=')
+                    # print(parts)
+                    parts2 = parts[1].split(',')
+                    # print(parts2)
+                    oto_data.append([parts[0]] + [parts2[0]] + [int(round(float(num_str))) for num_str in parts2[1:]])
+                    # wav+别名+四舍五入后的数值
+            print(f'成功使用 {encoding} 编码读取文件。')
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        print('无法使用尝试的编码读取oto文件，请检查文件编码。')
+        input('按任意键退出')
+        quit()
     print(f'oto文件解析成功：{file_path}')
     return oto_data
 
@@ -88,15 +99,20 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
             if phone not in phone_name:
                 print(phone,end=',')
     elif vcv_mode == '1':
+        phone=[]
         print('音源类型：VCV')
         V_C = cvvc_presamp_read(presamps_path)
         oto_data = oto_rw.oto_read(oto_path)
         for byname in oto_data:
             phone_name.append(byname[1].replace(pitch, ''))
         print('缺少的VCV音素：', end='')
-        for phone in V_C[4]:
-            if phone not in phone_name:
-                print(phone, end=',')
+        #V,C,CV,VC,VV
+        for phone0 in V_C[0]:
+            for phone2 in V_C[2]:
+                phone.append(phone0+' '+phone2)
+        for phone3 in phone:
+            if phone3 not in phone_name:
+                print(phone3, end=',')
         print('\n缺少的- CV音素：', end='')
         CV = {'- ' + c for c in V_C[2]}
         for phone in CV:
@@ -130,5 +146,7 @@ if __name__ == '__main__':
     run('E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3\oto.ini','E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini',' F3','0')
     print('VCV')
     run('E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\VCV\oto.ini', '../presamp/樗儿式中文VCV-presamp.ini', '', '1')
+    print('VCV')
+    run('E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV\VCV\oto.ini', '../presamp/jp-hira-presamp.ini', '', '1')
     print('CVVR')
-    run('E:\OpenUtau\Singers\Weiyin3.0\combined\oto.ini', '../presamp/CVR-presamp.ini', '', '2')
+    run('E:\OpenUtau\Singers\Weiyin3.0\combined\oto.ini', '../presamp/CVR中文-presamp.ini', '', '2')
