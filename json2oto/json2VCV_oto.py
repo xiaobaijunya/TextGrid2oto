@@ -98,7 +98,7 @@ def json2VCVoto(cv_data,CV_V,sum):
             if cont['text'] == '-':
                 i+=1
                 continue
-            elif  cont1['text'] == 'R':
+            elif  cont1['text'] == 'R' and cont['text'] in CV_V:
                 phone_name = CV_V[cont['text']] + ' ' + cont1['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont["middle"]) * 1000 + ((float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[0])
