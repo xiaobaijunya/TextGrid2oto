@@ -125,6 +125,8 @@ def generate_config(
     oto_check.run(config['wav_path'] + '/oto.ini', config['presamp'], config['pitch'], config['VCV_mode'])
     progress(1,"🎉 任务完成！最终结果：")
     return "🎉 任务完成！最终结果：去命令行窗口查看"
+
+
 # 定义文件夹选择函数
 def select_folder():
     folder_path = filedialog.askdirectory(title="选择文件夹")  # 打开文件夹选择对话框
@@ -164,14 +166,26 @@ def scan_model_folder():
         return sub_folders
     return []
 
+def scan_presamp_folder():
+    presamp = "presamp"
+    if presamp:
+        all_files = [f for f in os.listdir(presamp) if os.path.isfile(os.path.join(presamp, f))]
+        print(all_files)
+        return all_files
+    return []
+
 # 定义选择文件夹后更新 ds_dict 和 sofa_model 的函数
-def update_paths(selected_folder):
+def update_model_paths(selected_folder):
     folder_path = os.path.join("model", selected_folder)
     txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
     ckpt_files = [f for f in os.listdir(folder_path) if f.endswith('.ckpt')]
     ds_dict_path = os.path.join(folder_path, txt_files[0]) if txt_files else ""
     sofa_model_path = os.path.join(folder_path, ckpt_files[0]) if ckpt_files else ""
     return ds_dict_path, sofa_model_path
+
+def update_presamp_paths(selected_folder):
+    folder_path = os.path.join("presamp", selected_folder)
+    return folder_path
 
 with gr.Blocks(title="UTAU 参数生成器") as demo:
     gr.Markdown("### 必填参数配置")
@@ -199,8 +213,9 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
         )
         # 替换原按钮为下拉框
         model_folders = scan_model_folder()
-        model_folder_selector = gr.Dropdown(choices=model_folders, label="选择模型")
-
+        model_folder_selector = gr.Dropdown(choices=model_folders, label="选择自带模型")
+        model_presamp = scan_presamp_folder()
+        model_presamp_selector = gr.Dropdown(choices=model_presamp, label="选择自带presamp")
 
     with gr.Row(equal_height=True):
         with gr.Row(equal_height=True):
@@ -245,9 +260,14 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
     # 定义更新参数的函数
 
     model_folder_selector.change(
-        fn=update_paths,
+        fn=update_model_paths,
         inputs=model_folder_selector,
         outputs=[ds_dict, sofa_model]
+    )
+    model_presamp_selector.change(
+        fn=update_presamp_paths,
+        inputs=model_presamp_selector,
+        outputs=presamp
     )
     # 按钮点击事件绑定
     folder_btn.click(
