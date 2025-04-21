@@ -213,9 +213,9 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
         )
         # 替换原按钮为下拉框
         model_folders = scan_model_folder()
-        model_folder_selector = gr.Dropdown(choices=model_folders, label="选择自带模型")
+        model_folder_selector = gr.Dropdown(choices=model_folders, label="选择自带模型",value='')
         model_presamp = scan_presamp_folder()
-        model_presamp_selector = gr.Dropdown(choices=model_presamp, label="选择自带presamp")
+        model_presamp_selector = gr.Dropdown(choices=model_presamp, label="选择自带presamp",value='')
 
     with gr.Row(equal_height=True):
         with gr.Row(equal_height=True):
