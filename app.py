@@ -1,7 +1,7 @@
 import gradio as gr
 from tkinter import filedialog
 import wavname2lab
-from textgrid2json import ds_json2filter, word2utau_phone, TextGrid2ds_json, ds_json2word
+from textgrid2json import ds_json2filter, word2utau_phone, TextGrid2ds_json, ds_json2word,transcriptions_make
 from json2oto import json2CV_oto, json2oto, json2VCV_oto
 from oto import oto_check
 from oto import oto_rw
@@ -62,6 +62,7 @@ def generate_config(
     if config['lab'] == 'Y' or config['lab'] == 'y':
         progress(0.2,'1.生成lab')
         wavname2lab.run(config['wav_path'], config['cut'])
+        transcriptions_make.create_transcriptions_csv(config['wav_path'], config['ds_dict'])
     if SOFA_mode == 0:
         progress(0.3, '2.正在前往sofa生成TextGrid')
         sys.path.append('SOFA')
