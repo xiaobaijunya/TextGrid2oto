@@ -1,5 +1,5 @@
 import wavname2lab
-from textgrid2json import ds_json2filter, TextGrid2ds_json, ds_json2word
+from textgrid2json import ds_json2filter, TextGrid2ds_json, ds_json2word,transcriptions_make
 # from textgrid2json import word2utau_phone
 from json2oto import json2CV_oto, json2oto, json2VCV_oto
 from oto import oto_check
@@ -19,6 +19,7 @@ def run_oto():
         if not VCV_mode:
             VCV_mode = '0'
         wavname2lab.run(wav_path,cut)
+        transcriptions_make.create_transcriptions_csv(config['wav_path'], config['ds_dict'])
         print('2.生成TextGrid')
         print('需要自己前往sofa生成TextGrid')
         input('生成完成后,请输入任意键继续')
@@ -112,6 +113,7 @@ def auto_run(config):
         if config['lab']=='Y' or config['lab']=='y':
             print('1.生成lab')
             wavname2lab.run(config['wav_path'],config['cut'])
+            transcriptions_make.create_transcriptions_csv(config['wav_path'],config['ds_dict'])
             print('2.生成TextGrid')
             print('需要自己前往sofa生成TextGrid')
             input('生成完成后,请输入任意键继续')
