@@ -27,7 +27,9 @@ def textgrid_change(textgrid_content):
         phone_count  = {interval_key: {}}
         # 处理后续的键值对
         for item in data[1:]:
-            key, value = item.split(' = ', 1)
+            key, value = item.split('=', 1)
+            key = key.strip()
+            value = value.strip()
             value = value.strip('"')
             phone_count[interval_key][key] = value
             phones_dict.update(phone_count)
