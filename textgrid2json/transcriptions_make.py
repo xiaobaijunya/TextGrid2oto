@@ -5,7 +5,7 @@ import re
 
 def ds_dict_read(ds_dictpath):
     ds_dict = {}
-    with open(ds_dictpath, 'r') as f:
+    with open(ds_dictpath, 'r',encoding='utf-8') as f:
         word_list = f.read().strip().split('\n')
         for word in word_list:
             word = word.split('\t')
@@ -83,6 +83,7 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
                 else:
                     phones.append(word)
                     print(f"{all_data[i][0]}:{word}不存在于sofa字典中")
+            phones.append('SP')
             all_data[i][1] = ' '.join(phones)
             # print(all_data[i][1])
 
@@ -93,5 +94,5 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
 
 if __name__ == '__main__':
     # 示例调用，需替换为实际文件夹路径
-    folder_path = 'G:\编程\\utau自动标注\F3'
-    create_transcriptions_csv(folder_path,'G:\编程\\utau自动标注\sofa-dic\SOFA-UTAUCHN-dic.txt')
+    folder_path = r'F:\Download\utau数据集\有授权\中文\中文拼接数据_自有授权\xiabai CVVC JIANHUA TEST\D4'
+    create_transcriptions_csv(folder_path,r'F:\Download\utau数据集\合并.txt')
