@@ -35,7 +35,7 @@ def generate_config(
         f"CV_repeat={CV_repeat}\n"
         f"VC_repeat={VC_repeat}\n"
         f"cover={cover}\n"
-        f"sofa_model={sofa_model}"
+        f"sofa_model={sofa_model}\n"
         f"SOFA_mode={SOFA_mode}\n"
         f"SOFA_type={SOFA_type}\n"
     )
