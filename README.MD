@@ -59,11 +59,10 @@ huggingface（需要梯子）：https://baibaibai-utau-vocalbank-collect.hf.spac
 
 QQ群聊：1036935644
 
-### 未来支持。。。
+### 未来更新计划。。。
 
-1.更好的日语CVVC和日语VCV支持
+1.全新的专用标注模型
 
-2.UTAU专用标注模型
+2.给重构过的CVVC和CVR生成，重新调优数值
 
-3.。。。
-
+3.重构webUI结构
