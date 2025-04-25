@@ -42,7 +42,7 @@ def run(path,cuts):
 
 
 if __name__ == '__main__':
-    path = 'E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV'
+    path = r'F:\Download\utau数据集\有授权\中文\中文拼接数据_自有授权\xiabai CVVC JIANHUA TEST\D4'
     # 获取当前目录下所有的WAV文件
     run(path,['_','-'])
 

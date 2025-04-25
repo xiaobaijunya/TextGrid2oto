@@ -76,6 +76,7 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
                     row[3] = lab_file.read().strip()
             else:
                 all_data[i][3] = ''
+    for i in range(len(all_data)):
         if all_data[i][1] == '' and all_data[i][3] != '':
             for word in all_data[i][3].split(' '):
                 if word in ds_dict:
@@ -83,10 +84,9 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
                 else:
                     phones.append(word)
                     print(f"{all_data[i][0]}:{word}不存在于sofa字典中")
-            phones.append('SP')
+            phones.append('R')
             all_data[i][1] = ' '.join(phones)
             # print(all_data[i][1])
-
     # 写入或更新 transcriptions.csv 文件
     with open(csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
