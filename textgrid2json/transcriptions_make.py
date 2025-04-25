@@ -68,7 +68,6 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
     # 合并现有数据和新数据
     all_data = existing_data + new_data if existing_data else new_data
     for i in range(len(all_data)):
-        phones = []
         if all_data[i][3] == '':
             lab_file_path = os.path.join(folder_path, f"{all_data[i][0]}.lab")
             if os.path.exists(lab_file_path):
@@ -77,14 +76,17 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
             else:
                 all_data[i][3] = ''
     for i in range(len(all_data)):
+        phones = []
         if all_data[i][1] == '' and all_data[i][3] != '':
             for word in all_data[i][3].split(' '):
                 if word in ds_dict:
                     phones.append(ds_dict[word])
+                    print(ds_dict[word])
                 else:
                     phones.append(word)
                     print(f"{all_data[i][0]}:{word}不存在于sofa字典中")
             phones.append('R')
+            phones.append('SP')
             all_data[i][1] = ' '.join(phones)
             # print(all_data[i][1])
     # 写入或更新 transcriptions.csv 文件
