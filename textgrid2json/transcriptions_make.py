@@ -24,14 +24,14 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
             existing_data.append(headers)
             for row in reader:
                 name = row[0]
-                lab = row[3]
+                # lab = row[3]
                 # 如果 lab 列为空，尝试查找对应的 .lab 文件
                 # if not lab:
                 #     lab_file_path = os.path.join(folder_path, f"{name}.lab")
                 #     if os.path.exists(lab_file_path):
                 #         with open(lab_file_path, 'r', encoding='utf-8') as lab_file:
                 #             row[3] = lab_file.read().strip()
-                existing_data.append(row)
+                # existing_data.append(row)
                 existing_names.add(name)
     else:
         # 如果 CSV 文件不存在，创建一个空的 CSV 文件
@@ -72,7 +72,7 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
             lab_file_path = os.path.join(folder_path, f"{all_data[i][0]}.lab")
             if os.path.exists(lab_file_path):
                 with open(lab_file_path, 'r', encoding='utf-8') as lab_file:
-                    row[3] = lab_file.read().strip()
+                    all_data[i][3] = lab_file.read().strip()
             else:
                 all_data[i][3] = ''
     for i in range(len(all_data)):
@@ -81,7 +81,7 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
             for word in all_data[i][3].split(' '):
                 if word in ds_dict:
                     phones.append(ds_dict[word])
-                    # print(ds_dict[word])
+                    # phones.append('R')
                 else:
                     phones.append(word)
                     print(f"{all_data[i][0]}:{word}不存在于sofa字典中")
@@ -96,5 +96,5 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
 
 if __name__ == '__main__':
     # 示例调用，需替换为实际文件夹路径
-    folder_path = r'F:\Download\utau数据集\有授权\中文\中文拼接数据_自有授权\xiabai CVVC JIANHUA TEST\D4'
+    folder_path = r'F:\Download\utau数据集\有授权\中文\中文拼接数据_自有授权\baini_Chn_CVXY\E3'
     create_transcriptions_csv(folder_path,r'F:\Download\utau数据集\合并.txt')
