@@ -85,7 +85,8 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
                 else:
                     phones.append(word)
                     print(f"{all_data[i][0]}:{word}不存在于sofa字典中")
-            phones.append('R')
+            if phones[-1]!='R' and phones[-1]!='B':
+                phones.append('R')
             phones.append('SP')
             all_data[i][1] = ' '.join(phones)
             # print(all_data[i][1])
