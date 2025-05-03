@@ -78,6 +78,7 @@ def create_transcriptions_csv(folder_path,ds_dictpath):
     for i in range(len(all_data)):
         phones = []
         if all_data[i][1] == '' and all_data[i][3] != '':
+            phones.append('SP')
             for word in all_data[i][3].split(' '):
                 if word in ds_dict:
                     phones.append(ds_dict[word])
