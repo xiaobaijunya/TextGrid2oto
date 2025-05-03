@@ -6,7 +6,7 @@ def main_process():
     table_path = input(f"请输入转换表路径（回车使用默认值 sofa-dic/hira2roma_list.txt）: ")
     if not os.path.exists(table_path):
         print(f"错误：转换表文件 {table_path} 不存在")
-        table_path = "sofa-dic/hira2roma_list.txt"
+        table_path = "dictionary/hira2roma_list.txt"
         print(f"使用转换表：{table_path}")
 
     # 加载转换表
