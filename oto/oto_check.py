@@ -53,7 +53,7 @@ def oto_read(file_path):
     encodings = ['shift-jis','utf-8', 'gbk']
     for encoding in encodings:
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, 'r',encoding=encoding) as f:
                 for line in f:
                     line = line.strip()
                     parts = line.split('=')
