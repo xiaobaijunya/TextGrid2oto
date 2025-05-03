@@ -1,7 +1,5 @@
-AP	AP
-SP	SP
-nve	n ve
-lve	l ve
+R	R
+B	B
 a	a
 ai	ai
 an	an
