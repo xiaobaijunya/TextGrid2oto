@@ -41,8 +41,11 @@ def generate_config(
     )
     with open('config.txt', 'w', encoding='utf-8') as f:
         f.write(config1)
-        f.write(f'#python infer.py --folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
-    progress(0, desc="✅ 配置文件已生成，开始执行主程序...")
+        if SOFA_type == 0:
+            f.write(f'#python infer.py --folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
+        elif SOFA_type == 1:
+            f.write(f'#python infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language cn --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+        progress(0, desc="✅ 配置文件已生成，开始执行主程序...")
     with open('config.txt', 'r', encoding='utf-8') as f:
         config = f.read().split('\n')
         for i in range(len(config)):
@@ -64,21 +67,37 @@ def generate_config(
         wavname2lab.run(config['wav_path'], config['cut'])
         transcriptions_make.create_transcriptions_csv(config['wav_path'], config['ds_dict'])
     if SOFA_mode == 0:
-        progress(0.3, '2.正在前往sofa生成TextGrid')
-        sys.path.append('SOFA')
-        from SOFA import infer
-        print(f'--folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
-        sys.argv = f'--folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence'
-        # infer.main(ckpt=os.path.abspath(sofa_model),mode='force',ap_detector='LoudnessSpectralcentroidAPDetector',g2p=os.path.abspath(ds_dict),folder=wav_path,out_formats='textgrid',in_format='lab',save_confidence=True)
-        with click.Context(infer.main) as ctx:
-            result = ctx.invoke(
-                infer.main,
-                ckpt=os.path.abspath(sofa_model),
-                folder=wav_path,
-                dictionary=os.path.abspath(ds_dict),
-                out_formats='textgrid',
-                save_confidence=True
-            )
+        if SOFA_type == 0:
+            progress(0.3, '2.正在前往sofa生成TextGrid')
+            sys.path.append('SOFA')
+            from SOFA import infer
+            print(f'--folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
+            sys.argv = f'--folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence'
+            # infer.main(ckpt=os.path.abspath(sofa_model),mode='force',ap_detector='LoudnessSpectralcentroidAPDetector',g2p=os.path.abspath(ds_dict),folder=wav_path,out_formats='textgrid',in_format='lab',save_confidence=True)
+            with click.Context(infer.main) as ctx:
+                result = ctx.invoke(
+                    infer.main,
+                    ckpt=os.path.abspath(sofa_model),
+                    folder=wav_path,
+                    dictionary=os.path.abspath(ds_dict),
+                    out_formats='textgrid',
+                    save_confidence=True
+                )
+        elif SOFA_type == 1:
+            progress(0.3, '2.正在前往HubertFA生成TextGrid')
+            sys.path.append('HubertFA')
+            from HubertFA import infer
+            print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language cn --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+            with click.Context(infer.main) as ctx:
+                result = ctx.invoke(
+                    infer.main,
+                    ckpt=os.path.abspath(sofa_model),
+                    folder=wav_path,
+                    language='cn',
+                    dictionary=os.path.abspath(ds_dict),
+                    save_confidence=True
+                )
+            print('已执行HubertFA')
     VCV_mode = config['VCV_mode']
     if not VCV_mode:
         VCV_mode = '0'
@@ -160,8 +179,12 @@ def update_params(voice_type):
     else:
         return "0,0,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,1.5", "0,0,0,0,0", "0,0,0,0,0"
 
-def scan_model_folder():
-    model_dir = "model"
+def scan_model_folder(SOFA_type):
+    model_dir = "HubertFA_model"
+    if SOFA_type == 0:
+        model_dir = "SOFA_model"
+    elif SOFA_type == 1:
+        model_dir = "HubertFA_model"
     if os.path.exists(model_dir) and os.path.isdir(model_dir):
         sub_folders = [d for d in os.listdir(model_dir) if os.path.isdir(os.path.join(model_dir, d))]
         return sub_folders
@@ -177,7 +200,12 @@ def scan_presamp_folder():
 
 # 定义选择文件夹后更新 ds_dict 和 sofa_model 的函数
 def update_model_paths(selected_folder):
-    folder_path = os.path.join("model", selected_folder)
+    model_dir = "HubertFA_model"
+    if SOFA_type == 0:
+        model_dir = "SOFA_model"
+    elif SOFA_type == 1:
+        model_dir = "HubertFA_model"
+    folder_path = os.path.join(model_dir, selected_folder)
     txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
     ckpt_files = [f for f in os.listdir(folder_path) if f.endswith('.ckpt')]
     ds_dict_path = os.path.join(folder_path, txt_files[0]) if txt_files else ""
@@ -209,11 +237,11 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
         )
         SOFA_type = gr.Radio(
             choices=[("SOFA", 0), ("HubertFA", 1)],  # (显示文本, 实际值)
-            value=0,  # 默认选中值
-            label="选择标记程序（目前仅sofa模型）"
+            value=1,  # 默认选中值
+            label="选择标记程序"
         )
         # 替换原按钮为下拉框
-        model_folders = scan_model_folder()
+        model_folders = scan_model_folder(SOFA_type)
         model_folder_selector = gr.Dropdown(choices=model_folders, label="选择自带模型",value='')
         model_presamp = scan_presamp_folder()
         model_presamp_selector = gr.Dropdown(choices=model_presamp, label="选择自带presamp",value='')
