@@ -1,7 +1,7 @@
 import gradio as gr
 from tkinter import filedialog
 import wavname2lab
-from textgrid2json import ds_json2filter, word2utau_phone, TextGrid2ds_json, ds_json2word,transcriptions_make
+from textgrid2json import ds_json2filter, word2utau_phone, TextGrid2ds_json, ds_json2word,transcriptions_make,del_SP
 from json2oto import json2CV_oto, json2oto, json2VCV_oto
 from oto import oto_check
 from oto import oto_rw
@@ -93,10 +93,11 @@ def generate_config(
                     infer.main,
                     ckpt=os.path.abspath(sofa_model),
                     folder=wav_path,
-                    language='cn',
+                    language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0],
                     dictionary=os.path.abspath(ds_dict),
                     save_confidence=True
                 )
+            del_SP.process_all_textgrid_files(wav_path+'/TextGrid')
             print('已执行HubertFA')
     VCV_mode = config['VCV_mode']
     if not VCV_mode:
@@ -187,7 +188,8 @@ def scan_model_folder(SOFA_type):
         model_dir = "HubertFA_model"
     if os.path.exists(model_dir) and os.path.isdir(model_dir):
         sub_folders = [d for d in os.listdir(model_dir) if os.path.isdir(os.path.join(model_dir, d))]
-        return sub_folders
+        print(sub_folders)
+        return gr.Dropdown(choices=sub_folders)
     return []
 
 def scan_presamp_folder():
@@ -199,21 +201,45 @@ def scan_presamp_folder():
     return []
 
 # 定义选择文件夹后更新 ds_dict 和 sofa_model 的函数
-def update_model_paths(selected_folder):
+def update_model_paths(SOFA_type, selected_folder):
     model_dir = "HubertFA_model"
     if SOFA_type == 0:
         model_dir = "SOFA_model"
     elif SOFA_type == 1:
         model_dir = "HubertFA_model"
+
     folder_path = os.path.join(model_dir, selected_folder)
     txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
     ckpt_files = [f for f in os.listdir(folder_path) if f.endswith('.ckpt')]
+
     ds_dict_path = os.path.join(folder_path, txt_files[0]) if txt_files else ""
     sofa_model_path = os.path.join(folder_path, ckpt_files[0]) if ckpt_files else ""
-    return ds_dict_path, sofa_model_path
+    print(txt_files)
+    ds_dict_path = os.path.abspath(ds_dict_path)
+    sofa_model_path = os.path.abspath(sofa_model_path)
+    # 使用 update() 方法更新下拉选项
+    return (
+        ds_dict_path,
+        sofa_model_path,
+
+    )
+
+def scan_dic_folder(sofa_model):
+    folder_path = os.path.dirname(sofa_model)
+    print(folder_path)
+    txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
+    print(txt_files)
+    return gr.Dropdown(choices=txt_files)
+
+def update_dict_paths(sofa_model,dict_folders):
+    folder_path = os.path.dirname(sofa_model)
+    folder_path = os.path.join(folder_path, dict_folders)
+    folder_path = os.path.abspath(folder_path)
+    return folder_path
 
 def update_presamp_paths(selected_folder):
     folder_path = os.path.join("presamp", selected_folder)
+    folder_path = os.path.abspath(folder_path)
     return folder_path
 
 with gr.Blocks(title="UTAU 参数生成器") as demo:
@@ -240,23 +266,23 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
             value=1,  # 默认选中值
             label="选择标记程序"
         )
-        # 替换原按钮为下拉框
-        model_folders = scan_model_folder(SOFA_type)
-        model_folder_selector = gr.Dropdown(choices=model_folders, label="选择自带模型",value='')
+
+        model_folder_selector = gr.Dropdown(choices=[], label="选择自带模型",value='')
+        dict_folders_selector = gr.Dropdown(choices=[], label="选择模型字典",value='')
         model_presamp = scan_presamp_folder()
-        model_presamp_selector = gr.Dropdown(choices=model_presamp, label="选择自带presamp",value='')
+        model_presamp_selector = gr.Dropdown(choices=model_presamp, label="选择presamp(优先使用录音表提供的)",value='')
 
     with gr.Row(equal_height=True):
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=3,min_width=150):
-                ds_dict = gr.Textbox(label="sofa字典路径",placeholder="输入模型路径")
-            with gr.Column(scale=2,min_width=150):
-                ds_dict_btn = gr.Button("选择文件", variant="primary")
         with gr.Row(equal_height=True):
             with gr.Column(scale=3,min_width=150):
                 sofa_model = gr.Textbox(label="sofa模型路径",placeholder="输入文件路径")
             with gr.Column(scale=2,min_width=150):
                 model_btn = gr.Button("选择文件", variant="primary")
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=3,min_width=150):
+                ds_dict = gr.Textbox(label="sofa字典路径",placeholder="输入模型路径")
+            with gr.Column(scale=2,min_width=150):
+                ds_dict_btn = gr.Button("选择文件", variant="primary")
 
     with gr.Row():
         VCV_mode = gr.Radio(
@@ -288,10 +314,32 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
             VC_repeat = gr.Textbox(label="VC重复次数", value="1")
     # 定义更新参数的函数
 
+    demo.load(
+        fn=scan_model_folder,
+        inputs=SOFA_type,
+        outputs=model_folder_selector
+    )
+
+    SOFA_type.change(
+        fn=scan_model_folder,
+        inputs=SOFA_type,
+        outputs=model_folder_selector
+    )
+
     model_folder_selector.change(
         fn=update_model_paths,
-        inputs=model_folder_selector,
+        inputs=[SOFA_type,model_folder_selector],
         outputs=[ds_dict, sofa_model]
+    )
+    dict_folders_selector.change(
+        fn=update_dict_paths,
+        inputs= [sofa_model,dict_folders_selector],
+        outputs=ds_dict
+    )
+    sofa_model.change(
+        fn=scan_dic_folder,
+        inputs=sofa_model,
+        outputs=dict_folders_selector
     )
     model_presamp_selector.change(
         fn=update_presamp_paths,
