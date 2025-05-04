@@ -19,3 +19,5 @@ numba
 torch
 torchaudio
 pandas
+transformers
+openai-whisper
