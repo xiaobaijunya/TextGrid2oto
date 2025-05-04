@@ -147,6 +147,13 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum):
                 # 右线占比
                 Prevoice = float(cont1['xmin']) * 1000 - left / vc_sum[3]
                 right = (float(cont1['middle']) - float(cont1['xmin'])) * 1000 / vc_sum[2] + Prevoice
+                #如果预发声等于右线（当纯V被当成VC用的时候）
+                if Prevoice == right:
+                    if Prevoice <= 20:
+                        right += 20
+                    else:
+                        Prevoice-=20
+
                 # 固定的占比
                 if vc_sum[1] == 0:
                     fixed = Prevoice
