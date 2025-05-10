@@ -11,7 +11,7 @@ def presamp_read(presamps_path):
     CV_V = {}
     CV_C = {}
     V_V = []
-    with open(presamps_path, 'r') as file:
+    with open(presamps_path, 'r',encoding='utf-8') as file:
         ini_text = file.read()
         # 提取 [VOWEL] 部分
         # 提取 [VOWEL] 部分
