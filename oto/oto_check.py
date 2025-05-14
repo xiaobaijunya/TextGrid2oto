@@ -53,6 +53,7 @@ def oto_read(file_path):
     encodings = ['shift-jis','utf-8', 'gbk']
     for encoding in encodings:
         try:
+            print(f'正在尝试使用 {encoding} 编码读取文件。')
             with open(file_path, 'r',encoding=encoding) as f:
                 for line in f:
                     line = line.strip()
