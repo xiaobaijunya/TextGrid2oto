@@ -44,7 +44,7 @@ def generate_config(
         if SOFA_type == 0:
             f.write(f'#python infer.py --folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
         elif SOFA_type == 1:
-            f.write(f'#python infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language cn --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+            f.write(f'#python infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
         progress(0, desc="✅ 配置文件已生成，开始执行主程序...")
     with open('config.txt', 'r', encoding='utf-8') as f:
         config = f.read().split('\n')
@@ -87,7 +87,7 @@ def generate_config(
             progress(0.3, '2.正在前往HubertFA生成TextGrid')
             sys.path.append('HubertFA')
             from HubertFA import infer
-            print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language cn --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+            print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
             with click.Context(infer.main) as ctx:
                 result = ctx.invoke(
                     infer.main,
