@@ -178,7 +178,7 @@ def update_params(voice_type):
     elif voice_type == 3:
         return "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0"
     else:
-        return "0,0,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,1.5", "0,0,0,0,0", "0,0,0,0,0"
+        return "0,0,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,3", "0,0,0,0,0", "0,0,0,0,0"
 
 def scan_model_folder(SOFA_type):
     model_dir = "HubertFA_model"
@@ -214,26 +214,25 @@ def update_model_paths(SOFA_type, selected_folder):
 
     ds_dict_path = os.path.join(folder_path, txt_files[0]) if txt_files else ""
     sofa_model_path = os.path.join(folder_path, ckpt_files[0]) if ckpt_files else ""
-    print(txt_files)
     ds_dict_path = os.path.abspath(ds_dict_path)
     sofa_model_path = os.path.abspath(sofa_model_path)
     # 使用 update() 方法更新下拉选项
     return (
         ds_dict_path,
         sofa_model_path,
-
+        gr.Dropdown(choices=txt_files, value=txt_files[0]),
+        gr.Dropdown(choices=ckpt_files, value=ckpt_files[0])
     )
-
-def scan_dic_folder(sofa_model):
-    folder_path = os.path.dirname(sofa_model)
-    print(folder_path)
-    txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
-    print(txt_files)
-    return gr.Dropdown(choices=txt_files)
 
 def update_dict_paths(sofa_model,dict_folders):
     folder_path = os.path.dirname(sofa_model)
     folder_path = os.path.join(folder_path, dict_folders)
+    folder_path = os.path.abspath(folder_path)
+    return folder_path
+
+def update_model_version_paths(sofa_model,model_version_folder_selector):
+    folder_path = os.path.dirname(sofa_model)
+    folder_path = os.path.join(folder_path, model_version_folder_selector)
     folder_path = os.path.abspath(folder_path)
     return folder_path
 
@@ -267,7 +266,8 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
             label="选择标记程序"
         )
 
-        model_folder_selector = gr.Dropdown(choices=[], label="选择自带模型",value='')
+        model_folder_selector = gr.Dropdown(choices=[], label="选择模型文件夹",value='')
+        model_version_folder_selector = gr.Dropdown(choices=[], label="选择模型",value='')
         dict_folders_selector = gr.Dropdown(choices=[], label="选择模型字典",value='')
         model_presamp = scan_presamp_folder()
         model_presamp_selector = gr.Dropdown(choices=model_presamp, label="选择presamp(优先使用录音表提供的)",value='')
@@ -329,17 +329,17 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
     model_folder_selector.change(
         fn=update_model_paths,
         inputs=[SOFA_type,model_folder_selector],
-        outputs=[ds_dict, sofa_model]
+        outputs=[ds_dict, sofa_model,dict_folders_selector,model_version_folder_selector]
     )
     dict_folders_selector.change(
         fn=update_dict_paths,
         inputs= [sofa_model,dict_folders_selector],
         outputs=ds_dict
     )
-    sofa_model.change(
-        fn=scan_dic_folder,
-        inputs=sofa_model,
-        outputs=dict_folders_selector
+    model_version_folder_selector.change(
+        fn=update_model_version_paths,
+        inputs=[sofa_model,model_version_folder_selector],
+        outputs=sofa_model
     )
     model_presamp_selector.change(
         fn=update_presamp_paths,
