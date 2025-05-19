@@ -47,10 +47,10 @@ def json2cvoto(cv_data,sum):
         sorted_phones = sorted(phones.items(), key=lambda x: int(x[0]))
         i = 0
 
-        while i < len(sorted_phones)-1:
+        while i <= len(sorted_phones)-1:
             key, cont = sorted_phones[i]
             # -CV规则
-            if cont['text'] in ['-','R']:
+            if cont['text'] in ['-','R'] and i<len(sorted_phones)-1:
                 key1, cont2 = sorted_phones[i + 1]
                 phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
@@ -195,10 +195,10 @@ if __name__ == '__main__':
     # word_phone_json = 'G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json'
     # wav_path = 'G:/编程/utau自动标注/F3'
 
-    presamp_path = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini'
-    utau_phone = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3/TextGrid/json/utau_phone.json'
-    word_phone_json = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3/TextGrid/json/word_phone.json'
-    wav_path = 'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3'
+    presamp_path = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\presamp.ini'
+    utau_phone = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C\TextGrid\json/utau_phone.json'
+    word_phone_json = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C\TextGrid\json/word_phone.json'
+    wav_path = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C'
 
     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
     cv_sum = [1,3,1.5,1,2]
