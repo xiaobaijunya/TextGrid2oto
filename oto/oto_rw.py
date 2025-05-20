@@ -130,10 +130,21 @@ def oto_write(file_path,oto_data,pitch,cover):
     else:
         print(f'{GREEN}不覆盖原文件：{file_path}{RESET}')
         new_file_path=oto_path(file_path)
-    with open(new_file_path, 'w',encoding='shift-jis') as f:
-        for oto in oto_data:
-            f.write(f'{oto[0]}={oto[1]}{pitch},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
-    print(f'{GREEN}新oto写入成功：{new_file_path}{RESET}')
+    encodings = ['shift-jis', 'utf-8']
+    for encoding in encodings:
+        try:
+            with open(new_file_path, 'w', encoding=encoding) as f:
+                for oto in oto_data:
+                    f.write(f'{oto[0]}={oto[1]}{pitch},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
+            print(f'{GREEN}新oto以 {encoding} 编码写入成功：{new_file_path}{RESET}')
+            break
+        except UnicodeEncodeError:
+            if encoding == 'shift-jis':
+                print(f'{YELLOW}无法使用 shift-jis 编码写入，尝试使用 utf-8 编码...{RESET}')
+            else:
+                print(f'{RED}无法使用 utf-8 编码写入，请检查数据。{RESET}')
+    else:
+        print(f'{RED}所有尝试的编码都失败，无法写入文件。{RESET}')
 
 def run(oto_path):
     oto=oto_read(oto_path)
