@@ -47,7 +47,7 @@ def json2cvoto(cv_data,sum):
         sorted_phones = sorted(phones.items(), key=lambda x: int(x[0]))
         i = 0
 
-        while i <= len(sorted_phones)-1:
+        while i < len(sorted_phones):
             key, cont = sorted_phones[i]
             # -CV规则
             if cont['text'] in ['-','R'] and i<len(sorted_phones)-1:
