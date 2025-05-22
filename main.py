@@ -1,7 +1,7 @@
 import wavname2lab
 from textgrid2json import ds_json2filter, TextGrid2ds_json, ds_json2word,transcriptions_make
 # from textgrid2json import word2utau_phone
-from json2oto import json2CV_oto, json2oto, json2VCV_oto
+from json2oto import json2CV_oto, json2oto, json2VCV_oto,json2test
 from oto import oto_check
 from oto import oto_rw
 import sys
@@ -59,6 +59,13 @@ def run_oto():
             vc_sum = [3, 0, 2, 1, 2]
             vv_sum = [3,3,1.5,1,1.5]
             json2CV_oto.run(presamp, TextGrid_path + '/json/utau_phone.json', TextGrid_path + '/json/word_phone.json', wav_path, cv_sum, vc_sum, vv_sum)
+        elif VCV_mode=='3':
+            # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
+            cv_sum = [1, 3, 1.5, 1, 2]
+            # VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
+            vc_sum = [3, 0, 2, 1, 2]
+            vv_sum = [3,3,1.5,1,1.5]
+            json2test.run(presamp, TextGrid_path + '/json/utau_phone.json', TextGrid_path + '/json/word_phone.json', wav_path, cv_sum, vc_sum, vv_sum)
         else:
             # -CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
             cv_sum = [1, 3, 1.5, 1, 2]
