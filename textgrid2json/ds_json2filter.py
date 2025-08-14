@@ -17,9 +17,14 @@ def ds_dict_read(ds_dictpath,ignore):
                     consonant.append(line[1])
                     vowels.append(line[2])
                 elif len(line) == 4:
-                    consonant.append(line[2])
+                    consonant.append(line[1])
                     vowels.append(line[2])
                     vowels.append(line[3])
+                elif len(line) == 5:
+                    consonant.append(line[1])
+                    vowels.append(line[2])
+                    vowels.append(line[3])
+                    vowels.append(line[4])
                 elif len(line) == 2:
                     vowels.append(line[1])
     except FileNotFoundError:
