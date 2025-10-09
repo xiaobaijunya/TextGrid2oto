@@ -87,13 +87,13 @@ def generate_config(
             progress(0.3, '2.正在前往HubertFA生成TextGrid')
             sys.path.append('HubertFA')
             from HubertFA import infer
-            print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+            print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
             with click.Context(infer.main) as ctx:
                 result = ctx.invoke(
                     infer.main,
                     ckpt=os.path.abspath(sofa_model),
                     folder=wav_path,
-                    language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0],
+                    language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0],#忽略-以后的内容
                     dictionary=os.path.abspath(ds_dict),
                     save_confidence=True
                 )
