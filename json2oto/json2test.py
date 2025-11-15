@@ -49,29 +49,30 @@ def json2cvoto(cv_data,sum):
 
         while i < len(sorted_phones)-1:
             key, cont = sorted_phones[i]
-            key1, cont1 = sorted_phones[i+1]
+            key1, cont2 = sorted_phones[i + 1]
             # -CV规则
             if cont['text'] in ['-','R']:
-                # key1, cont1 = sorted_phones[i + 1]
-                phone_name = '- '+cont1['text']
+                phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
-                left = float(cont1['xmin'])*1000/sum[0]
+                left = float(cont2['xmin'])*1000/sum[0]
 
-                Prevoice = (float(cont1['middle']) - float(cont1['xmin'])) * 1000 / sum[3]
+                Prevoice = (float(cont2['middle']) - float(cont2['xmin'])) * 1000 / sum[3]
                 #右线占比
-                right = (float(cont1['xmax'])-float(cont1['middle']))*1000/sum[2] + Prevoice
+                right = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[2] + Prevoice
                 # 固定的占比
                 if sum[1] ==0:
                     fixed = Prevoice
                 else:
-                    fixed = (float(cont1['xmax'])-float(cont1['middle']))*1000/sum[1]+ Prevoice
+                    fixed = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[1]+ Prevoice
                 cross = float(Prevoice)/sum[4]
                 i+=2
+                if right <0:
+                    print(f'{phone_name}右边界错误')
+                    continue
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
-            if cont1['text'] in ['-','R']:
-                # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
-                phone_name = cont['text']+'_R'
+            if cont2['text'] in ['-','R','SP']:
+                phone_name =cont['text'] + 'R'
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont['xmin']) * 1000 / sum[0]
 
@@ -85,24 +86,9 @@ def json2cvoto(cv_data,sum):
                     fixed = (float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[1] + Prevoice
                 cross = float(Prevoice) / sum[4]
                 i += 1
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
-                continue
-            if i == len(sorted_phones)-2 and cont['text'] not in ['-','R']:
-                # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
-                phone_name = cont['text']+'_R'
-                # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
-                left = float(cont['xmin']) * 1000 / sum[0]
-
-                Prevoice = (float(cont['middle']) - float(cont['xmin'])) * 1000 / sum[3]
-                # 右线占比
-                right = (float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[2] + Prevoice
-                # 固定的占比
-                if sum[1] == 0:
-                    fixed = Prevoice
-                else:
-                    fixed = (float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[1] + Prevoice
-                cross = float(Prevoice) / sum[4]
-                i += 1
+                if right <0:
+                    print(f'{phone_name}右边界错误')
+                    continue
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
             #CV规则
@@ -232,10 +218,10 @@ if __name__ == '__main__':
     # word_phone_json = 'G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json'
     # wav_path = 'G:/编程/utau自动标注/F3'
 
-    presamp_path = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\presamp.ini'
-    utau_phone = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C\TextGrid\json/utau_phone.json'
-    word_phone_json = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C\TextGrid\json/word_phone.json'
-    wav_path = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C'
+    presamp_path = 'E:\OpenUtau\Singers\weina2\presamp.ini'
+    utau_phone = 'E:\OpenUtau\Singers\weina2\F4\TextGrid\json/utau_phone.json'
+    word_phone_json = 'E:\OpenUtau\Singers\weina2\F4\TextGrid\json/word_phone.json'
+    wav_path = 'E:\OpenUtau\Singers\weina2\F4'
 
     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
     cv_sum = [1,3,1.5,1,2]

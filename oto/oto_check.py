@@ -138,16 +138,46 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
         for phone in _V:
             if phone not in phone_name:
                 print(phone, end=',')
+    elif vcv_mode == '3':
+        print('音源类型：Test')
+        V_C = cvvc_presamp_read(presamps_path)
+        oto_data = oto_read(oto_path)
+        for byname in oto_data:
+            phone_name.append(byname[1].replace(pitch, ''))
+        print('缺少的CV音素：', end='')
+        for phone in V_C[2]:
+            if phone not in phone_name:
+                print(phone,end=',')
+        print('\n缺少的VC音素：', end='')
+        for phone in V_C[3]:
+            if phone not in phone_name:
+                print(phone,end=',')
+        print('\n缺少的VV音素：', end='')
+        for phone in V_C[4]:
+            if phone not in phone_name:
+                print(phone,end=',')
+        print('\n缺少的- CV音素（可忽略）：', end='')
+        CV = {'- ' + c for c in V_C[2]}
+        for phone in CV:
+            if phone not in phone_name:
+                print(phone,end=',')
+        print('\n缺少的CVR音素（可忽略）：', end='')
+        CV = {c + 'R' for c in V_C[2]}
+        for phone in CV:
+            if phone not in phone_name:
+                print(phone,end=',')
 
     print()
 
 
 if __name__ == '__main__':
-    print('CVVC')
-    run('E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3\oto.ini','E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini',' F3','0')
-    print('VCV')
-    run('E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\VCV\oto.ini', '../presamp/樗儿式中文VCV-presamp.ini', '', '1')
-    print('VCV')
-    run('E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV\VCV\oto.ini', '../presamp/jp-hira-presamp.ini', '', '1')
-    print('CVVR')
-    run('E:\OpenUtau\Singers\Weiyin3.0\combined\oto.ini', '../presamp/CVR中文-presamp.ini', '', '2')
+    print('test')
+    run(r'E:\OpenUtau\Singers\weina\F4\oto.ini','G:\编程\\utau录音表生成器2\\risku优化版presamp.ini','','3')
+    # print('CVVC')
+    # run('E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3\oto.ini','E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini',' F3','0')
+    # print('VCV')
+    # run('E:\OpenUtau\Singers\空气音中文VCV_自动oto测试\VCV\oto.ini', '../presamp/樗儿式中文VCV-presamp.ini', '', '1')
+    # print('VCV')
+    # run('E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV\VCV\oto.ini', '../presamp/jp-hira-presamp.ini', '', '1')
+    # print('CVVR')
+    # run('E:\OpenUtau\Singers\Weiyin3.0\combined\oto.ini', '../presamp/CVR中文-presamp.ini', '', '2')
