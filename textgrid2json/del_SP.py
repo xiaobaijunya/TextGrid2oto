@@ -20,6 +20,7 @@ def process_textgrid(file_path):
                 if new_intervals:
                     new_intervals[-1] = (new_intervals[-1][0], intervals[i + 1][0], new_intervals[-1][2])
                 i += 1
+                print(f"{file_path}已删除 SP 区间: {intervals[i][0]} - {intervals[i][1]}")
             else:
                 new_intervals.append(intervals[i])
                 i += 1
@@ -54,7 +55,7 @@ def process_all_textgrid_files(input_dir):
             # 直接覆盖原文件内容
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(processed_content)
-            print(f"已处理并覆盖 {file_path}")
+            # print(f"已处理并覆盖 {file_path}")
         except Exception as e:
             print(f"处理 {file_path} 时出错: {e}")
 
