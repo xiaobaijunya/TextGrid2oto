@@ -65,7 +65,7 @@ def json2cvoto(cv_data,sum):
                 else:
                     fixed = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[1]+ Prevoice
                 cross = float(Prevoice)/sum[4]
-                i+=2
+                i+=1
                 if right <0:
                     print(f'{phone_name}右边界错误')
                     continue
