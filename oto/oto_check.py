@@ -172,7 +172,7 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
 
 if __name__ == '__main__':
     print('test')
-    run(r'E:\OpenUtau\Singers\weina\F4\oto.ini','G:\编程\\utau录音表生成器2\\risku优化版presamp.ini','','3')
+    run(r'E:\OpenUtau\Singers\weina2\F4\oto.ini','E:\OpenUtau\Singers\weina2\presamp.ini','','3')
     # print('CVVC')
     # run('E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3\oto.ini','E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini',' F3','0')
     # print('VCV')

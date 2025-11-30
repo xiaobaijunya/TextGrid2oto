@@ -1,5 +1,8 @@
 #pip install -r requirements.txt
 
+onnxruntime
+#onnxruntime-directml
+#onnxruntime-gpu
 pywebview
 gradio
 click

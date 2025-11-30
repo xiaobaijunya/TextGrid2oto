@@ -51,7 +51,7 @@ def json2cvoto(cv_data,sum):
             key, cont = sorted_phones[i]
             key1, cont2 = sorted_phones[i + 1]
             # -CV规则
-            if cont['text'] in ['-','R']:
+            if cont['text'] in ['R', '-', 'AP', 'SP']:
                 phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont2['xmin'])*1000/sum[0]
@@ -71,7 +71,7 @@ def json2cvoto(cv_data,sum):
                     continue
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
-            if cont2['text'] in ['-','R','SP']:
+            if cont2['text'] in ['R', '-', 'AP', 'SP']:
                 phone_name =cont['text'] + 'R'
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont['xmin']) * 1000 / sum[0]
@@ -129,7 +129,7 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum):
         while i < len(sorted_phones) - 1:
             key, cont = sorted_phones[i]
             key1, cont1 = sorted_phones[i + 1]
-            if cont['text'] in ['-','R']:
+            if cont['text'] in ['R', '-', 'AP', 'SP']:
                 i += 1
                 continue
             elif cont1['text'] in ['R','B'] and cont['text'] in CV_V:

@@ -48,7 +48,10 @@ def generate_config(
         if SOFA_type == 0:
             f.write(f'#python infer.py --folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
         elif SOFA_type == 1:
-            f.write(f'#python infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+            if sofa_model.split('.')[-1] == 'onnx':
+                f.write(f'#python onnx_infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+            else:
+                f.write(f'#python infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
         progress(0, desc="✅ 配置文件已生成，开始执行主程序...")
     with open('config.txt', 'r', encoding='utf-8') as f:
         config = f.read().split('\n')
@@ -103,20 +106,36 @@ def generate_config(
                     save_confidence=True
                 )
         elif SOFA_type == 1:
-            progress(0.3, '2.正在前往HubertFA生成TextGrid')
-            print('2.正在前往HubertFA生成TextGrid')
-            sys.path.append('HubertFA')
-            from HubertFA import infer
-            print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
-            with click.Context(infer.main) as ctx:
-                result = ctx.invoke(
-                    infer.main,
-                    ckpt=os.path.abspath(sofa_model),
-                    folder=wav_path,
-                    language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0],#忽略-以后的内容
-                    dictionary=os.path.abspath(ds_dict),
-                    save_confidence=True
-                )
+            if sofa_model.split('.')[-1] == 'ckpt':
+                progress(0.3, '2.正在前往HubertFA生成TextGrid')
+                print('2.正在前往HubertFA生成TextGrid')
+                sys.path.append('HubertFA')
+                from HubertFA import infer
+                print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+                with click.Context(infer.main) as ctx:
+                    result = ctx.invoke(
+                        infer.main,
+                        ckpt=os.path.abspath(sofa_model),
+                        folder=wav_path,
+                        language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0],#忽略-以后的内容
+                        dictionary=os.path.abspath(ds_dict),
+                        save_confidence=True
+                    )
+            else:
+                progress(0.3, '2.正在前往HubertFA生成TextGrid')
+                print('2.正在前往HubertFA生成TextGrid')
+                sys.path.append('HubertFA')
+                from HubertFA import onnx_infer
+                print(f'--onnx_folder {os.path.dirname(os.path.abspath(sofa_model))} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+                with click.Context(onnx_infer.infer) as ctx:
+                    result = ctx.invoke(
+                        onnx_infer.infer,
+                        onnx_folder=os.path.dirname(os.path.abspath(sofa_model)),  # 修改这里：使用onnx_folder而不是ckpt
+                        folder=wav_path,
+                        language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0],  # 忽略-以后的内容
+                        dictionary=os.path.abspath(ds_dict),
+                        save_confidence=True
+                    )
             del_SP.process_all_textgrid_files(wav_path+'/TextGrid')
             print('已执行HubertFA')
     VCV_mode = config['VCV_mode']
@@ -236,7 +255,7 @@ def update_model_paths(SOFA_type, selected_folder):
 
     folder_path = os.path.join(model_dir, selected_folder)
     txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
-    ckpt_files = [f for f in os.listdir(folder_path) if f.endswith('.ckpt')]
+    ckpt_files = [f for f in os.listdir(folder_path) if f.endswith('.ckpt') or f.endswith('.onnx')]
 
     ds_dict_path = os.path.join(folder_path, txt_files[0]) if txt_files else ""
     sofa_model_path = os.path.join(folder_path, ckpt_files[0]) if ckpt_files else ""
