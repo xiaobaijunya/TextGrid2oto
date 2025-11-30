@@ -351,7 +351,7 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
                 cover = gr.Radio(choices=["Y", "N"], value="Y", label="覆盖oto")
             with gr.Row():
                 cut = gr.Textbox(label="字符分隔符", value="_,-")
-                ignore = gr.Textbox(label="忽略的sofa音素", value="AP,SP")
+                ignore = gr.Textbox(label="忽略的sofa音素", value="1,2")
 
             gr.Markdown("### 可选参数配置")
             with gr.Accordion("高级参数配置", open=False):

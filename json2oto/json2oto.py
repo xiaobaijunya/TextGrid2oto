@@ -50,7 +50,11 @@ def json2cvoto(cv_data,sum):
         while i < len(sorted_phones):
             key, cont = sorted_phones[i]
             # -CV规则
-            if cont['text'] in ['R', '-', 'AP', 'SP'] and i<len(sorted_phones)-1:
+            if i+1 < len(sorted_phones):
+                if cont['text'] in ['R', '-','SP','AP'] and sorted_phones[i+1][1]['text'] in ['R','-','SP','AP']:
+                    i+=1
+                    continue
+            if cont['text'] in ['R', '-'] and i<len(sorted_phones)-1:
                 key1, cont2 = sorted_phones[i + 1]
                 phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
@@ -65,7 +69,7 @@ def json2cvoto(cv_data,sum):
                 else:
                     fixed = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[1]+ Prevoice
                 cross = float(Prevoice)/sum[4]
-                i+=1
+                i+=2
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
             #CV规则
@@ -106,7 +110,7 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum):
         while i < len(sorted_phones) - 1:
             key, cont = sorted_phones[i]
             key1, cont1 = sorted_phones[i + 1]
-            if cont['text'] in ['R', '-', 'AP', 'SP']:
+            if cont['text'] in ['R', '-']:
                 i += 1
                 continue
             elif cont1['text'] in ['R','B'] and cont['text'] in CV_V:
@@ -195,10 +199,11 @@ if __name__ == '__main__':
     # word_phone_json = 'G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json'
     # wav_path = 'G:/编程/utau自动标注/F3'
 
-    presamp_path = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\presamp.ini'
-    utau_phone = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C\TextGrid\json/utau_phone.json'
-    word_phone_json = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C\TextGrid\json/word_phone.json'
-    wav_path = 'E:\OpenUtau\Singers\溯狼ジョChinese五音阶\A3C'
+    base_path= r'E:\OpenUtau\Singers\bainizh_2025.11.29\E3'
+    presamp_path = r'E:\OpenUtau\Singers\bainizh_2025.11.29\presamp.ini'
+    utau_phone =base_path+ r'\TextGrid\json/utau_phone.json'
+    word_phone_json =base_path+ r'\TextGrid\json/word_phone.json'
+    wav_path =base_path
 
     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
     cv_sum = [1,3,1.5,1,2]

@@ -39,6 +39,8 @@ def json2cvoto(cv_data,sum):
     oto = []
     for audio_file, data in cv_data.items():
         autio_name = audio_file
+        # if 'R' in audio_file:
+        #     print('1')
         phones = data.get('phones', {})
         long = data.get('long', [])
         if not phones:
@@ -51,7 +53,10 @@ def json2cvoto(cv_data,sum):
             key, cont = sorted_phones[i]
             key1, cont2 = sorted_phones[i + 1]
             # -CV规则
-            if cont['text'] in ['R', '-', 'AP', 'SP']:
+            if cont['text'] in ['R', '-','SP','AP'] and cont2['text'] in ['R','-','SP','AP']:
+                i+=1
+                continue
+            if cont['text'] in ['R', '-','SP','AP']:
                 phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont2['xmin'])*1000/sum[0]
@@ -65,13 +70,13 @@ def json2cvoto(cv_data,sum):
                 else:
                     fixed = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[1]+ Prevoice
                 cross = float(Prevoice)/sum[4]
-                i+=1
+                i+=2
                 if right <0:
                     print(f'{phone_name}右边界错误')
                     continue
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
-            if cont2['text'] in ['R', '-', 'AP', 'SP']:
+            if cont2['text'] in ['R', '-','SP','AP']:
                 phone_name =cont['text'] + 'R'
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont['xmin']) * 1000 / sum[0]
@@ -129,7 +134,7 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum):
         while i < len(sorted_phones) - 1:
             key, cont = sorted_phones[i]
             key1, cont1 = sorted_phones[i + 1]
-            if cont['text'] in ['R', '-', 'AP', 'SP']:
+            if cont['text'] in ['R', '-','SP','AP']:
                 i += 1
                 continue
             elif cont1['text'] in ['R','B'] and cont['text'] in CV_V:
@@ -217,11 +222,11 @@ if __name__ == '__main__':
     # utau_phone = 'G:/编程/utau自动标注/F3/TextGrid/json/utau_phone.json'
     # word_phone_json = 'G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json'
     # wav_path = 'G:/编程/utau自动标注/F3'
-
-    presamp_path = 'E:\OpenUtau\Singers\weina2\presamp.ini'
-    utau_phone = 'E:\OpenUtau\Singers\weina2\F4\TextGrid\json/utau_phone.json'
-    word_phone_json = 'E:\OpenUtau\Singers\weina2\F4\TextGrid\json/word_phone.json'
-    wav_path = 'E:\OpenUtau\Singers\weina2\F4'
+    base_path= r'E:\OpenUtau\Singers\bainizh_2025.11.29\E3'
+    presamp_path = r'E:\OpenUtau\Singers\bainizh_2025.11.29\presamp.ini'
+    utau_phone =base_path+ r'\TextGrid\json/utau_phone.json'
+    word_phone_json =base_path+ r'\TextGrid\json/word_phone.json'
+    wav_path =base_path
 
     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
     cv_sum = [1,3,1.5,1,2]

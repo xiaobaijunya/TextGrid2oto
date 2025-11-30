@@ -43,6 +43,18 @@ def ds_dict_read(ds_dictpath,ignore):
 
 #删除不存在的音素
 #传入json数据和有效列表
+# def filter_json_data(json_data, valid_list):
+#     for key, value in json_data.items():
+#         phones = value.get('phones', {})
+#         keys_to_remove = []
+#         for phone_key, phone_value in phones.items():
+#             text = phone_value.get('text')
+#             if text and text not in valid_list:
+#                 keys_to_remove.append(phone_key)
+#         for key_to_remove in keys_to_remove:
+#             del phones[key_to_remove]
+#     json_data=reorganize_json_data(json_data)
+#     return json_data
 def filter_json_data(json_data, valid_list):
     for key, value in json_data.items():
         phones = value.get('phones', {})
@@ -50,13 +62,18 @@ def filter_json_data(json_data, valid_list):
         for phone_key, phone_value in phones.items():
             text = phone_value.get('text')
             if text and text not in valid_list:
-                keys_to_remove.append(phone_key)
+                # 如果音素是SP或AP，则转换为R而不是删除
+                if text in ['SP', 'AP']:
+                    phone_value['text'] = 'R'
+                else:
+                    keys_to_remove.append(phone_key)
         for key_to_remove in keys_to_remove:
             del phones[key_to_remove]
     json_data=reorganize_json_data(json_data)
     return json_data
 
-#添加-和R，首尾音素
+
+# 添加-和R，首尾音素
 def reorganize_json_data(json_data):
     for audio_file, data in json_data.items():
         phones = data.get('phones', {})
@@ -71,32 +88,43 @@ def reorganize_json_data(json_data):
         # 处理第一个元素
         first_key = sorted_keys[0]
         first_phone = phones[first_key]
-        # if float(first_phone['xmin']) != 0:
-        new_phone = {
-            "xmin": "0.0",
-            "xmax": first_phone['xmin'],
-            "text": "-"
-        }
-        # 创建新的有序字典
-        new_phones = {"1": new_phone}
-        for i, key in enumerate(sorted_keys, 2):
-            new_phones[str(i)] = phones[key]
+
+        # 只有当第一个音素不是R时才添加起始的"-"音素
+        if first_phone.get('text') != 'R':
+            new_phone = {
+                "xmin": "0.0",
+                "xmax": first_phone['xmin'],
+                "text": "-"
+            }
+            # 创建新的有序字典
+            new_phones = {"1": new_phone}
+            for i, key in enumerate(sorted_keys, 2):
+                new_phones[str(i)] = phones[key]
+        else:
+            # 如果第一个音素已经是R，则保持原有顺序
+            new_phones = {}
+            for i, key in enumerate(sorted_keys, 1):
+                new_phones[str(i)] = phones[key]
+
         data['phones'] = new_phones
         sorted_keys = sorted(new_phones.keys(), key=lambda x: int(x))  # 更新排序后的keys
 
-        # 处理最后一个元素
+        # 处理最后一个元素（只有当最后一个音素不是R时才添加结尾的R音素）
         last_key = sorted_keys[-1]
         last_phone = data['phones'][last_key]
-        wav_end = wav_long[1] if len(wav_long) >= 2 else 0
-        if float(last_phone['xmax']) < wav_end:
-            new_phone = {
-                "xmin": last_phone['xmax'],
-                "xmax": str(wav_end),
-                "text": "R"
-            }
-            # 添加新的最后一个元素
-            new_index = str(int(sorted_keys[-1]) + 1)
-            data['phones'][new_index] = new_phone
+
+        # 检查最后一个音素是否为R
+        if last_phone.get('text') != 'R':
+            wav_end = wav_long[1] if len(wav_long) >= 2 else 0
+            if float(last_phone['xmax']) < wav_end:
+                new_phone = {
+                    "xmin": last_phone['xmax'],
+                    "xmax": str(wav_end),
+                    "text": "R"
+                }
+                # 添加新的最后一个元素
+                new_index = str(int(sorted_keys[-1]) + 1)
+                data['phones'][new_index] = new_phone
 
     return json_data
 

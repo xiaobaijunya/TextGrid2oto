@@ -42,7 +42,7 @@ def json2cvoto(cv_data,sum):
         while i < len(sorted_phones)-1:
             key, cont = sorted_phones[i]
             # -CV规则
-            if cont['text'] in ['R', '-', 'AP', 'SP']:
+            if cont['text'] in ['R', '-']:
                 key1, cont2 = sorted_phones[i + 1]
                 phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
@@ -95,7 +95,7 @@ def json2VCVoto(cv_data,CV_V,sum):
         while i < len(sorted_phones)-1:
             key, cont = sorted_phones[i]
             key1, cont1 = sorted_phones[i + 1]
-            if cont['text'] in ['R', '-', 'AP', 'SP']:
+            if cont['text'] in ['R', '-']:
                 i+=1
                 continue
             elif cont1['text'] in ['R', 'B'] and cont['text'] in CV_V:
