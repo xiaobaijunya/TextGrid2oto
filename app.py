@@ -1,6 +1,48 @@
 import os
 import certifi
 os.environ["SSL_CERT_FILE"] = certifi.where()
+
+# 添加torch GPU检测代码
+print("=== Torch 环境检测 ===")
+try:
+    import torch
+    has_torch = True
+    print(f"PyTorch 版本: {torch.__version__}")
+    
+    # 检测是否有可用的CUDA
+    cuda_available = torch.cuda.is_available()
+    print(f"CUDA 可用: {cuda_available}")
+    
+    if cuda_available:
+        # 获取GPU数量和详细信息
+        gpu_count = torch.cuda.device_count()
+        print(f"GPU 数量: {gpu_count}")
+        
+        for i in range(gpu_count):
+            gpu_name = torch.cuda.get_device_name(i)
+            gpu_mem = torch.cuda.get_device_properties(i).total_memory / (1024**3)
+            print(f"GPU {i}: {gpu_name}")
+            print(f"  总显存: {gpu_mem:.2f} GB")
+            print(f"  CUDA 能力: {torch.cuda.get_device_capability(i)}")
+        print("当前使用的设备: CUDA")
+    else:
+        # 检查是否有MPS支持 (MacOS)
+        try:
+            mps_available = torch.backends.mps.is_available()
+            print(f"MPS 可用: {mps_available}")
+            if mps_available:
+                print("当前使用的设备: MPS (Apple Silicon)")
+            else:
+                print("当前使用的设备: CPU")
+        except:
+            print("当前使用的设备: CPU")
+    
+    print("=== Torch 环境检测完成 ===")
+except ImportError:
+    print("PyTorch 未安装")
+    print("当前使用的设备: CPU")
+    print("=== Torch 环境检测完成 ===")
+
 import gradio as gr
 from tkinter import filedialog
 import wavname2lab
