@@ -58,11 +58,71 @@ import click
 def run():
     demo.launch(server_port=7860, show_error=True, inbrowser=False)
 
+def config_generator_dispatcher(
+        wav_path, ds_dict, presamp, cut, ignore,
+        VCV_mode, lab, cv_sum, vc_sum, vv_sum,
+        cv_offset, vc_offset, pitch, CV_repeat,
+        VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, multi_pitch_mode, delete_sp, progress=gr.Progress()):
+    """
+    根据多音阶模式开关状态，决定调用哪个配置生成函数
+    """
+    # 如果开启了多音阶模式，调用专门的多音阶处理函数
+    if multi_pitch_mode == 1:
+        return generate_config_multi_pitch(
+            wav_path, ds_dict, presamp, cut, ignore,
+            VCV_mode, lab, cv_sum, vc_sum, vv_sum,
+            cv_offset, vc_offset, pitch, CV_repeat,
+            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress
+        )
+    else:
+        # 否则调用单音阶处理函数
+        return generate_config(
+            wav_path, ds_dict, presamp, cut, ignore,
+            VCV_mode, lab, cv_sum, vc_sum, vv_sum,
+            cv_offset, vc_offset, pitch, CV_repeat,
+            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress
+        )
+
+
+def generate_config_multi_pitch(
+        wav_path, ds_dict, presamp, cut, ignore,
+        VCV_mode, lab, cv_sum, vc_sum, vv_sum,
+        cv_offset, vc_offset, pitch, CV_repeat,
+        VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp=True, progress=gr.Progress()):
+    # 获取主文件夹下的所有子文件夹
+    subfolders = [f for f in os.listdir(wav_path) if os.path.isdir(os.path.join(wav_path, f))]
+    if not subfolders:
+        return "错误：未找到子文件夹，请检查路径是否正确"
+
+    # 为每个子文件夹生成结果
+    results = []
+    for i, subfolder in enumerate(subfolders):
+        subfolder_path = os.path.join(wav_path, subfolder)
+        # 设置当前子文件夹的音阶后缀为空格+文件夹名
+        current_pitch = f" {subfolder}"
+
+        progress(i / len(subfolders), desc=f"处理子文件夹 {subfolder} (音阶: {current_pitch})")
+
+        # 调用原始处理逻辑，但使用子文件夹路径和当前音阶
+        result = generate_config(
+            subfolder_path, ds_dict, presamp, cut, ignore,
+            VCV_mode, lab, cv_sum, vc_sum, vv_sum,
+            cv_offset, vc_offset, current_pitch, CV_repeat,
+            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress
+        )
+
+        if result and "错误" in result:
+            return f"处理子文件夹 {subfolder} 失败: {result}"
+        results.append(f"子文件夹 {subfolder} 处理完成")
+
+    return f"🎉 多音阶模式任务完成！已成功处理 {len(subfolders)} 个子文件夹\n" + "\n".join(results)
+
+
 def generate_config(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
         cv_offset, vc_offset, pitch, CV_repeat,
-        VC_repeat, clear_tg_cache,cover, sofa_model,SOFA_mode,SOFA_type,progress=gr.Progress()):
+        VC_repeat, clear_tg_cache,cover, sofa_model,SOFA_mode,SOFA_type,delete_sp,progress=gr.Progress()):
     config1 = (
         f"wav_path={wav_path}\n"
         f"ds_dict={ds_dict}\n"
@@ -85,6 +145,7 @@ def generate_config(
         f"SOFA_mode={SOFA_mode}\n"
         f"SOFA_type={SOFA_type}\n"
     )
+    deleted_sp_list = []
     with open('config.txt', 'w', encoding='utf-8') as f:
         f.write(config1)
         if SOFA_type == 0:
@@ -178,8 +239,12 @@ def generate_config(
                         dictionary=os.path.abspath(ds_dict),
                         save_confidence=True
                     )
-            del_SP.process_all_textgrid_files(wav_path+'/TextGrid')
             print('已执行HubertFA')
+            if delete_sp == "Y" or delete_sp == "y":
+                deleted_sp_list = del_SP.process_all_textgrid_files(wav_path+'/TextGrid')
+                print('删除错误的SP标记')
+            else:
+                print('跳过删除SP标记')
     VCV_mode = config['VCV_mode']
     if not VCV_mode:
         VCV_mode = '0'
@@ -232,6 +297,10 @@ def generate_config(
     progress(0.9,'11.检测缺少的音素')
     oto_check.run(config['wav_path'] + '/oto.ini', config['presamp'], config['pitch'], config['VCV_mode'])
     progress(1,"🎉 任务完成！最终结果：")
+    print("以下音频标记可能有错误，请检查tg标记：")
+    if deleted_sp_list:
+        for de_sp in deleted_sp_list:
+            print(f'{de_sp}',end=',')
     return "🎉 任务完成！最终结果：去命令行窗口查看"
 
 
@@ -263,7 +332,7 @@ def update_params(voice_type):
     elif voice_type == 2:
         return "1,3,1,1,2", "5,0,2,1,2", "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0"
     elif voice_type == 3:
-        return "1,10,1.5,1,2", "3,0,2,1,5", "3,3,1.5,1,2", "0,0,0,0,0", "0,0,0,0,0"
+        return "1,8,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,2", "0,0,0,0,0", "0,0,0,0,0"
     else:
         return "0,0,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,3", "0,0,0,0,0", "0,0,0,0,0"
 
@@ -383,10 +452,17 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
                     value=0,  # 默认选中值
                     label="音源类型"
                 )
-                pitch = gr.Textbox(label="音阶后缀",placeholder="例如： F3")
+                # 添加多音阶模式开关
+                multi_pitch_mode = gr.Radio(
+                    choices=[("关闭", 0), ("开启", 1)],  # (显示文本, 实际值)
+                    value=0,  # 默认关闭
+                    label="多音阶模式（音源目录设置为根目录）"
+                )
+                pitch = gr.Textbox(label="音阶后缀", placeholder="例如： F3")
 
             with gr.Row():
                 lab = gr.Radio(choices=["Y", "N"], value="Y", label="生成lab文件")
+                delete_sp = gr.Radio(choices=["Y", "N"], value="Y", label="处理错误的SP标记")
                 clear_tg_cache = gr.Radio(choices=["Y", "N"], value="N", label="清空TextGrid标注及缓存")
                 #生成后清空所有杂项文件
                 #还没做
@@ -397,7 +473,7 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
 
             gr.Markdown("### 可选参数配置")
             with gr.Accordion("高级参数配置", open=False):
-                gr.Markdown("**规则参数（逗号分隔数值）​**​")
+                gr.Markdown("**规则参数（逗号分隔数值）​**​\t比例：(左线占比,固定的占比,右线占比,预发声不变,交叉占比)\t偏移：(左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移)")
                 with gr.Row():
                     cv_sum = gr.Textbox(label="CV规则比例", value="1,3,1.5,1,2")
                     vc_sum = gr.Textbox(label="VC规则比例", value="3,3,1.5,1,3,3")
@@ -474,12 +550,12 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
             output = gr.Textbox(label="生成结果",lines=10)
 
             btn.click(
-                fn=generate_config,
+                fn=config_generator_dispatcher,
                 inputs=[
                     wav_path, ds_dict, presamp, cut, ignore,
                     VCV_mode, lab, cv_sum, vc_sum, vv_sum,
                     cv_offset, vc_offset, pitch, CV_repeat,
-                    VC_repeat, clear_tg_cache, cover,sofa_model,SOFA_mode,SOFA_type
+                    VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, multi_pitch_mode, delete_sp
                 ],
                 outputs=output
             )
