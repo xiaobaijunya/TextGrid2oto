@@ -83,8 +83,10 @@ def process_all_textgrid_files(input_dir):
         print("\n以下文件中有SP被删除（建议复核标记）:")
         for filename in files_with_deleted_sp:
             print(f"{filename}",end=',')
+        return files_with_deleted_sp
     else:
         print("\n没有文件中有SP被删除。")
+        return ['没有文件中有SP被删除','无错误']
     print(" ")
 
 
