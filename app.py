@@ -152,7 +152,7 @@ def generate_config(
             f.write(f'#python infer.py --folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
         elif SOFA_type == 1:
             if sofa_model.split('.')[-1] == 'onnx':
-                f.write(f'#python onnx_infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+                f.write(f'#python onnx_infer.py --onnx_folder {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
             else:
                 f.write(f'#python infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
         progress(0, desc="✅ 配置文件已生成，开始执行主程序...")
@@ -222,6 +222,7 @@ def generate_config(
                         folder=wav_path,
                         language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0],#忽略-以后的内容
                         dictionary=os.path.abspath(ds_dict),
+
                         save_confidence=True
                     )
             else:
@@ -301,7 +302,7 @@ def generate_config(
     if deleted_sp_list:
         for de_sp in deleted_sp_list:
             print(f'{de_sp}',end=',')
-    return "🎉 任务完成！最终结果：去命令行窗口查看"
+    return "🎉 任务完成！最终结果：去命令行窗口查看。"
 
 
 # 定义文件夹选择函数
@@ -326,13 +327,13 @@ def model_file():
 
 def update_params(voice_type):
     if voice_type == 0:
-        return "1,3,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,3", "0,0,0,0,0", "0,0,0,0,0"
+        return "1,3,1.5,1,4", "3,0,2,1,2", "3,3,1.5,1,2", "0,0,0,0,0", "0,0,0,0,0"
     elif voice_type == 1:
         return "1,3,1.5,1,2", "3,3,1.5,1,3,3", "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0"
     elif voice_type == 2:
         return "1,3,1,1,2", "5,0,2,1,2", "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0"
     elif voice_type == 3:
-        return "1,8,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,2", "0,0,0,0,0", "0,0,0,0,0"
+        return "1,8,1.5,1,4", "3,0,2,1,2", "3,3,1.5,1,2", "0,0,0,0,0", "0,0,0,0,0"
     else:
         return "0,0,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,3", "0,0,0,0,0", "0,0,0,0,0"
 
@@ -413,7 +414,7 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
                         folder_btn = gr.Button("选择文件夹", variant="primary")
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=3,min_width=150):
-                        presamp = gr.Textbox(label="presamp.ini路径",placeholder="输入文件路径")
+                        presamp = gr.Textbox(label="presamp.ini路径",placeholder="输入文件路径",value='\presamp.ini')
                     with gr.Column(scale=2,min_width=150):
                         presamp_btn = gr.Button("选择文件", variant="primary")
             with gr.Row(equal_height=True):
@@ -422,12 +423,16 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
                     value=0,  # 默认选中值
                     label="是否生成TextGrid"
                 )
+                # SOFA_type = gr.Radio(
+                #     choices=[("SOFA", 0), ("HubertFA", 1)],  # (显示文本, 实际值)
+                #     value=1,  # 默认选中值
+                #     label="选择标记程序"
+                # )
                 SOFA_type = gr.Radio(
-                    choices=[("SOFA", 0), ("HubertFA", 1)],  # (显示文本, 实际值)
+                    choices=[ ("HubertFA", 1)],  # (显示文本, 实际值)
                     value=1,  # 默认选中值
                     label="选择标记程序"
                 )
-
                 model_folder_selector = gr.Dropdown(choices=[], label="选择模型文件夹",value='')
                 model_version_folder_selector = gr.Dropdown(choices=[], label="选择模型",value='')
                 dict_folders_selector = gr.Dropdown(choices=[], label="选择模型字典",value='')
@@ -472,12 +477,12 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
                 ignore = gr.Textbox(label="忽略的sofa音素", value="1,2")
 
             gr.Markdown("### 可选参数配置")
-            with gr.Accordion("高级参数配置", open=False):
+            with gr.Accordion("高级参数配置", open=True):
                 gr.Markdown("**规则参数（逗号分隔数值）​**​\t比例：(左线占比,固定的占比,右线占比,预发声不变,交叉占比)\t偏移：(左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移)")
                 with gr.Row():
-                    cv_sum = gr.Textbox(label="CV规则比例", value="1,3,1.5,1,2")
-                    vc_sum = gr.Textbox(label="VC规则比例", value="3,3,1.5,1,3,3")
-                    vv_sum = gr.Textbox(label="VV规则比例", value="3,3,1.5,1,3")
+                    cv_sum = gr.Textbox(label="CV规则比例", value="1,3,1.5,1,4")
+                    vc_sum = gr.Textbox(label="VC规则比例", value="3,0,2,1,2")
+                    vv_sum = gr.Textbox(label="VV规则比例", value="3,3,1.5,1,2")
 
                     cv_offset = gr.Textbox(label="CV数值偏移量", value="0,0,0,0,0")
                     vc_offset = gr.Textbox(label="VC数值偏移量", value="0,0,0,0,0")
