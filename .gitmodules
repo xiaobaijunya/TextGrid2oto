@@ -1,6 +1,3 @@
 [submodule "HubertFA"]
 	path = HubertFA
 	url = https://github.com/wolfgitpr/HubertFA
-[submodule "SOFA"]
-	path = SOFA
-	url = https://github.com/qiuqiao/SOFA
