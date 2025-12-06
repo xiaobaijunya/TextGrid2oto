@@ -16,7 +16,7 @@ h=640*1.2
 print("启动 PyWebview 窗口...")
 window = webview.create_window(
     title='TextGrid2oto',
-    url='http://127.0.0.1:7860',
+    url='http://127.0.0.1:7861',
     width=int(w),
     height=int(h),
 )

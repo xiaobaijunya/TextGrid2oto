@@ -1,4 +1,7 @@
 import os
+import time
+start=time.time()
+print('hello')
 import certifi
 os.environ["SSL_CERT_FILE"] = certifi.where()
 
@@ -55,8 +58,20 @@ import shutil
 import subprocess
 import click
 
+
+print(f'耗时: {time.time()-start:.4f}s')
+
+
 def run():
-    demo.launch(server_port=7860, show_error=True, inbrowser=False)
+    demo.launch(
+        server_port=7861,
+        show_error=True,
+        inbrowser=False,
+        share=False,  # 关闭分享功能
+        debug=False,  # 关闭调试模式
+        auth=None,  # 关闭认证功能
+        favicon_path=None,  # 不加载favicon，减少请求
+    )
 
 def config_generator_dispatcher(
         wav_path, ds_dict, presamp, cut, ignore,
@@ -297,11 +312,9 @@ def generate_config(
     oto_rw.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])
     progress(0.9,'11.检测缺少的音素')
     oto_check.run(config['wav_path'] + '/oto.ini', config['presamp'], config['pitch'], config['VCV_mode'])
-    progress(1,"🎉 任务完成！最终结果：")
-    print("以下音频标记可能有错误，请检查tg标记：")
     if deleted_sp_list:
-        for de_sp in deleted_sp_list:
-            print(f'{de_sp}',end=',')
+        print(f"以下音频标记可能有错误，请检查tg标记：{deleted_sp_list}")
+    progress(1,"🎉 任务完成！最终结果：")
     return "🎉 任务完成！最终结果：去命令行窗口查看。"
 
 
