@@ -41,9 +41,9 @@ def json2cvoto(cv_data,sum):
 
         while i < len(sorted_phones)-1:
             key, cont = sorted_phones[i]
+            key1, cont2 = sorted_phones[i + 1]
             # -CV规则
-            if cont['text'] in ['R', '-']:
-                key1, cont2 = sorted_phones[i + 1]
+            if cont['text'] in ['R', '-','SP','AP'] and cont2['text'] not in ['R','-','SP','AP']:
                 phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont2['xmin'])*1000/sum[0]
@@ -78,7 +78,6 @@ def json2cvoto(cv_data,sum):
             i += 1
             #
             # oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
-            continue
 
     return oto
 
@@ -95,10 +94,10 @@ def json2VCVoto(cv_data,CV_V,sum):
         while i < len(sorted_phones)-1:
             key, cont = sorted_phones[i]
             key1, cont1 = sorted_phones[i + 1]
-            if cont['text'] in ['R', '-']:
+            if cont['text'] in ['R', '-','SP','AP']:
                 i+=1
                 continue
-            elif cont1['text'] in ['R', 'B'] and cont['text'] in CV_V:
+            elif cont1['text'] in ['R', 'B','-','SP','AP'] and cont['text'] in CV_V:
                 phone_name = CV_V[cont['text']] + ' ' + cont1['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont["middle"]) * 1000 + ((float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[0])
@@ -168,10 +167,10 @@ if __name__ == '__main__':
     # word_phone_json = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试/VCV/TextGrid/json/word_phone.json'
     # wav_path = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试\VCV'
 
-    presamp_path = 'presamp/jp-VCV-romaji-presamp.ini'
-    utau_phone = 'E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV\\new_wav/TextGrid/json/utau_phone.json'
-    word_phone_json = 'E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV\\new_wav/TextGrid/json/word_phone.json'
-    wav_path = 'E:\OpenUtau\Singers\TNOT-Nottthat_VCV-TNOT-日语-VCV\\new_wav'
+    presamp_path = r'F:\Textgrid2oto4\presamp\jp-hira-presamp.ini'
+    utau_phone = r'E:\OpenUtau\Singers\BaiNi_JP_VCV_0.1\1.C3/TextGrid/json/utau_phone.json'
+    word_phone_json = r'E:\OpenUtau\Singers\BaiNi_JP_VCV_0.1\1.C3/TextGrid/json/word_phone.json'
+    wav_path = r'E:\OpenUtau\Singers\BaiNi_JP_VCV_0.1\1.C3'
 
     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
     cv_sum = [1,3,1.5,1,2]
