@@ -167,7 +167,7 @@ def generate_config(
             f.write(f'#python infer.py --folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
         elif SOFA_type == 1:
             if sofa_model.split('.')[-1] == 'onnx':
-                f.write(f'#python onnx_infer.py --onnx_folder {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+                f.write(f'#python onnx_infer.py --onnx_path {os.path.dirname(os.path.abspath(sofa_model))} --wav_folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)}')
             else:
                 f.write(f'#python infer.py --ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
         progress(0, desc="✅ 配置文件已生成，开始执行主程序...")
@@ -248,7 +248,7 @@ def generate_config(
                 print('2.正在前往HubertFA生成TextGrid')
                 sys.path.append('HubertFA')
                 from HubertFA import onnx_infer
-                print(f'--onnx_folder {os.path.dirname(os.path.abspath(sofa_model))} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+                print(f'--onnx_path {os.path.dirname(os.path.abspath(sofa_model))} --wav_folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)}')
                 with click.Context(onnx_infer.infer) as ctx:
                     result = ctx.invoke(
                         onnx_infer.infer,
