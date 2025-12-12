@@ -276,22 +276,22 @@ def generate_config(
         progress(0.6,'生成模式：VCV')
         json2VCV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json',
                          config['TextGrid_path'] + '/json/word_phone.json',
-                         config['wav_path'], config['cv_sum'], config['vc_sum'], config['vv_sum'])
+                         config['wav_path'], config['cv_sum'], config['vc_sum'], config['vv_sum'], config['ignore'])
     elif VCV_mode == '2':
         progress(0.6,'生成模式：CVV')
         json2CV_oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json',
                         config['TextGrid_path'] + '/json/word_phone.json',
-                        config['wav_path'], config['cv_sum'], config['vc_sum'], config['vv_sum'])
+                        config['wav_path'], config['cv_sum'], config['vc_sum'], config['vv_sum'], config['ignore'])
     elif VCV_mode == '0':
         progress(0.6,'生成模式：CVVC')
         json2oto.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json',
                      config['TextGrid_path'] + '/json/word_phone.json',
-                     config['wav_path'], config['cv_sum'], config['vc_sum'], config['vv_sum'])
+                     config['wav_path'], config['cv_sum'], config['vc_sum'], config['vv_sum'],config['ignore'])
     elif VCV_mode == '3':
         progress(0.6,'生成模式：Test')
         json2test.run(config['presamp'], config['TextGrid_path'] + '/json/utau_phone.json',
                      config['TextGrid_path'] + '/json/word_phone.json',
-                     config['wav_path'], config['cv_sum'], config['vc_sum'], config['vv_sum'])
+                     config['wav_path'], config['cv_sum'], config['vc_sum'], config['vv_sum'], config['ignore'])
 
     else:
         progress(0.6,'VCV_mode数值错误')
@@ -489,7 +489,7 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
                 cover = gr.Radio(choices=["Y", "N"], value="Y", label="覆盖oto")
             with gr.Row():
                 cut = gr.Textbox(label="字符分隔符", value="_,-")
-                ignore = gr.Textbox(label="忽略的sofa音素", value="1,2")
+                ignore = gr.Textbox(label="视为间隔音素R的音素", value="AP,SP,EP,R,-,B")
 
             gr.Markdown("### 可选参数配置")
             with gr.Accordion("高级参数配置", open=True):

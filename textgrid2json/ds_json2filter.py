@@ -31,10 +31,10 @@ def ds_dict_read(ds_dictpath,ignore):
         print(f"错误：指定的文件 {ds_dictpath} 读取失败，请检查文件路径是否正确。")
         input('按任意键退出')
         exit()
-    ignore = ignore.split(',')
-    #忽略音素
-    vowels = [vowel for vowel in vowels if vowel not in ignore]
-    consonant = [con for con in consonant if con not in ignore]
+    # ignore = ignore.split(',')
+    # #忽略音素
+    # vowels = [vowel for vowel in vowels if vowel not in ignore]
+    # consonant = [con for con in consonant if con not in ignore]
     vowels = set(vowels)
     consonant = set(consonant)
     print(len(consonant),consonant)
@@ -55,7 +55,8 @@ def ds_dict_read(ds_dictpath,ignore):
 #             del phones[key_to_remove]
 #     json_data=reorganize_json_data(json_data)
 #     return json_data
-def filter_json_data(json_data, valid_list):
+def filter_json_data(json_data, valid_list,ignore):
+    ignore = ignore.split(',')
     for key, value in json_data.items():
         phones = value.get('phones', {})
         keys_to_remove = []
@@ -63,7 +64,7 @@ def filter_json_data(json_data, valid_list):
             text = phone_value.get('text')
             if text and text not in valid_list:
                 # 如果音素是SP或AP，则转换为R而不是删除
-                if text in ['SP', 'AP']:
+                if text in ignore:
                     phone_value['text'] = 'R'
                 else:
                     keys_to_remove.append(phone_key)
@@ -137,7 +138,7 @@ def run(ds_dict,json_path,ignore):
     valid_list = ds_dict_read(ds_dict,ignore)
     # print(valid_list)
     #过滤
-    filtered_data = filter_json_data(json_data, valid_list[0].union(valid_list[1]))
+    filtered_data = filter_json_data(json_data, valid_list[0].union(valid_list[1]),ignore)
     # 将过滤后的数据写回文件
     # print(filtered_data)
     newjson_path=json_path.split('.json')[0]+'_filter.json'

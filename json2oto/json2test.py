@@ -35,7 +35,7 @@ def presamp_read(presamps_path):
     return CV_V, CV_C,V_V
 
 #VV_CV_VC
-def json2cvoto(cv_data,sum):
+def json2cvoto(cv_data,sum,ignore):
     oto = []
     for audio_file, data in cv_data.items():
         autio_name = audio_file
@@ -53,10 +53,10 @@ def json2cvoto(cv_data,sum):
             key, cont = sorted_phones[i]
             key1, cont2 = sorted_phones[i + 1]
             # -CV规则
-            if cont['text'] in ['R', '-','SP','AP'] and cont2['text'] in ['R','-','SP','AP']:
+            if cont['text'] in ignore and cont2['text'] in ignore:
                 i+=1
                 continue
-            if cont['text'] in ['R', '-','SP','AP']:
+            if cont['text'] in ignore:
                 phone_name = '- '+cont2['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont2['xmin'])*1000/sum[0]
@@ -76,7 +76,7 @@ def json2cvoto(cv_data,sum):
                     continue
                 oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
-            if cont2['text'] in ['R', '-','SP','AP']:
+            if cont2['text'] in ignore:
                 phone_name =cont['text'] + 'R'
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont['xmin']) * 1000 / sum[0]
@@ -118,7 +118,7 @@ def json2cvoto(cv_data,sum):
     return oto
 
 
-def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum):
+def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum,ignore):
 
     oto = []
     for audio_file, data in cv_data.items():
@@ -134,7 +134,7 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum):
         while i < len(sorted_phones) - 1:
             key, cont = sorted_phones[i]
             key1, cont1 = sorted_phones[i + 1]
-            if cont['text'] in ['R', '-','SP','AP']:
+            if cont['text'] in ignore:
                 i += 1
                 continue
             elif cont1['text'] in ['R','B'] and cont['text'] in CV_V:
@@ -197,19 +197,20 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum):
 
 
 
-def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum):
+def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
+    ignore = ignore.split(',')
     CV_V, CV_C,V_V = presamp_read(presamp_path)
     # with open(utau_phone_json, 'r', encoding='utf-8') as f:
     #     vc_data = json.load(f)
     with open(word_phone_json, 'r', encoding='utf-8') as f:
         cv_data = json.load(f)
-    oto = json2cvoto(cv_data,cv_sum)
+    oto = json2cvoto(cv_data,cv_sum,ignore)
     # print(oto)
     with open(wav_path+'/cv_oto.ini', 'w', encoding='utf-8') as f:
         for i in oto:
             f.write(i)
         print('cv_oto.ini生成成功')
-    oto = json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum)
+    oto = json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum,ignore)
     # print(oto)
     with open(wav_path+'/vc_oto.ini', 'w', encoding='utf-8') as f:
         for i in oto:
