@@ -55,7 +55,7 @@ from oto import oto_check
 from oto import oto_rw
 import sys
 import shutil
-import subprocess
+import pathlib
 import click
 
 
@@ -219,27 +219,30 @@ def generate_config(
                     infer.main,
                     ckpt=os.path.abspath(sofa_model),
                     folder=wav_path,
-                    dictionary=os.path.abspath(ds_dict),
+                    dictionary=pathlib.Path(os.path.abspath(ds_dict)),
                     out_formats='textgrid',
                     save_confidence=True
                 )
         elif SOFA_type == 1:
             if sofa_model.split('.')[-1] == 'ckpt':
-                progress(0.3, '2.正在前往HubertFA生成TextGrid')
-                print('2.正在前往HubertFA生成TextGrid')
-                sys.path.append('HubertFA')
-                from HubertFA import infer
-                print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
-                with click.Context(infer.main) as ctx:
-                    result = ctx.invoke(
-                        infer.main,
-                        ckpt=os.path.abspath(sofa_model),
-                        folder=wav_path,
-                        language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0],#忽略-以后的内容
-                        dictionary=os.path.abspath(ds_dict),
-
-                        save_confidence=True
-                    )
+                progress(1, "❌ 已经不支持.ckpt模型，请使用.onnx模型！")
+                print("❌ 已经不支持.ckpt模型，请使用.onnx模型！")
+                return "❌ 已经不支持.ckpt模型，请使用.onnx模型！"
+                # progress(0.3, '2.正在前往HubertFA生成TextGrid')
+                # print('2.正在前往HubertFA生成TextGrid')
+                # sys.path.append('HubertFA')
+                # from HubertFA import infer
+                # print(f'--ckpt {os.path.abspath(sofa_model)} --folder {wav_path} --language {ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0]} --dictionary {os.path.abspath(ds_dict)} --save_confidence')
+                # with click.Context(infer.infer) as ctx:
+                #     result = ctx.invoke(
+                #         infer.infer,
+                #         nll_path=pathlib.Path(os.path.abspath(sofa_model)),  # 使用与fa_path相同的路径作为nll_path
+                #         fa_path=pathlib.Path(os.path.abspath(sofa_model)),
+                #         wav_folder=pathlib.Path(wav_path),
+                #         language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0],#忽略-以后的内容
+                #         dictionary=pathlib.Path(os.path.abspath(ds_dict)),
+                #         encoder=pathlib.Path('dependencies')
+                #     )
             else:
                 progress(0.3, '2.正在前往HubertFA生成TextGrid')
                 print('2.正在前往HubertFA生成TextGrid')
@@ -249,11 +252,10 @@ def generate_config(
                 with click.Context(onnx_infer.infer) as ctx:
                     result = ctx.invoke(
                         onnx_infer.infer,
-                        onnx_folder=os.path.dirname(os.path.abspath(sofa_model)),  # 修改这里：使用onnx_folder而不是ckpt
-                        folder=wav_path,
+                        onnx_path=pathlib.Path(sofa_model),  # 修改这里：使用onnx_folder而不是ckpt
+                        wav_folder=pathlib.Path(wav_path),
                         language=ds_dict.split('\\')[-1].split('/')[-1].split('.')[0].split('-')[0],  # 忽略-以后的内容
-                        dictionary=os.path.abspath(ds_dict),
-                        save_confidence=True
+                        dictionary=pathlib.Path(os.path.abspath(ds_dict)),
                     )
             print('已执行HubertFA')
             if delete_sp == "Y" or delete_sp == "y":
@@ -427,7 +429,7 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
                         folder_btn = gr.Button("选择文件夹", variant="primary")
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=3,min_width=150):
-                        presamp = gr.Textbox(label="presamp.ini路径",placeholder="输入文件路径",value='\presamp.ini')
+                        presamp = gr.Textbox(label="presamp.ini路径",placeholder="输入文件路径",value='\\presamp.ini')
                     with gr.Column(scale=2,min_width=150):
                         presamp_btn = gr.Button("选择文件", variant="primary")
             with gr.Row(equal_height=True):

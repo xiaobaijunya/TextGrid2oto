@@ -19,6 +19,9 @@ def process_wav_name(wav_name,cuts):
 
     cleaned_name=cleaned_name.replace('  ',' ')
 
+    cleaned_name=cleaned_name.replace('R','SP')
+    cleaned_name=cleaned_name.replace('SP SP','SP')
+
     if cleaned_name[0]==' ':
         cleaned_name=cleaned_name[1:]
     return cleaned_name
@@ -42,7 +45,7 @@ def run(path,cuts):
 
 
 if __name__ == '__main__':
-    path = r'F:\Download\utau数据集\有授权\中文\中文拼接数据_自有授权\xiabai CVVC JIANHUA TEST\D4'
+    path = r'E:\OpenUtau\Singers\白锋_02\result'
     # 获取当前目录下所有的WAV文件
     run(path,['_','-'])
 
