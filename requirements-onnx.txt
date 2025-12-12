@@ -1,0 +1,11 @@
+#pip install -r requirements-onnx.txt
+#onnxruntime-gpu
+#onnxruntime-directml
+
+gradio==5
+huggingface-hub<1.0.0
+pywebview
+librosa
+matplotlib
+textgrid
+onnxruntime
