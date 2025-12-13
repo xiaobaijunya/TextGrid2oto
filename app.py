@@ -11,16 +11,16 @@ try:
     import torch
     has_torch = True
     print(f"PyTorch 版本: {torch.__version__}")
-    
+
     # 检测是否有可用的CUDA
     cuda_available = torch.cuda.is_available()
     print(f"CUDA 可用: {cuda_available}")
-    
+
     if cuda_available:
         # 获取GPU数量和详细信息
         gpu_count = torch.cuda.device_count()
         print(f"GPU 数量: {gpu_count}")
-        
+
         for i in range(gpu_count):
             gpu_name = torch.cuda.get_device_name(i)
             gpu_mem = torch.cuda.get_device_properties(i).total_memory / (1024**3)
@@ -39,7 +39,7 @@ try:
                 print("当前使用的设备: CPU")
         except:
             print("当前使用的设备: CPU")
-    
+
     print("=== Torch 环境检测完成 ===")
 except ImportError:
     print("PyTorch 未安装")
@@ -47,6 +47,7 @@ except ImportError:
     print("=== Torch 环境检测完成 ===")
 
 import gradio as gr
+
 from tkinter import filedialog
 import wavname2lab
 from textgrid2json import ds_json2filter, word2utau_phone, TextGrid2ds_json, ds_json2word,transcriptions_make,del_SP
@@ -59,7 +60,7 @@ import pathlib
 import click
 
 
-print(f'耗时: {time.time()-start:.4f}s')
+
 
 
 def run():
@@ -67,12 +68,12 @@ def run():
         server_port=7861,
         show_error=True,
         inbrowser=False,
-        share=False,  # 关闭分享功能
-        debug=False,  # 关闭调试模式
-        auth=None,  # 关闭认证功能
-        favicon_path=None,  # 不加载favicon，减少请求
+        # share=False,  # 关闭分享功能
+        # debug=False,  # 关闭调试模式
+        # auth=None,  # 关闭认证功能
+        # favicon_path=None,  # 不加载favicon，减少请求
     )
-
+print(f'耗时: {time.time()-start:.4f}s')
 def config_generator_dispatcher(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
@@ -103,7 +104,7 @@ def generate_config_multi_pitch(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
         cv_offset, vc_offset, pitch, CV_repeat,
-        VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp=True, progress=gr.Progress()):
+        VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress=gr.Progress()):
     # 获取主文件夹下的所有子文件夹
     subfolders = [f for f in os.listdir(wav_path) if os.path.isdir(os.path.join(wav_path, f))]
     if not subfolders:
@@ -115,7 +116,7 @@ def generate_config_multi_pitch(
         subfolder_path = os.path.join(wav_path, subfolder)
         # 设置当前子文件夹的音阶后缀为空格+文件夹名
         current_pitch = f" {subfolder}"
-
+        # current_pitch = f"{subfolder}"
         progress(i / len(subfolders), desc=f"处理子文件夹 {subfolder} (音阶: {current_pitch})")
 
         # 调用原始处理逻辑，但使用子文件夹路径和当前音阶
@@ -159,6 +160,7 @@ def generate_config(
         f"sofa_model={sofa_model}\n"
         f"SOFA_mode={SOFA_mode}\n"
         f"SOFA_type={SOFA_type}\n"
+        f"delete_sp={delete_sp}\n"
     )
     deleted_sp_list = []
     with open('config.txt', 'w', encoding='utf-8') as f:
@@ -258,11 +260,13 @@ def generate_config(
                         dictionary=pathlib.Path(os.path.abspath(ds_dict)),
                     )
             print('已执行HubertFA')
-            if delete_sp == "Y" or delete_sp == "y":
-                deleted_sp_list = del_SP.process_all_textgrid_files(wav_path+'/TextGrid')
+            if config['delete_sp'] == "Y" or config['delete_sp'] == "y":
+                delete_sp_switch = True
                 print('删除错误的SP标记')
             else:
+                delete_sp_switch = False
                 print('跳过删除SP标记')
+            deleted_sp_list = del_SP.process_all_textgrid_files(wav_path + '/TextGrid', config['ignore'],delete_sp_switch)
     VCV_mode = config['VCV_mode']
     if not VCV_mode:
         VCV_mode = '0'
@@ -315,7 +319,10 @@ def generate_config(
     progress(0.9,'11.检测缺少的音素')
     oto_check.run(config['wav_path'] + '/oto.ini', config['presamp'], config['pitch'], config['VCV_mode'])
     if deleted_sp_list:
-        print(f"以下音频标记可能有错误，请检查tg标记：{deleted_sp_list}")
+        print(f"以下音频标记可能有错误，请检查tg标记：")
+        if deleted_sp_list:
+            for filename in deleted_sp_list:
+                print(f"{filename}", end=',')
     progress(1,"🎉 任务完成！最终结果：")
     return "🎉 任务完成！最终结果：去命令行窗口查看。"
 
@@ -413,12 +420,12 @@ def update_presamp_paths(selected_folder):
     folder_path = os.path.abspath(folder_path)
     return folder_path
 
-with gr.Blocks(title="UTAU 参数生成器") as demo:
+with gr.Blocks(title="UTAU oto生成器") as demo:
     # gr.Markdown("<h1 style='text-align: center;'>UTAU 参数生成器</h1>")
     #
     # # 添加顶部选项卡
-    # with gr.Tabs(elem_classes=["custom-tabs"]):
-    #     with gr.TabItem("oto生成"):
+    with gr.Tabs(elem_classes=["custom-tabs"]):
+        with gr.TabItem("oto生成"):
     #     # 原有的主配置界面
             gr.Markdown("### 必填参数配置")
             with gr.Row(equal_height=True):
@@ -579,6 +586,90 @@ with gr.Blocks(title="UTAU 参数生成器") as demo:
                 ],
                 outputs=output
             )
+
+
+        #
+        # # 新增oto梦幻自定义功能
+        # with gr.TabItem("oto工人の幻想时刻（不"):
+        #     # 添加第一个功能：根据模板合成oto.ini
+        #     with gr.Row(equal_height=True):
+        #         with gr.Row(equal_height=True):
+        #             with gr.Column(scale=3, min_width=300):
+        #                 gr.Markdown("### 根据模板合成oto.ini(请在已经有cv_oto和vc_oto的情况下使用)")
+        #                 template_wav_path = gr.Textbox(label="音源wav路径", placeholder="输入文件夹路径")
+        #                 template_oto_path = gr.Textbox(label="oto模板路径", placeholder="输入oto.ini路径")
+        #                 template_btn = gr.Button("合成oto.ini", variant="primary")
+        #
+        #     # 添加第二个功能：以预发声为基准锁定其他线的位置
+        #
+        #     gr.Markdown("## 以预发声为基准固定其他线的位置（0则不修改）")
+        #     with gr.Row(equal_height=True):
+        #         with gr.Column(scale=1, min_width=10):
+        #             lock_left_sum = gr.Textbox(label="左线数值（负值）", value="0")
+        #             lock_cross_sum = gr.Textbox(label="交叉线数值（负值）", value="0")
+        #             lock_fix_sum = gr.Textbox(label="固定线数值", value="0")
+        #             lock_right_sum = gr.Textbox(label="右线数值", value="0")
+        #         with gr.Column(scale=1, min_width=10):
+        #             lock_wav_path = gr.Textbox(label="oto.ini路径", placeholder="输入oto.ini路径")
+        #             lock_btn = gr.Button("合成oto", variant="primary")
+        #
+        #     # 添加输出结果显示
+        #     output = gr.Textbox(label="操作结果", lines=5)
+        #
+        #
+        # def template_oto_combine(template_wav_path, template_oto_path):
+        #     """根据模板合成oto.ini"""
+        #     try:
+        #         # 这里添加实际的oto合成逻辑
+        #         # 示例逻辑，需要根据实际需求修改
+        #         if not template_wav_path or not os.path.exists(template_wav_path):
+        #             return "错误：音源wav路径不存在"
+        #
+        #         if not template_oto_path or not os.path.exists(template_oto_path):
+        #             return "错误：oto模板路径不存在"
+        #
+        #         from oto import oto_template
+        #         oto_template(template_wav_path, template_oto_path)
+        #
+        #         return f"成功：已根据模板合成oto.ini\n音源路径：{template_wav_path}\n模板路径：{template_oto_path}"
+        #     except Exception as e:
+        #         return f"错误：{str(e)}"
+        #
+        #
+        # def lock_lines_by_presamp(lock_wav_path, lock_left_sum, lock_right_sum, lock_fix_sum, lock_cross_sum):
+        #     """以预发声为基准锁定其他线的位置"""
+        #     try:
+        #         if not lock_wav_path or not os.path.exists(lock_wav_path):
+        #             return "错误：音源wav路径不存在"
+        #
+        #         # 转换参数为浮点数
+        #         left = float(lock_left_sum) if lock_left_sum else -1
+        #         right = float(lock_right_sum) if lock_right_sum else -1
+        #         fix = float(lock_fix_sum) if lock_fix_sum else -1
+        #         cross = float(lock_cross_sum) if lock_cross_sum else -1
+        #
+        #         # 调用线锁定函数
+        #         # 假设已经有相应的线锁定函数
+        #         # result = lock_lines(lock_wav_path, left, right, fix, cross)
+        #
+        #         return f"成功：已锁定线位置\n音源路径：{lock_wav_path}\n左线：{left}, 右线：{right}, 固定线：{fix}, 交叉线：{cross}"
+        #     except Exception as e:
+        #         return f"错误：{str(e)}"
+        #
+        #
+        #     template_btn.click(
+        #         fn=template_oto_combine,
+        #         inputs=[template_wav_path, template_oto_path],
+        #         outputs=output
+        #     )
+        #
+        #     lock_btn.click(
+        #         fn=lock_lines_by_presamp,
+        #         inputs=[lock_wav_path, lock_left_sum, lock_right_sum, lock_fix_sum, lock_cross_sum],
+        #         outputs=output
+        #     )
+        #
+
         # 新增的帮助页面
         # with gr.TabItem("使用说明（未完工）"):
         #     gr.Markdown("## 使用说明（未完工）")
