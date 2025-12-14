@@ -115,8 +115,8 @@ def generate_config_multi_pitch(
     for i, subfolder in enumerate(subfolders):
         subfolder_path = os.path.join(wav_path, subfolder)
         # 设置当前子文件夹的音阶后缀为空格+文件夹名
-        current_pitch = f" {subfolder}"
-        # current_pitch = f"{subfolder}"
+        # current_pitch = f" {subfolder}"
+        current_pitch = f"{subfolder}"
         progress(i / len(subfolders), desc=f"处理子文件夹 {subfolder} (音阶: {current_pitch})")
 
         # 调用原始处理逻辑，但使用子文件夹路径和当前音阶
@@ -483,7 +483,7 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                 multi_pitch_mode = gr.Radio(
                     choices=[("关闭", 0), ("开启", 1)],  # (显示文本, 实际值)
                     value=0,  # 默认关闭
-                    label="多音阶模式（音源目录设置为根目录）"
+                    label="多音阶模式（音源目录设置为根目录）[音阶后缀现已经直接为文件夹名，不添加空格]"
                 )
                 pitch = gr.Textbox(label="音阶后缀", placeholder="例如： F3")
 
