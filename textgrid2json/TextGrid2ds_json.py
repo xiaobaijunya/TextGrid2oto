@@ -43,16 +43,28 @@ def run(path_main):
         for file in files:
             #如果文件是TextGrid文件
             if file.endswith(".TextGrid"):
-                #读取文件内容
-                with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
-                    sum_data = {}
-                    data = []
-                    textgrid_content = f.read()
-                    # 转换为JSON
-                    data = textgrid_change(textgrid_content)
-                    # json_data = dict(wav=file)
-                    sum_data[file.replace('.TextGrid','.wav')] = dict(wav_long=data[0],phones=data[1])
-                    json_data.update(sum_data)
+                #读取文件内容，支持UTF-8和UTF-16编码
+                file_path = os.path.join(root, file)
+                sum_data = {}
+                data = []
+                try:
+                    # 先尝试UTF-8编码
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        textgrid_content = f.read()
+                except UnicodeDecodeError:
+                    try:
+                        # 如果UTF-8失败，尝试UTF-16编码
+                        with open(file_path, 'r', encoding='utf-16') as f:
+                            textgrid_content = f.read()
+                    except UnicodeDecodeError:
+                        # 如果都失败，打印错误信息并跳过该文件
+                        print(f"无法读取文件 {file_path}，编码格式不支持（UTF-8/UTF-16都尝试失败）")
+                        continue
+                # 转换为JSON
+                data = textgrid_change(textgrid_content)
+                # json_data = dict(wav=file)
+                sum_data[file.replace('.TextGrid','.wav')] = dict(wav_long=data[0],phones=data[1])
+                json_data.update(sum_data)
     # print(json_data)
     json_string = json.dumps(json_data, indent=4, ensure_ascii=False,separators=(',', ':'))
     json_dir = os.path.join(path_main, 'json')
@@ -66,6 +78,6 @@ def run(path_main):
 if __name__ == '__main__':
     # 读取TextGrid文件内容
     #设置工作目录
-    path_main = "G:/编程/utau自动标注/F3"
+    path_main = r"E:\OpenUtau\Singers\bainiJP_autooto\A3"
     #遍历目录下的所有文件
     run(path_main+'/TextGrid')
