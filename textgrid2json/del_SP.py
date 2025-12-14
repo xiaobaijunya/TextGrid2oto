@@ -17,19 +17,22 @@ def process_textgrid(file_path,ignore,delete_sp):
         # 提取所有 intervals
         intervals = re.findall(r'intervals \[\d+\]:\s+xmin = ([\d.]+)\s+xmax = ([\d.]+)\s+text = "([^"]+)"', tier)
         new_intervals = []
-        i = 0
+        i = 1
+        new_intervals.append(intervals[0])
         while i < len(intervals):
-            if i > 0 and i < len(intervals) - 1 and intervals[i][2] == "SP":
+            if i < len(intervals)-1 and intervals[i][2] == "SP":
                 # 检查前一个音和后一个音
-                prev_phoneme = intervals[i - 1][2]
-                next_phoneme = intervals[i + 1][2]
-
+                prev_phoneme = intervals[i-1][2]
+                next_phoneme = intervals[i][2]
+                if prev_phoneme == "AP":
+                    print('123')
                 # 如果前一个音或后一个音是AP、EP或SP，则不删除当前SP区间
-                if prev_phoneme in ignore or next_phoneme in ignore:
+                if prev_phoneme in ignore and next_phoneme in ignore:
                     new_intervals.append(intervals[i])
-                    i += 1
                     if delete_sp:
                         print(f"{file_path}已保留 SP 区间: {intervals[i][0]} - {intervals[i][1]}")
+                    i += 1
+
                 else:
                     # 中间的 SP 区间，删除并调整前一个区间的 xmax
                     if new_intervals:
@@ -37,10 +40,10 @@ def process_textgrid(file_path,ignore,delete_sp):
                         # new_intervals[-1] = (new_intervals[-1][0], intervals[i + 1][0], new_intervals[-1][2])
                         #后音向前移动
                         new_intervals.append((intervals[i][0], intervals[i+1][1], intervals[i+1][2]))
-
-                    i += 2
                     if delete_sp:
                         print(f"{file_path}已删除 SP 区间: {intervals[i][0]} - {intervals[i][1]}")
+                    i += 2
+
                     sp_deleted = True  # 标记有SP被删除
             else:
                 new_intervals.append(intervals[i])
@@ -79,22 +82,21 @@ def process_all_textgrid_files(input_dir,ignore,delete_sp):
         if 'R' in file_path.name:
             print(f"跳过文件 {file_path.name} (文件名包含大写字母'R')")
             continue
-        try:
 
-            # 处理文件
-            processed_content, sp_deleted = process_textgrid(file_path,ignore,delete_sp)
 
-            # 如果有SP被删除，记录文件名（不包含后缀）
-            if sp_deleted:
-                files_with_deleted_sp.append(file_path.stem)
+        # 处理文件
+        processed_content, sp_deleted = process_textgrid(file_path,ignore,delete_sp)
 
-            # 直接覆盖原文件内容
-            if delete_sp:
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(processed_content)
-            # print(f"已处理并覆盖 {file_path}")
-        except Exception as e:
-            print(f"处理 {file_path} 时出错: {e}")
+        # 如果有SP被删除，记录文件名（不包含后缀）
+        if sp_deleted:
+            files_with_deleted_sp.append(file_path.stem)
+
+        # 直接覆盖原文件内容
+        if delete_sp:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(processed_content)
+        # print(f"已处理并覆盖 {file_path}")
+
 
     # 最后统一输出所有被删除SP的文件名
     if files_with_deleted_sp:
@@ -110,9 +112,9 @@ def process_all_textgrid_files(input_dir,ignore,delete_sp):
 
 if __name__ == "__main__":
     # 指定输入文件夹路径
-    input_directory = r'E:\OpenUtau\Singers\白锋_02\result\TextGrid'
+    input_directory = r'E:\OpenUtau\Singers\bainizh_2025.11.29\E3\TextGrid'
     ignore = 'AP,SP,EP'
-    delete_sp = False
+    delete_sp = True
     process_all_textgrid_files(input_directory,ignore,delete_sp)
 
 # # 读取文件
