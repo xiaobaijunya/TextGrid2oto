@@ -59,10 +59,6 @@ import shutil
 import pathlib
 import click
 
-
-
-
-
 def run():
     demo.launch(
         server_port=7861,
@@ -74,6 +70,29 @@ def run():
         # favicon_path=None,  # 不加载favicon，减少请求
     )
 print(f'耗时: {time.time()-start:.4f}s')
+
+
+# 定义文件夹选择函数
+def select_folder():
+    folder_path = filedialog.askdirectory(title="选择文件夹")  # 打开文件夹选择对话框
+    return folder_path
+
+def select_file():
+    file_path = filedialog.askopenfilename(
+        title="选择文本或INI文件",
+        filetypes=[("Text Files", "*.txt;*.ini")]
+    )
+    return file_path
+
+def model_file():
+    file_path = filedialog.askopenfilename(
+        title="选择模型文件",
+        filetypes=[("Model Files", "*.ckpt;*.onnx")]  # 限制文件类型[4,6](@ref)
+    )
+    return file_path
+
+
+#多音阶或单音阶分配任务
 def config_generator_dispatcher(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
@@ -99,7 +118,7 @@ def config_generator_dispatcher(
             VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress
         )
 
-
+#多音阶启动
 def generate_config_multi_pitch(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
@@ -133,7 +152,7 @@ def generate_config_multi_pitch(
 
     return f"🎉 多音阶模式任务完成！已成功处理 {len(subfolders)} 个子文件夹\n" + "\n".join(results)
 
-
+#核心运行代码
 def generate_config(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
@@ -202,11 +221,11 @@ def generate_config(
         else:
             print('TextGrid文件夹不存在')
         # 删除confidence目录（如果存在）
-        confidence_path2 = config['wav_path'] + '/confidence'
+        confidence_path2 = config['wav_path'] + '/transcriptions.csv'
         if os.path.exists(confidence_path2):
-            shutil.rmtree(confidence_path2)
+            os.remove(confidence_path2)
         else:
-            print('confidence文件夹不存在')
+            print('transcriptions.csv不存在')
     if SOFA_mode == 0:
         if SOFA_type == 0:
             progress(0.3, '2.正在前往sofa生成TextGrid')
@@ -327,25 +346,6 @@ def generate_config(
     return "🎉 任务完成！最终结果：去命令行窗口查看。"
 
 
-# 定义文件夹选择函数
-def select_folder():
-    folder_path = filedialog.askdirectory(title="选择文件夹")  # 打开文件夹选择对话框
-    return folder_path
-
-
-def select_file():
-    file_path = filedialog.askopenfilename(
-        title="选择文本或INI文件",
-        filetypes=[("Text Files", "*.txt;*.ini")]
-    )
-    return file_path
-
-def model_file():
-    file_path = filedialog.askopenfilename(
-        title="选择模型文件",
-        filetypes=[("Model Files", "*.ckpt;*.onnx")]  # 限制文件类型[4,6](@ref)
-    )
-    return file_path
 
 def update_params(voice_type):
     if voice_type == 0:
@@ -464,12 +464,12 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
             with gr.Row(equal_height=True):
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=3,min_width=150):
-                        sofa_model = gr.Textbox(label="sofa模型路径",placeholder="输入文件路径")
+                        sofa_model = gr.Textbox(label="fa模型路径",placeholder="输入文件路径")
                     with gr.Column(scale=2,min_width=150):
                         model_btn = gr.Button("选择文件", variant="primary")
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=3,min_width=150):
-                        ds_dict = gr.Textbox(label="sofa字典路径",placeholder="输入模型路径")
+                        ds_dict = gr.Textbox(label="fa字典路径",placeholder="输入模型路径")
                     with gr.Column(scale=2,min_width=150):
                         ds_dict_btn = gr.Button("选择文件", variant="primary")
 
@@ -587,123 +587,6 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                 outputs=output
             )
 
-
-        #
-        # # 新增oto梦幻自定义功能
-        # with gr.TabItem("oto工人の幻想时刻（不"):
-        #     # 添加第一个功能：根据模板合成oto.ini
-        #     with gr.Row(equal_height=True):
-        #         with gr.Row(equal_height=True):
-        #             with gr.Column(scale=3, min_width=300):
-        #                 gr.Markdown("### 根据模板合成oto.ini(请在已经有cv_oto和vc_oto的情况下使用)")
-        #                 template_wav_path = gr.Textbox(label="音源wav路径", placeholder="输入文件夹路径")
-        #                 template_oto_path = gr.Textbox(label="oto模板路径", placeholder="输入oto.ini路径")
-        #                 template_btn = gr.Button("合成oto.ini", variant="primary")
-        #
-        #     # 添加第二个功能：以预发声为基准锁定其他线的位置
-        #
-        #     gr.Markdown("## 以预发声为基准固定其他线的位置（0则不修改）")
-        #     with gr.Row(equal_height=True):
-        #         with gr.Column(scale=1, min_width=10):
-        #             lock_left_sum = gr.Textbox(label="左线数值（负值）", value="0")
-        #             lock_cross_sum = gr.Textbox(label="交叉线数值（负值）", value="0")
-        #             lock_fix_sum = gr.Textbox(label="固定线数值", value="0")
-        #             lock_right_sum = gr.Textbox(label="右线数值", value="0")
-        #         with gr.Column(scale=1, min_width=10):
-        #             lock_wav_path = gr.Textbox(label="oto.ini路径", placeholder="输入oto.ini路径")
-        #             lock_btn = gr.Button("合成oto", variant="primary")
-        #
-        #     # 添加输出结果显示
-        #     output = gr.Textbox(label="操作结果", lines=5)
-        #
-        #
-        # def template_oto_combine(template_wav_path, template_oto_path):
-        #     """根据模板合成oto.ini"""
-        #     try:
-        #         # 这里添加实际的oto合成逻辑
-        #         # 示例逻辑，需要根据实际需求修改
-        #         if not template_wav_path or not os.path.exists(template_wav_path):
-        #             return "错误：音源wav路径不存在"
-        #
-        #         if not template_oto_path or not os.path.exists(template_oto_path):
-        #             return "错误：oto模板路径不存在"
-        #
-        #         from oto import oto_template
-        #         oto_template(template_wav_path, template_oto_path)
-        #
-        #         return f"成功：已根据模板合成oto.ini\n音源路径：{template_wav_path}\n模板路径：{template_oto_path}"
-        #     except Exception as e:
-        #         return f"错误：{str(e)}"
-        #
-        #
-        # def lock_lines_by_presamp(lock_wav_path, lock_left_sum, lock_right_sum, lock_fix_sum, lock_cross_sum):
-        #     """以预发声为基准锁定其他线的位置"""
-        #     try:
-        #         if not lock_wav_path or not os.path.exists(lock_wav_path):
-        #             return "错误：音源wav路径不存在"
-        #
-        #         # 转换参数为浮点数
-        #         left = float(lock_left_sum) if lock_left_sum else -1
-        #         right = float(lock_right_sum) if lock_right_sum else -1
-        #         fix = float(lock_fix_sum) if lock_fix_sum else -1
-        #         cross = float(lock_cross_sum) if lock_cross_sum else -1
-        #
-        #         # 调用线锁定函数
-        #         # 假设已经有相应的线锁定函数
-        #         # result = lock_lines(lock_wav_path, left, right, fix, cross)
-        #
-        #         return f"成功：已锁定线位置\n音源路径：{lock_wav_path}\n左线：{left}, 右线：{right}, 固定线：{fix}, 交叉线：{cross}"
-        #     except Exception as e:
-        #         return f"错误：{str(e)}"
-        #
-        #
-        #     template_btn.click(
-        #         fn=template_oto_combine,
-        #         inputs=[template_wav_path, template_oto_path],
-        #         outputs=output
-        #     )
-        #
-        #     lock_btn.click(
-        #         fn=lock_lines_by_presamp,
-        #         inputs=[lock_wav_path, lock_left_sum, lock_right_sum, lock_fix_sum, lock_cross_sum],
-        #         outputs=output
-        #     )
-        #
-
-        # 新增的帮助页面
-        # with gr.TabItem("使用说明（未完工）"):
-        #     gr.Markdown("## 使用说明（未完工）")
-        #     gr.Markdown("""
-        #     ### 基本操作流程：
-        #     1. **配置参数**：在"主配置页面"中填写或选择所需参数
-        #     2. **生成配置**：点击"生成配置"按钮开始处理
-        #     3. **查看结果**：查看cmd窗口的运行结果，确认生成是否成功
-        #
-        #     ### 参数说明：
-        #     - **音源wav路径**：包含.wav音频文件的文件夹路径
-        #     - **音源类型**：根据音源类型选择合适的处理模式
-        #
-        #     ### 高级参数（示例）：
-        #     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
-        #     cv_sum=1,3,1.5,1,2
-        #     #VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
-        #     vc_sum=3,0,2,1,2
-        #     vv_sum=3,3,1.5,1,3
-        #     #偏移数值(左+右-,单位ms)
-        #     #(左线偏移后，其他线都要自己进行同步偏移数值)
-        #     #(右线的数值，在处理前会自动转为正数，所以不需要考虑正负问题)
-        #     #示例：cv_sum=10,-10,-10,-10,-10（这样调整才能保持线位置不受改变）
-        #     #-CV和CV规则：左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移
-        #     cv_offset=0,0,0,0,0
-        #     #VC和VV规则：左线偏移,固定的偏移,右线偏移,预发声偏移,交叉偏移
-        #     vc_offset=0,0,0,0,0
-        #     """)
-        #
-        # # 新增的高级设置页面
-        # with gr.TabItem("diffsinger标准dataset数据集生成"):
-        #     gr.Markdown("## 还没做")
-        #     gr.Markdown("还没做")
-        #     # 可以在这里添加更多高级配置选项
 
 if __name__ == "__main__":
     run()
