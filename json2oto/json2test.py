@@ -82,6 +82,8 @@ def json2cvoto(cv_data,sum,ignore):
                 left = float(cont['xmin']) * 1000 / sum[0]
 
                 Prevoice = (float(cont['middle']) - float(cont['xmin'])) * 1000 / sum[3]
+                if sum[3] != 1:
+                    left = left + ((float(cont['middle']) - float(cont['xmin'])) * 1000 - Prevoice)
                 # 右线占比
                 right = (float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[2] + Prevoice
                 # 固定的占比
@@ -102,6 +104,8 @@ def json2cvoto(cv_data,sum,ignore):
             left = float(cont['xmin']) * 1000 / sum[0]
 
             Prevoice = (float(cont['middle'])- float(cont['xmin'])) * 1000 / sum[3]
+            if sum[3] != 1:
+                left = left + ((float(cont['middle'])- float(cont['xmin'])) * 1000 - Prevoice)
             # 右线占比
             right = (float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[2] + Prevoice
             # 固定的占比
