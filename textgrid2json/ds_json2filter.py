@@ -5,6 +5,9 @@
 
 import json
 
+from sympy.strategies.core import switch
+
+
 #音素获取
 def ds_dict_read(ds_dictpath,ignore):
     vowels = []
@@ -79,37 +82,62 @@ def reorganize_json_data(json_data):
     for audio_file, data in json_data.items():
         phones = data.get('phones', {})
         wav_long = data.get('wav_long', [])
-
         if not phones:
             continue
 
+        turn = True
+        new_phones = {}
         # 获取排序后的phone keys
         sorted_keys = sorted(phones.keys(), key=lambda x: int(x))
+        if len(data['phones']) != sorted_keys[-1]:
+            for i, key in enumerate(sorted_keys, 1):
+                new_phones[str(i)] = data['phones'][key]
+            data['phones'] = new_phones
+            new_phones = {}
+            sorted_keys = sorted(data['phones'].keys(), key=lambda x: int(x))
+
+        while turn:
+            turn = False
+            for i in range(0, len(sorted_keys)-1):
+                a = data['phones'][sorted_keys[i]]['text']
+                b = data['phones'][sorted_keys[i+1]]['text']
+                if a in ['R','-'] and b in ['R','-']:
+                    turn = True
+                    data['phones'][sorted_keys[i+1]]['xmin'] = data['phones'][sorted_keys[i]]['xmin']
+                    del data['phones'][sorted_keys[i]]
+                    sorted_keys.pop(i)
+                    for i, key in enumerate(sorted_keys, 1):
+                        new_phones[str(i)] = data['phones'][key]
+                    data['phones'] = new_phones
+                    sorted_keys = sorted(data['phones'].keys(), key=lambda x: int(x))
+                    new_phones = {}
+                    break
+
 
         # 处理第一个元素
         first_key = sorted_keys[0]
-        first_phone = phones[first_key]
+        first_phone = data['phones'][first_key]
 
-        # 只有当第一个音素不是R时才添加起始的"-"音素
+        # 只有当第一个音素不是R时才添加起始的"R"音素
         if first_phone.get('text') != 'R':
             new_phone = {
                 "xmin": "0.0",
                 "xmax": first_phone['xmin'],
-                "text": "-"
+                "text": "R"
             }
             # 创建新的有序字典
             new_phones = {"1": new_phone}
             for i, key in enumerate(sorted_keys, 2):
-                new_phones[str(i)] = phones[key]
+                new_phones[str(i)] = data['phones'][key]
         else:
             # 如果第一个音素已经是R，则保持原有顺序
             new_phones = {}
             for i, key in enumerate(sorted_keys, 1):
-                new_phones[str(i)] = phones[key]
+                new_phones[str(i)] = data['phones'][key]
 
         data['phones'] = new_phones
-        sorted_keys = sorted(new_phones.keys(), key=lambda x: int(x))  # 更新排序后的keys
-
+        sorted_keys = sorted(data['phones'].keys(), key=lambda x: int(x))  # 更新排序后的keys
+        new_phones = {}
         # 处理最后一个元素（只有当最后一个音素不是R时才添加结尾的R音素）
         last_key = sorted_keys[-1]
         last_phone = data['phones'][last_key]
@@ -148,7 +176,7 @@ def run(ds_dict,json_path,ignore):
         print('写入成功')
 
 if __name__ == '__main__':
-    json_path = r'E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3/TextGrid\json\ds_phone.json'
-    ds_dict = 'SOFA-UTAUCHN-dic.txt'
+    json_path = r'E:\vocaloidmake\vocaloid-dbtool-application\VOCALOID Developer\baini_CVVC_ZH\wav\TextGrid\json\ds_phone.json'
+    ds_dict = r'F:\Textgrid2oto4\HubertFA_model\1201_hfa_model\zh.txt'
     ignore = 'AP,SP'
     run(ds_dict,json_path,ignore)
