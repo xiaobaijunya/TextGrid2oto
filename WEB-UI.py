@@ -2,6 +2,7 @@ import webview
 import app
 import threading
 import queue
+import webbrowser
 # nuitka --standalone --windows-icon-from-ico=img/TextGrid2oto.ico --output-dir=output --output-filename=TextGrid2oto-WEBUI WEB-UI.py
 
 def run_app():
@@ -13,12 +14,17 @@ app_thread.daemon = True  # 将线程设置为守护线程，这样主线程退�
 app_thread.start()
 w=960*1.2
 h=640*1.2
-print("启动 PyWebview 窗口...")
-window = webview.create_window(
-    title='TextGrid2oto',
-    url='http://127.0.0.1:7861',
-    width=int(w),
-    height=int(h),
-)
 
-webview.start()
+try:
+    print("启动 PyWebview 窗口...")
+    window = webview.create_window(
+        title='TextGrid2oto',
+        url='http://127.0.0.1:7861',
+        width=int(w),
+        height=int(h),
+    )
+    webview.start()
+except Exception as e:
+    print(f"PyWebview 启动失败: {e}")
+    print("正在打开系统默认浏览器...")
+    webbrowser.open('http://127.0.0.1:7861')
