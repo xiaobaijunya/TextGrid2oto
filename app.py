@@ -348,16 +348,20 @@ def generate_config(
 
 
 def update_params(voice_type):
+    #CVVC
     if voice_type == 0:
-        return "1,3,1.5,1,4", "3,0,2,1,2", "3,3,1.5,1,2", "0,0,0,0,0", "0,0,0,0,0"
+        return "1,3,1.5,1,4", "3,0,2,1,3", "3,3,1.5,1,3", "0,0,0,0,0", "0,0,0,0,0"
+    #VCV
     elif voice_type == 1:
-        return "1,3,1.5,1,2", "3,3,1.5,1,3,3", "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0"
+        return "1,3,1.5,1,2", "2.5,3,1.5,1,3,3", "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0"
+    #CV
     elif voice_type == 2:
-        return "1,3,1,1,2", "5,0,2,1,2", "0,0,0,0,0", "0,0,0,0,0", "0,0,0,0,0"
+        return "1,3,1,1,3", "5,0,2,1,3", "0,0,0,0,6", "0,0,0,0,0", "0,0,0,0,0"
+    #test
     elif voice_type == 3:
         return "1,8,1.5,1,4", "3,0,2,1,2", "3,3,1.5,1,2", "0,0,0,0,0", "0,0,0,0,0"
     else:
-        return "0,0,1.5,1,2", "3,0,2,1,2", "3,3,1.5,1,3", "0,0,0,0,0", "0,0,0,0,0"
+        return "0,0,1.5,1,2", "3,0,2,1,3", "3,3,1.5,1,3", "0,0,0,0,0", "0,0,0,0,0"
 
 def scan_model_folder(SOFA_type):
     model_dir = "HubertFA_model"
@@ -499,18 +503,18 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                 ignore = gr.Textbox(label="视为间隔音素R的音素", value="AP,SP,EP,R,-,B")
 
             gr.Markdown("### 可选参数配置")
-            with gr.Accordion("高级参数配置", open=True):
-                gr.Markdown("**规则参数（逗号分隔数值）​**​\t比例：(左线占比,固定的占比,右线占比,预发声不变,交叉占比)\t偏移：(左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移)")
+            with gr.Accordion("高级参数配置（建议修改）", open=True):
+                gr.Markdown("**规则参数（逗号分隔数值）**")
                 with gr.Row():
-                    cv_sum = gr.Textbox(label="CV规则比例", value="1,3,1.5,1,4")
-                    vc_sum = gr.Textbox(label="VC规则比例", value="3,0,2,1,2")
-                    vv_sum = gr.Textbox(label="VV规则比例", value="3,3,1.5,1,2")
+                    cv_sum = gr.Textbox(label="CV规则比例(左线占比,固定的占比,右线占比,预发声不变,交叉占比)", value="1,3,1.5,1,4")
+                    vc_sum = gr.Textbox(label="VC规则比例(左线占比,固定的占比,右线占比,预发声不变,交叉占比)", value="3,0,2,1,2")
+                    vv_sum = gr.Textbox(label="VV规则比例(左线占比,固定的占比,右线占比,预发声不变,交叉占比(母音结合))", value="3,3,1.5,1,2")
 
-                    cv_offset = gr.Textbox(label="CV数值偏移量", value="0,0,0,0,0")
-                    vc_offset = gr.Textbox(label="VC数值偏移量", value="0,0,0,0,0")
+                    cv_offset = gr.Textbox(label="CV数值偏移量(左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移)", value="0,0,0,0,0")
+                    vc_offset = gr.Textbox(label="VC数值偏移量(左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移)", value="0,0,0,0,0")
                 with gr.Row():
-                    CV_repeat = gr.Textbox(label="CV重复次数", value="1")
-                    VC_repeat = gr.Textbox(label="VC重复次数", value="1")
+                    CV_repeat = gr.Textbox(label="CV重复次数(无上限)", value="1")
+                    VC_repeat = gr.Textbox(label="VC重复次数(无上限)", value="1")
             # 定义更新参数的函数
 
             demo.load(
