@@ -8,7 +8,9 @@ import re
 #CV(V),VC(VV)(VR),-CV（-V）
 
 def presamp_read(presamps_path):
-    V = {}
+    CV_V = {}
+    CV_C = {}
+    V_V = []
     with open(presamps_path, 'r',encoding='utf-8') as file:
         ini_text = file.read()
         # 提取 [VOWEL] 部分
@@ -17,15 +19,20 @@ def presamp_read(presamps_path):
         vowels = vowel_match.group(1).strip()
         # print(vowels)
         # 提取 [CONSONANT] 部分
-        # consonant_match = re.search(r'\[CONSONANT\](.*?)\[', ini_text, re.DOTALL)
-        # consonants = consonant_match.group(1).strip()
+        consonant_match = re.search(r'\[CONSONANT\](.*?)\[', ini_text, re.DOTALL)
+        consonants = consonant_match.group(1).strip()
         # print(consonants)
     for vowel in vowels.split('\n'):
-        v = vowel.split('=')[0]
-        for v0 in vowel.split('=')[2].split(','):
-            V[v0]=v
-    # print(V)
-    return V
+        V0=(vowel.split('=')[0])
+        for vowel in vowel.split('=')[2].split(','):
+            CV_V[vowel]=V0
+    for consonant in consonants.split('\n'):
+        C0=(consonant.split('=')[0])
+        for consonant in consonant.split('=')[1].split(','):
+            CV_C[consonant]=C0
+    V_V = [key for key in CV_V if key not in CV_C]
+    print(f"CV_V:{CV_V}\nCV_C:{CV_C}\n,V_V:{V_V}")
+    return CV_V,V_V
 
 def json2cvoto(cv_data,sum,ignore):
     oto = []
@@ -156,17 +163,31 @@ def json2vcoto(vc_data,C_V,vc_sum,ignore):
                 continue
     return oto
 
+def v_cross(oto,cross_sum,V_V):
+    oto2 = []
+    for line in oto:
+        autio_name, rest = line.split('=')
+        rest = rest.strip()
+        rest = rest.split(',')
+        if rest[0] in V_V:
+            cross = float(rest[2]) / cross_sum
+            oto2.append(f"{autio_name}={rest[0]},{rest[1]},{rest[2]},{rest[3]},{rest[4]},{cross}\n")
+        else:
+            oto2.append(line)
+    return oto2
+
 
 
 def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
     ignore = ignore.split(',')
-    C_V = presamp_read(presamp_path)
+    C_V,V_V = presamp_read(presamp_path)
     print(C_V)
     # with open(utau_phone_json, 'r', encoding='utf-8') as f:
     #     vc_data = json.load(f)
     with open(word_phone_json, 'r', encoding='utf-8') as f:
         cv_data = json.load(f)
     oto = json2cvoto(cv_data,cv_sum,ignore)
+    oto = v_cross(oto,vv_sum[4],V_V)
     # print(oto)
     with open(wav_path+'/cv_oto.ini', 'w', encoding='utf-8') as f:
         for i in oto:
@@ -186,14 +207,16 @@ if __name__ == '__main__':
     # word_phone_json = 'G:/编程/utau自动标注/F3/TextGrid/json/word_phone.json'
     # wav_path = 'G:/编程/utau自动标注/F3'
 
-    presamp_path = '../presamp/樗儿式中文VCV-presamp.ini'
-    utau_phone = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试/VCV/TextGrid/json/utau_phone.json'
-    word_phone_json = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试/VCV/TextGrid/json/word_phone.json'
-    wav_path = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试\VCV'
+    presamp_path = '../presamp/jp-hira-presamp.ini'
+    wav_path = 'E:\OpenUtau\Singers\LXYM4_openutau\C5'
+    utau_phone = wav_path + '/TextGrid/json/utau_phone.json'
+    word_phone_json = wav_path + '/TextGrid/json/word_phone.json'
+
 
     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
-    cv_sum = [1,3,1.5,1,2]
+    cv_sum = [1,3,1.5,1,2,3]
     #VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
     vc_sum=[3,0,2,1,2,3]
     vv_sum=[3,0,2,1,2,3]
-    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum)
+    ignore = 'R,SP,AP'
+    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore)
