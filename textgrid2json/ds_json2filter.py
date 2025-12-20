@@ -119,7 +119,7 @@ def reorganize_json_data(json_data):
         first_phone = data['phones'][first_key]
 
         # 只有当第一个音素不是R时才添加起始的"R"音素
-        if first_phone.get('text') != 'R':
+        if first_phone.get('text') not in ['R','SP']:
             new_phone = {
                 "xmin": "0.0",
                 "xmax": first_phone['xmin'],
@@ -143,7 +143,7 @@ def reorganize_json_data(json_data):
         last_phone = data['phones'][last_key]
 
         # 检查最后一个音素是否为R
-        if last_phone.get('text') != 'R':
+        if last_phone.get('text') not in ['R','SP']:
             wav_end = wav_long[1] if len(wav_long) >= 2 else 0
             if float(last_phone['xmax']) < wav_end:
                 new_phone = {
