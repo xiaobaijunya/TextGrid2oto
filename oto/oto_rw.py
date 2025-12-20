@@ -122,7 +122,7 @@ def oto_offset(oto_data,offset):
     return new_oto_data
 
 
-def oto_write(file_path,oto_data,pitch,cover):
+def oto_write(file_path,oto_data,pitch,cover,oto_encoding):
     #写入 oto 文件
     if cover=='y' or cover=='Y':
         print(f'{GREEN}覆盖原文件：{file_path}{RESET}')
@@ -130,7 +130,12 @@ def oto_write(file_path,oto_data,pitch,cover):
     else:
         print(f'{GREEN}不覆盖原文件：{file_path}{RESET}')
         new_file_path=oto_path(file_path)
-    encodings = ['shift-jis', 'utf-8']
+
+    if oto_encoding =='shift-jis':
+        encodings = ['shift-jis','utf-8']
+    else:
+        encodings = ['utf-8','shift-jis','gbk']
+
     for encoding in encodings:
         try:
             with open(new_file_path, 'w', encoding=encoding) as f:
