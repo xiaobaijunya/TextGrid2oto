@@ -58,8 +58,8 @@ def json2cvoto(cv_data,sum,ignore):
                     fixed = Prevoice+(right-Prevoice)/sum[1]
                 cross = float(Prevoice)/sum[4]
                 i+=2
-                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                # print(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
             # #CV规则
             # phone_name =cont['text']
@@ -77,7 +77,7 @@ def json2cvoto(cv_data,sum,ignore):
             # cross = float(Prevoice) / sum[4]
             i += 1
             #
-            # oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+            # oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
 
     return oto
 
@@ -111,8 +111,8 @@ def json2VCVoto(cv_data,CV_V,sum,ignore):
                     fixed = Prevoice + (float(cont1['xmax']) - float(cont1['middle'])) * 1000 / sum[1]
                 cross = (float(cont['xmax']) - float(cont['middle'])) * 1000 / sum[4]
                 i += 1
-                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                # print(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             elif  cont['text'] in CV_V and cont1['text'] in CV_V:
                 phone_name = CV_V[cont['text']] + ' ' + cont1['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
@@ -127,7 +127,7 @@ def json2VCVoto(cv_data,CV_V,sum,ignore):
                     fixed = Prevoice + (float(cont1['xmax']) - float(cont1['middle'])) * 1000 / sum[1]
                 cross =(float(cont['xmax']) - float(cont['middle'])) *1000 / sum[4]
                 i += 1
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
 
             else:
                 i+=1

@@ -37,7 +37,7 @@ def textgrid_change(textgrid_content):
     return long,phones_dict
 
 #需要传入TextGrid文件路径
-def run(path_main):
+def run(path_main,rec_preset):
     json_data = {}
     for root,dirs,files in os.walk(path_main):
         for file in files:
@@ -63,11 +63,40 @@ def run(path_main):
                 # 转换为JSON
                 data = textgrid_change(textgrid_content)
                 # json_data = dict(wav=file)
-                sum_data[file.replace('.TextGrid','.wav')] = dict(wav_long=data[0],phones=data[1])
+                sum_data[file.split('.')[0]] = dict(wav_long=data[0],phones=data[1])
                 json_data.update(sum_data)
     # print(json_data)
+    if rec_preset is not None:
+        try:
+            with open(rec_preset, 'r', encoding='utf-8') as f:
+                rec_lines = f.readlines()
+            # 解析rec_preset文件，获取文件名列表
+            rec_file_list = []
+            for line in rec_lines:
+                line = line.strip()
+                if line:
+                    rec_file_list.append(line)
+            # 根据rec_file_list的顺序对json_data进行排序
+            sorted_json_data = {}
+            for file_name in rec_file_list:
+                if file_name in json_data:
+                    sorted_json_data[file_name] = json_data[file_name]
+                else:
+                    print(f"rec_preset中包含的文件 {file_name} 不在json_data中（漏录了该条目）")
+            # 添加不在rec_preset中的剩余文件（保持原顺序）
+            for file_name in json_data:
+                if file_name not in sorted_json_data:
+                    sorted_json_data[file_name] = json_data[file_name]
+
+            json_data = sorted_json_data
+        except Exception as e:
+            print(f"读取或解析rec_preset文件时出错: {e}")
+
+
+
     json_string = json.dumps(json_data, indent=4, ensure_ascii=False,separators=(',', ':'))
     json_dir = os.path.join(path_main, 'json')
+
     # 2. 创建目录（如果不存在）
     os.makedirs(json_dir, exist_ok=True)
     # 将JSON字符串写入文件
@@ -78,6 +107,7 @@ def run(path_main):
 if __name__ == '__main__':
     # 读取TextGrid文件内容
     #设置工作目录
-    path_main = r"E:\OpenUtau\Singers\bainiJP_autooto\A3"
+    path_main = r"E:\OpenUtau\Singers\白锋_02\G#3"
+    rec_preset = r"E:\OpenUtau\Singers\白锋_02\中文risku_CVVC录音表 by小白\普通6字表.txt"
     #遍历目录下的所有文件
-    run(path_main+'/TextGrid')
+    run(path_main+'/TextGrid',rec_preset)

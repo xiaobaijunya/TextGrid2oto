@@ -97,7 +97,7 @@ def config_generator_dispatcher(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
         cv_offset, vc_offset, pitch, CV_repeat,
-        VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, multi_pitch_mode, delete_sp, progress=gr.Progress()):
+        VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, multi_pitch_mode, delete_sp,rec_preset,oto_preset,oto_encoding, progress=gr.Progress()):
     """
     根据多音阶模式开关状态，决定调用哪个配置生成函数
     """
@@ -107,7 +107,7 @@ def config_generator_dispatcher(
             wav_path, ds_dict, presamp, cut, ignore,
             VCV_mode, lab, cv_sum, vc_sum, vv_sum,
             cv_offset, vc_offset, pitch, CV_repeat,
-            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress
+            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp,rec_preset,oto_preset,oto_encoding, progress
         )
     else:
         # 否则调用单音阶处理函数
@@ -115,7 +115,7 @@ def config_generator_dispatcher(
             wav_path, ds_dict, presamp, cut, ignore,
             VCV_mode, lab, cv_sum, vc_sum, vv_sum,
             cv_offset, vc_offset, pitch, CV_repeat,
-            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress
+            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp,rec_preset,oto_preset,oto_encoding, progress
         )
 
 #多音阶启动
@@ -123,7 +123,7 @@ def generate_config_multi_pitch(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
         cv_offset, vc_offset, pitch, CV_repeat,
-        VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress=gr.Progress()):
+        VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp,rec_preset,oto_preset,oto_encoding, progress=gr.Progress()):
     # 获取主文件夹下的所有子文件夹
     subfolders = [f for f in os.listdir(wav_path) if os.path.isdir(os.path.join(wav_path, f))]
     if not subfolders:
@@ -143,7 +143,7 @@ def generate_config_multi_pitch(
             subfolder_path, ds_dict, presamp, cut, ignore,
             VCV_mode, lab, cv_sum, vc_sum, vv_sum,
             cv_offset, vc_offset, current_pitch, CV_repeat,
-            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, progress
+            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type,rec_preset,oto_preset,oto_encoding,delete_sp, progress
         )
 
         if result and "错误" in result:
@@ -157,7 +157,7 @@ def generate_config(
         wav_path, ds_dict, presamp, cut, ignore,
         VCV_mode, lab, cv_sum, vc_sum, vv_sum,
         cv_offset, vc_offset, pitch, CV_repeat,
-        VC_repeat, clear_tg_cache,cover, sofa_model,SOFA_mode,SOFA_type,delete_sp,progress=gr.Progress()):
+        VC_repeat, clear_tg_cache,cover, sofa_model,SOFA_mode,SOFA_type,delete_sp,rec_preset,oto_preset,oto_encoding,progress=gr.Progress()):
     config1 = (
         f"wav_path={wav_path}\n"
         f"ds_dict={ds_dict}\n"
@@ -180,6 +180,9 @@ def generate_config(
         f"SOFA_mode={SOFA_mode}\n"
         f"SOFA_type={SOFA_type}\n"
         f"delete_sp={delete_sp}\n"
+        f"rec_preset={rec_preset}\n"
+        f"oto_preset={oto_preset}\n"
+        f"oto_encoding={oto_encoding}\n"
     )
     deleted_sp_list = []
     with open('config.txt', 'w', encoding='utf-8') as f:
@@ -231,19 +234,19 @@ def generate_config(
             progress(0.3, '2.正在前往sofa生成TextGrid')
             print( '2.正在前往sofa生成TextGrid')
             sys.path.append('SOFA')
-            from SOFA import infer
-            print(f'--folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
-            sys.argv = f'--folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence'
-            # infer.main(ckpt=os.path.abspath(sofa_model),mode='force',ap_detector='LoudnessSpectralcentroidAPDetector',g2p=os.path.abspath(ds_dict),folder=wav_path,out_formats='textgrid',in_format='lab',save_confidence=True)
-            with click.Context(infer.main) as ctx:
-                result = ctx.invoke(
-                    infer.main,
-                    ckpt=os.path.abspath(sofa_model),
-                    folder=wav_path,
-                    dictionary=pathlib.Path(os.path.abspath(ds_dict)),
-                    out_formats='textgrid',
-                    save_confidence=True
-                )
+            # from SOFA import infer
+            # print(f'--folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence')
+            # sys.argv = f'--folder {wav_path} --dictionary {os.path.abspath(ds_dict)} --ckpt {os.path.abspath(sofa_model)} --out_formats textgrid --save_confidence'
+            # # infer.main(ckpt=os.path.abspath(sofa_model),mode='force',ap_detector='LoudnessSpectralcentroidAPDetector',g2p=os.path.abspath(ds_dict),folder=wav_path,out_formats='textgrid',in_format='lab',save_confidence=True)
+            # with click.Context(infer.main) as ctx:
+            #     result = ctx.invoke(
+            #         infer.main,
+            #         ckpt=os.path.abspath(sofa_model),
+            #         folder=wav_path,
+            #         dictionary=pathlib.Path(os.path.abspath(ds_dict)),
+            #         out_formats='textgrid',
+            #         save_confidence=True
+            #     )
         elif SOFA_type == 1:
             if sofa_model.split('.')[-1] == 'ckpt':
                 progress(1, "❌ 已经不支持.ckpt模型，请使用.onnx模型！")
@@ -290,7 +293,7 @@ def generate_config(
     if not VCV_mode:
         VCV_mode = '0'
     progress(0.4,'3.生成json')
-    TextGrid2ds_json.run(config['TextGrid_path'])
+    TextGrid2ds_json.run(config['TextGrid_path'],config['rec_preset'])
     ds_json2filter.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone.json', config['ignore'])
     progress(0.5,'3.生成word.json')
     ds_json2word.run(config['ds_dict'], config['TextGrid_path'] + '/json/ds_phone_filter.json')
@@ -334,7 +337,7 @@ def generate_config(
         vc = oto_rw.oto_offset(vc, config['vc_offset'])
         progress(0.7,'9.1.偏移VC数值,运行成功')
     progress(0.8,'10.合并oto.ini')
-    oto_rw.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'])
+    oto_rw.oto_write(config['wav_path'] + '/oto.ini', cv + vc, config['pitch'], config['cover'],  config['oto_encoding'])
     progress(0.9,'11.检测缺少的音素')
     oto_check.run(config['wav_path'] + '/oto.ini', config['presamp'], config['pitch'], config['VCV_mode'])
     if deleted_sp_list:
@@ -498,6 +501,9 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                 #生成后清空所有杂项文件
                 #还没做
                 cover = gr.Radio(choices=["Y", "N"], value="Y", label="覆盖oto")
+                #编码格式
+                oto_encoding = gr.Radio(choices=["utf-8", "shift-jis"], value="utf-8", label="oto编码格式")
+
             with gr.Row():
                 cut = gr.Textbox(label="字符分隔符", value="_,-")
                 ignore = gr.Textbox(label="视为间隔音素R的音素", value="AP,SP,EP,R,-,B")
@@ -509,9 +515,11 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                     cv_sum = gr.Textbox(label="CV规则比例(左线占比,固定的占比,右线占比,预发声不变,交叉占比)", value="1,3,1.5,1,4")
                     vc_sum = gr.Textbox(label="VC规则比例(左线占比,固定的占比,右线占比,预发声不变,交叉占比)", value="3,0,2,1,2")
                     vv_sum = gr.Textbox(label="VV规则比例(左线占比,固定的占比,右线占比,预发声不变,交叉占比(母音结合))", value="3,3,1.5,1,2")
-
                     cv_offset = gr.Textbox(label="CV数值偏移量(左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移)", value="0,0,0,0,0")
                     vc_offset = gr.Textbox(label="VC数值偏移量(左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移)", value="0,0,0,0,0")
+                with gr.Row():
+                    rec_preset = gr.Textbox(label="优先按录音表顺序生成oto（只读utf-8）",placeholder="输入录音表文件路径",value="")
+                    oto_preset = gr.Textbox(label="优先使用模板中的oto（只读utf-8）",placeholder="输入oto模板路径",value="")
                 with gr.Row():
                     CV_repeat = gr.Textbox(label="CV重复次数(无上限)", value="1")
                     VC_repeat = gr.Textbox(label="VC重复次数(无上限)", value="1")
@@ -586,7 +594,7 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                     wav_path, ds_dict, presamp, cut, ignore,
                     VCV_mode, lab, cv_sum, vc_sum, vv_sum,
                     cv_offset, vc_offset, pitch, CV_repeat,
-                    VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, multi_pitch_mode, delete_sp
+                    VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, multi_pitch_mode, delete_sp,rec_preset,oto_preset,oto_encoding
                 ],
                 outputs=output
             )

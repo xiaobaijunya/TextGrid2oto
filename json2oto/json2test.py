@@ -74,7 +74,7 @@ def json2cvoto(cv_data,sum,ignore):
                 if right <0:
                     print(f'{phone_name}右边界错误')
                     continue
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
             if cont2['text'] in ignore:
                 phone_name =cont['text'] + 'R'
@@ -96,7 +96,7 @@ def json2cvoto(cv_data,sum,ignore):
                 if right <0:
                     print(f'{phone_name}右边界错误')
                     continue
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
             #CV规则
             phone_name =cont['text']
@@ -116,7 +116,7 @@ def json2cvoto(cv_data,sum,ignore):
             cross = float(Prevoice) / sum[4]
             i += 1
 
-            oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+            oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             continue
 
     return oto
@@ -155,8 +155,8 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum,ignore):
                     fixed = Prevoice + (float(cont1['xmax']) - float(cont1['middle'])) * 1000 / vc_sum[1]
                 cross = (float(cont['xmax']) * 1000 - left ) / vc_sum[4]
                 i += 1
-                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                # print(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             elif cont1['text'] in V_V and cont['text'] in CV_V:
                 phone_name = CV_V[cont['text']] + ' ' + cont1['text']
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
@@ -171,7 +171,7 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum,ignore):
                     fixed = Prevoice + (float(cont1['xmax']) - float(cont1['middle'])) * 1000 / vv_sum[1]
                 cross = (float(cont['xmax']) * 1000 - left ) / vv_sum[4]
                 i += 1
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             elif cont1['text'] in CV_C and cont['text'] in CV_V:
                 phone_name = CV_V[cont['text']] + ' ' + CV_C[cont1['text']]
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
@@ -193,7 +193,7 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum,ignore):
                     fixed = Prevoice + (float(cont1['middle']) - float(cont1['xmin'])) * 1000 / vc_sum[1]
                 cross = (float(cont['xmax']) * 1000 - left ) / vc_sum[4]
                 i += 1
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             else:
                 i += 1
                 continue

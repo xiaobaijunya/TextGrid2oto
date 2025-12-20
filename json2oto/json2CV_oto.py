@@ -61,7 +61,7 @@ def json2cvoto(cv_data,sum,ignore):
                 fixed = Prevoice + (right - Prevoice) / sum[1]
             cross = float(Prevoice) / sum[4]
 
-            oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+            oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
 
         i = 0
         while i < len(sorted_phones)-1:
@@ -83,7 +83,7 @@ def json2cvoto(cv_data,sum,ignore):
                     fixed = Prevoice+(right-Prevoice)/sum[1]
                 cross = float(Prevoice)/sum[4]
                 i+=2
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
             #CV规则
             phone_name =cont['text']
@@ -101,7 +101,7 @@ def json2cvoto(cv_data,sum,ignore):
             cross = float(Prevoice) / sum[4]
             i += 1
 
-            oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+            oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             continue
 
     return oto
@@ -144,8 +144,8 @@ def json2vcoto(vc_data,C_V,vc_sum,ignore):
                     fixed = Prevoice + (Prevoice-right) * 1000 / vc_sum[1]
                 cross = (float(cont['xmax']) - float(cont['middle'])) * 1000 / vc_sum[4]
                 # i += 1
-                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                # print(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
 
                 phone_name = '_'+C_V[cont['text']]
                 left = float(cont["middle"]) * 1000 + ((float(cont['xmax']) - float(cont['middle'])) * 1000 / vc_sum[0])
@@ -156,8 +156,8 @@ def json2vcoto(vc_data,C_V,vc_sum,ignore):
                 fixed = (right - Prevoice) /4 +Prevoice
                 cross = Prevoice / 2
                 i += 1
-                # print(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
-                oto.append(f"{autio_name}={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                # print(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
             else:
                 i+=1
                 continue
@@ -171,7 +171,7 @@ def v_cross(oto,cross_sum,V_V):
         rest = rest.split(',')
         if rest[0] in V_V:
             cross = float(rest[2]) / cross_sum
-            oto2.append(f"{autio_name}={rest[0]},{rest[1]},{rest[2]},{rest[3]},{rest[4]},{cross}\n")
+            oto2.append(f"{autio_name}.wav={rest[0]},{rest[1]},{rest[2]},{rest[3]},{rest[4]},{cross}\n")
         else:
             oto2.append(line)
     return oto2
