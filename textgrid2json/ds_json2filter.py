@@ -123,7 +123,7 @@ def reorganize_json_data(json_data):
             new_phone = {
                 "xmin": "0.0",
                 "xmax": first_phone['xmin'],
-                "text": "R"
+                "text": "SP"
             }
             # 创建新的有序字典
             new_phones = {"1": new_phone}
@@ -149,7 +149,20 @@ def reorganize_json_data(json_data):
                 new_phone = {
                     "xmin": last_phone['xmax'],
                     "xmax": str(wav_end),
-                    "text": "R"
+                    "text": "SP"
+                }
+                # 添加新的最后一个元素
+                new_index = str(int(sorted_keys[-1]) + 1)
+                data['phones'][new_index] = new_phone
+            else:
+                last_key = sorted_keys[-1]
+                data['phones'][last_key]["xmax"] = wav_end - 0.01
+                last_phone = data['phones'][last_key]
+
+                new_phone = {
+                    "xmin": wav_end - 0.01,
+                    "xmax": str(wav_end),
+                    "text": "SP"
                 }
                 # 添加新的最后一个元素
                 new_index = str(int(sorted_keys[-1]) + 1)
@@ -176,7 +189,7 @@ def run(ds_dict,json_path,ignore):
         print('写入成功')
 
 if __name__ == '__main__':
-    json_path = r'E:\vocaloidmake\vocaloid-dbtool-application\VOCALOID Developer\baini_CVVC_ZH\wav\TextGrid\json\ds_phone.json'
+    json_path = r'E:\OpenUtau\Singers\白锋_02\G#3\TextGrid\json\ds_phone.json'
     ds_dict = r'F:\Textgrid2oto4\HubertFA_model\1201_hfa_model\zh.txt'
-    ignore = 'AP,SP'
+    ignore = 'AP,SP,R'
     run(ds_dict,json_path,ignore)
