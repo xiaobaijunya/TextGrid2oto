@@ -15,6 +15,8 @@ def cvvc_presamp_read(presamps_path):
         vowel_match = re.search(r'\[VOWEL\](.*?)\[', ini_text, re.DOTALL)
         vowels = vowel_match.group(1).strip()
         for vowel in vowels.split('\n'):
+            if vowel == '':
+                continue
             V.append(vowel.split('=')[0])
             for CV1 in vowel.split('=')[2].split(','):
                 if CV1 != '':
@@ -26,6 +28,8 @@ def cvvc_presamp_read(presamps_path):
         consonants = consonant_match.group(1).strip()
         # print(consonants)
         for consonant in consonants.split('\n'):
+            if consonant == '':
+                continue
             C.append(consonant.split('=')[0])
             for CV2 in consonant.split('=')[1].split(','):
                 if CV2 != '':

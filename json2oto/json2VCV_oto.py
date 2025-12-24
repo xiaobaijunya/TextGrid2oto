@@ -21,6 +21,8 @@ def presamp_read(presamps_path):
         # consonants = consonant_match.group(1).strip()
         # print(consonants)
     for vowel in vowels.split('\n'):
+        if vowel == '':
+            continue
         v = vowel.split('=')[0]
         for v0 in vowel.split('=')[2].split(','):
             V[v0]=v

@@ -23,10 +23,14 @@ def presamp_read(presamps_path):
         consonants = consonant_match.group(1).strip()
         # print(consonants)
     for vowel in vowels.split('\n'):
+        if vowel == '':
+            continue
         V0=(vowel.split('=')[0])
         for vowel in vowel.split('=')[2].split(','):
             CV_V[vowel]=V0
     for consonant in consonants.split('\n'):
+        if consonant == '':
+            continue
         C0=(consonant.split('=')[0])
         for consonant in consonant.split('=')[1].split(','):
             CV_C[consonant]=C0
@@ -203,15 +207,15 @@ if __name__ == '__main__':
     # wav_path = 'G:/编程/utau自动标注/F3'
 
     base_path= r'E:\OpenUtau\Singers\bainizh_2025.11.29\E3'
-    presamp_path = r'E:\OpenUtau\Singers\bainizh_2025.11.29\presamp.ini'
+    presamp_path = r'C:\Users\13393\OneDrive\Desktop\presamp.ini'
     utau_phone =base_path+ r'\TextGrid\json/utau_phone.json'
     word_phone_json =base_path+ r'\TextGrid\json/word_phone.json'
     wav_path =base_path
-    ignore = ['R', '-', 'SP', 'AP', 'B','EP']
+    ignore = 'R,SP,AP'
 
     #-CV和CV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
     cv_sum = [1,3,1.5,1,2]
     #VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
     vc_sum=[3,0,2,1,2,3]
     vv_sum=[3,3,1.5,1,1.5]
-    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum)
+    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore)
