@@ -40,8 +40,9 @@ def run(path,cuts):
         # 写入.lab文件
         with open(path + '/' + lab_file_name, 'w', encoding='utf-8') as lab_file:
             lab_file.write(lab_content)
+        print(f"已生成 {lab_file_name}",end=':')
         print(lab_content)
-        print(f"已生成 {lab_file_name}")
+
 
 
 if __name__ == '__main__':
