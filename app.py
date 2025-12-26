@@ -126,6 +126,7 @@ def generate_config_multi_pitch(
         VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp,rec_preset,oto_preset,oto_encoding, progress=gr.Progress()):
     # 获取主文件夹下的所有子文件夹
     subfolders = [f for f in os.listdir(wav_path) if os.path.isdir(os.path.join(wav_path, f))]
+    print(f'获取到以下音阶文件夹：{subfolders}')
     if not subfolders:
         return "错误：未找到子文件夹，请检查路径是否正确"
 
@@ -133,18 +134,19 @@ def generate_config_multi_pitch(
     results = []
     for i, subfolder in enumerate(subfolders):
         subfolder_path = os.path.join(wav_path, subfolder)
+
         # 设置当前子文件夹的音阶后缀为空格+文件夹名
         # current_pitch = f" {subfolder}"
         current_pitch = f"{subfolder}"
-        progress(i / len(subfolders), desc=f"处理子文件夹 {subfolder} (音阶: {current_pitch})")
+        print(f"处理子文件夹 {subfolder} (音阶: {current_pitch})")
 
         # 调用原始处理逻辑，但使用子文件夹路径和当前音阶
         result = generate_config(
             subfolder_path, ds_dict, presamp, cut, ignore,
             VCV_mode, lab, cv_sum, vc_sum, vv_sum,
             cv_offset, vc_offset, current_pitch, CV_repeat,
-            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type,rec_preset,oto_preset,oto_encoding,delete_sp, progress
-        )
+            VC_repeat, clear_tg_cache, cover, sofa_model, SOFA_mode, SOFA_type, delete_sp, rec_preset, oto_preset,
+            oto_encoding, progress=gr.Progress())
 
         if result and "错误" in result:
             return f"处理子文件夹 {subfolder} 失败: {result}"
@@ -210,6 +212,7 @@ def generate_config(
         config['cv_offset'] = [float(i) for i in config['cv_offset'].strip('[]').split(',')]
         config['vc_offset'] = [float(i) for i in config['vc_offset'].strip('[]').split(',')]
         config['TextGrid_path'] = config['wav_path'] + '/TextGrid'
+    print(config['wav_path'])
     progress(0.1,'1.配置文件读取成功')
     if config['lab'] == 'Y' or config['lab'] == 'y':
         progress(0.2,'1.生成lab')
@@ -327,8 +330,8 @@ def generate_config(
     cv = oto_rw.oto_read(config['wav_path'] + '/cv_oto.ini')
     vc = oto_rw.oto_read(config['wav_path'] + '/vc_oto.ini')
     progress(0.7,'8.剔除重复项')
-    cv = oto_rw.oto_repeat(cv, int(config['CV_repeat']))
-    vc = oto_rw.oto_repeat(vc, int(config['VC_repeat']))
+    cv = oto_rw.oto_repeat(cv, int(config['CV_repeat']), config['oto_preset'])
+    vc = oto_rw.oto_repeat(vc, int(config['VC_repeat']), config['oto_preset'])
     progress(0.7,'9.偏移oto数值.ini')
     if config['cv_offset'] != [0.0, 0.0, 0.0, 0.0, 0.0]:
         cv = oto_rw.oto_offset(cv, config['cv_offset'])
@@ -519,7 +522,7 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                     vc_offset = gr.Textbox(label="VC数值偏移量(左线偏移,固定偏移,右线偏移,预发声偏移,交叉偏移)", value="0,0,0,0,0")
                 with gr.Row():
                     rec_preset = gr.Textbox(label="优先按录音表顺序生成oto（只读utf-8）",placeholder="输入录音表文件路径",value="")
-                    oto_preset = gr.Textbox(label="优先使用模板中的oto（只读utf-8）",placeholder="输入oto模板路径",value="")
+                    oto_preset = gr.Textbox(label="(暂不支持)优先使用模板中的oto（只读utf-8）",placeholder="输入oto模板路径",value="")
                 with gr.Row():
                     CV_repeat = gr.Textbox(label="CV重复次数(无上限)", value="1")
                     VC_repeat = gr.Textbox(label="VC重复次数(无上限)", value="1")
