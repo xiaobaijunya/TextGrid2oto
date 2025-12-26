@@ -83,20 +83,24 @@ def process_all_textgrid_files(input_dir,ignore,delete_sp):
             print(f"跳过文件 {file_path.name} (文件名包含大写字母'R')")
             continue
 
+        try:
+            # 处理文件
+            processed_content, sp_deleted = process_textgrid(file_path, ignore, delete_sp)
 
-        # 处理文件
-        processed_content, sp_deleted = process_textgrid(file_path,ignore,delete_sp)
+            # 如果有SP被删除，记录文件名（不包含后缀）
+            if sp_deleted:
+                files_with_deleted_sp.append(file_path.stem)
 
-        # 如果有SP被删除，记录文件名（不包含后缀）
-        if sp_deleted:
-            files_with_deleted_sp.append(file_path.stem)
-
-        # 直接覆盖原文件内容
-        if delete_sp:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(processed_content)
-        # print(f"已处理并覆盖 {file_path}")
-
+            # 直接覆盖原文件内容
+            if delete_sp:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(processed_content)
+            # print(f"已处理并覆盖 {file_path}")
+        except Exception as e:
+            # 捕获所有异常，记录错误文件并跳过
+            error_files.append(f"{file_path.name}: {str(e)}")
+            print(f"处理文件 {file_path.name} 时出错，已跳过: {str(e)}")
+            continue
 
     # 最后统一输出所有被删除SP的文件名
     if files_with_deleted_sp:
