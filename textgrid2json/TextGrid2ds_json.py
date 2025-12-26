@@ -68,6 +68,8 @@ def run(path_main,rec_preset):
     # print(json_data)
     if rec_preset is not None:
         try:
+            rec_lines_miss = []
+            rec_list_redundant = []
             with open(rec_preset, 'r', encoding='utf-8') as f:
                 rec_lines = f.readlines()
             # 解析rec_preset文件，获取文件名列表
@@ -82,13 +84,18 @@ def run(path_main,rec_preset):
                 if file_name in json_data:
                     sorted_json_data[file_name] = json_data[file_name]
                 else:
+                    rec_lines_miss.append(file_name)
                     print(f"rec_preset中包含的文件 {file_name} 不在json_data中（漏录了该条目）")
+            else:
+                rec_list_redundant.append(file_name)
             # 添加不在rec_preset中的剩余文件（保持原顺序）
             for file_name in json_data:
                 if file_name not in sorted_json_data:
                     sorted_json_data[file_name] = json_data[file_name]
 
             json_data = sorted_json_data
+            print(f"rec_preset中包含的文件 {rec_lines_miss} 不在json_data中（漏录了这些条目）")
+            print(f"rec_preset中包含的文件 {rec_list_redundant} 不在json_data中（多录了这些条目）")
         except Exception as e:
             print(f"读取或解析rec_preset文件时出错: {e}")
 
@@ -107,7 +114,7 @@ def run(path_main,rec_preset):
 if __name__ == '__main__':
     # 读取TextGrid文件内容
     #设置工作目录
-    path_main = r"E:\OpenUtau\Singers\白锋_02\G#3"
-    rec_preset = r"E:\OpenUtau\Singers\白锋_02\中文risku_CVVC录音表 by小白\普通6字表.txt"
+    path_main = r"E:\OpenUtau\Singers\白锋_02\D4"
+    rec_preset = r"E:\OpenUtau\Singers\白锋_02\普通6字表.txt"
     #遍历目录下的所有文件
     run(path_main+'/TextGrid',rec_preset)
