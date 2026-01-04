@@ -18,14 +18,20 @@ def process_textgrid(file_path,ignore,delete_sp):
         intervals = re.findall(r'intervals \[\d+\]:\s+xmin = ([\d.]+)\s+xmax = ([\d.]+)\s+text = "([^"]+)"', tier)
         new_intervals = []
         i = 1
+
+        # if not intervals:  # 若intervals为空，直接跳过当前tier的后续处理
+        #     processed_tiers.append(tier)  # 保留原始tier内容（也可根据需求跳过）
+        #     print(f"{file_path}textgrid文件为空")
+        #     return content, sp_deleted
+
         new_intervals.append(intervals[0])
         while i < len(intervals):
             if i < len(intervals)-1 and intervals[i][2] == "SP":
                 # 检查前一个音和后一个音
                 prev_phoneme = intervals[i-1][2]
                 next_phoneme = intervals[i][2]
-                if prev_phoneme == "AP":
-                    print('123')
+                # if prev_phoneme == "AP":
+                #     print('123')
                 # 如果前一个音或后一个音是AP、EP或SP，则不删除当前SP区间
                 if prev_phoneme in ignore and next_phoneme in ignore:
                     new_intervals.append(intervals[i])
@@ -98,7 +104,7 @@ def process_all_textgrid_files(input_dir,ignore,delete_sp):
             # print(f"已处理并覆盖 {file_path}")
         except Exception as e:
             # 捕获所有异常，记录错误文件并跳过
-            error_files.append(f"{file_path.name}: {str(e)}")
+            files_with_deleted_sp.append(f"{file_path.name}: {str(e)}")
             print(f"处理文件 {file_path.name} 时出错，已跳过: {str(e)}")
             continue
 

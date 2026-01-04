@@ -61,7 +61,10 @@ def oto_read(file_path):
                     # print(parts)
                     parts2 = parts[1].split(',')
                     # print(parts2)
-                    oto_data.append([parts[0]] + [parts2[0]] + [int(round(float(num_str))) for num_str in parts2[1:]])
+                    try:
+                        oto_data.append([parts[0]] + [parts2[0]] + [int(round(float(num_str))) for num_str in parts2[1:]])
+                    except ValueError:
+                        print(f'{line}格式错误，跳过该条目{RESET}')
                     # wav+别名+四舍五入后的数值
             print(f'成功使用 {encoding} 编码读取文件。')
             break
@@ -74,7 +77,7 @@ def oto_read(file_path):
     print(f'{GREEN}oto文件解析成功：{file_path}{RESET}')
     return oto_check(file_path,oto_data)
 #没写完
-def oto_repeat(oto_data,repeat):
+def oto_repeat(oto_data,repeat,oto_preset):
     phone_count = {}
     new_oto_data = []
     for oto in oto_data:
