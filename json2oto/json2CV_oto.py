@@ -175,7 +175,7 @@ def v_cross(oto,cross_sum,V_V):
         rest = rest.split(',')
         if rest[0] in V_V:
             cross = float(rest[2]) / cross_sum
-            oto2.append(f"{autio_name}.wav={rest[0]},{rest[1]},{rest[2]},{rest[3]},{rest[4]},{cross}\n")
+            oto2.append(f"{autio_name}={rest[0]},{rest[1]},{rest[2]},{rest[3]},{rest[4]},{cross}\n")
         else:
             oto2.append(line)
     return oto2
