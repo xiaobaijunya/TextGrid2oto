@@ -58,6 +58,7 @@ import sys
 import shutil
 import pathlib
 import click
+from build_diffdataset import build_dataset
 
 def run():
     demo.launch(
@@ -602,6 +603,48 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                 outputs=output
             )
 
+        # 新增标签页：Transcriptions 生成
+        with gr.TabItem("transcriptions 生成"):
+            gr.Markdown("### 选择路径并生成 transcriptions 文件")
+
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=3, min_width=150):
+                    transcriptions_path = gr.Textbox(label="选择路径", placeholder="请选择目标文件夹路径")
+                with gr.Column(scale=2, min_width=150):
+                    transcriptions_folder_btn = gr.Button("选择文件夹", variant="primary")
+
+            transcriptions_generate_btn = gr.Button("生成完整的Transcriptions", variant="primary")
+            transcriptions_output = gr.Textbox(label="生成结果", lines=5)
+
+            # 按钮点击事件绑定
+            transcriptions_folder_btn.click(
+                fn=select_folder,  # 调用文件夹选择函数
+                outputs=transcriptions_path  # 将结果传递给文本框
+            )
+
+
+            def generate_transcriptions(full_path):
+                """
+                根据指定路径生成完整的 transcriptions.csv 文件
+                """
+                try:
+                    wavs = full_path
+                    dataset = full_path
+                    tg = full_path + "\\TextGrid"
+                    skip_silence_insertion = True
+                    wav_subtype = "PCM_16"
+                    # 调用已有逻辑生成 transcriptions.csv
+                    build_dataset.build_dataset(wavs, tg, dataset, skip_silence_insertion, wav_subtype)
+                    return f"✅ 成功生成 Transcriptions 文件：{full_path}/transcriptions.csv"
+                except Exception as e:
+                    return f"❌ 生成失败：{str(e)}"
+
+
+            transcriptions_generate_btn.click(
+                fn=generate_transcriptions,
+                inputs=transcriptions_path,
+                outputs=transcriptions_output
+            )
 
 if __name__ == "__main__":
     run()

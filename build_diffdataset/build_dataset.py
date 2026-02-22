@@ -9,15 +9,6 @@ import soundfile
 import tqdm
 from textgrid import TextGrid
 
-# python build_diffdataset/build_dataset.py --wavs F:\Download\utau数据集\data\full_label\ja_LXYM\wavs --tg F:\Download\utau数据集\data\full_label\ja_LXYM\wavs\TextGrid --dataset F:\Download\utau数据集\data\full_label\ja_LXYM2 --skip_silence_insertion
-@click.command(help='Collect phoneme alignments into transcriptions.csv')
-@click.option('--wavs', required=True, help='Path to the segments directory')
-@click.option('--tg', required=True, help='Path to the final TextGrids directory')
-@click.option('--dataset', required=True, help='Path to dataset directory')
-@click.option('--skip_silence_insertion', is_flag=True, show_default=True,
-              help='Do not insert silence around segments')
-@click.option('--wav_subtype', default="PCM_16", show_default=True,
-              help='WAV subtype')
 def build_dataset(wavs, tg, dataset, skip_silence_insertion, wav_subtype):
     wavs = pathlib.Path(wavs)
     tg_dir = pathlib.Path(tg)
@@ -38,23 +29,6 @@ def build_dataset(wavs, tg, dataset, skip_silence_insertion, wav_subtype):
         tg.read(str(tgfile))
         ph_seq = [ph.mark for ph in tg[1]]
         ph_dur = [ph.maxTime - ph.minTime for ph in tg[1]]
-        if not skip_silence_insertion:
-            if random.random() < 0.5:
-                len_sil = random.randrange(min_sil, max_sil)
-                y = np.concatenate((np.zeros((len_sil,), dtype=np.float32), y))
-                if ph_seq[0] == 'SP':
-                    ph_dur[0] += len_sil / samplerate
-                else:
-                    ph_seq.insert(0, 'SP')
-                    ph_dur.insert(0, len_sil / samplerate)
-            if random.random() < 0.5:
-                len_sil = random.randrange(min_sil, max_sil)
-                y = np.concatenate((y, np.zeros((len_sil,), dtype=np.float32)))
-                if ph_seq[-1] == 'SP':
-                    ph_dur[-1] += len_sil / samplerate
-                else:
-                    ph_seq.append('SP')
-                    ph_dur.append(len_sil / samplerate)
         ph_seq = ' '.join(ph_seq)
         ph_dur = ' '.join([str(round(d, 6)) for d in ph_dur])
         soundfile.write(dataset / 'wavs' / wavfile.name, y, samplerate, subtype=wav_subtype)
