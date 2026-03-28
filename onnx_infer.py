@@ -656,6 +656,7 @@ class InferenceOnnx:
         self.fa_decoder = None
         self.dataset = []
         self.predictions = []
+        self.progress_callback = None
 
     def load_config(self):
         vocab_file = self.model_folder / 'vocab.json'
@@ -687,6 +688,9 @@ class InferenceOnnx:
         self.fa_decoder = AlignmentDecoder(vocab=self.vocab, sample_rate=self.mel_cfg["sample_rate"],
                                            hop_size=self.mel_cfg["hop_size"])
 
+    def set_progress_callback(self, callback):
+        self.progress_callback = callback
+
     def get_dataset(self, wav_folder, language, g2p="dictionary", dictionary_path=None, in_format="lab"):
         if dictionary_path is None:
             dictionary_path = self.vocab_folder / self.vocab["dictionaries"].get(language, "")
@@ -713,7 +717,10 @@ class InferenceOnnx:
                     warnings.warn(f"{Path(wav_path).absolute()} does not exist.")
             except Exception as e:
                 e.args = (f" Error when processing {wav_path}: {e} ",)
-        print(f"Loaded {len(self.dataset)} samples.")
+        msg = f"Loaded {len(self.dataset)} samples."
+        print(msg)
+        if self.progress_callback:
+            self.progress_callback(msg)
 
     def _infer(self, padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx, wav_length, non_lexical_phonemes):
         results = self.run_onnx(self.model, {'waveform': [padded_wav]})
@@ -766,7 +773,10 @@ class InferenceOnnx:
 
         for i in range(len(self.dataset)):
             if (i + 1) % 10 == 0 or i == len(self.dataset) - 1:
-                print(f"Processing {i + 1}/{len(self.dataset)}...")
+                msg = f"Processing {i + 1}/{len(self.dataset)}..."
+                print(msg)
+                if self.progress_callback:
+                    self.progress_callback(msg)
 
             wav_path, ph_seq, word_seq, ph_idx_to_word_idx = self.dataset[i]
 
@@ -818,7 +828,10 @@ class InferenceOnnx:
         if output_format is None:
             output_format = ['textgrid']
         self._export_textgrid(output_folder)
-        print("Output files are saved to the same folder as the input wav files.")
+        msg = "Output files are saved to the same folder as the input wav files."
+        print(msg)
+        if self.progress_callback:
+            self.progress_callback(msg)
 
     def _export_textgrid(self, output_folder):
         for wav_path, wav_length, words in self.predictions:

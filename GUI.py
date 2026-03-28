@@ -2,12 +2,36 @@ import wx
 import os
 import sys
 import threading
+import io
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import wavname2lab
 import onnx_infer
 from pathlib import Path
 from textgrid2json import del_SP, TextGrid2ds_json, ds_json2filter, ds_json2word
 from json2oto import json2CV_oto, json2oto, json2VCV_oto, json2test
+
+class TextRedirector:
+    def __init__(self, text_ctrl):
+        self.text_ctrl = text_ctrl
+        self.original_stdout = sys.stdout
+        self.original_stderr = sys.stderr
+    
+    def write(self, text):
+        self.original_stdout.write(text)
+        if self.text_ctrl:
+            wx.CallAfter(self.text_ctrl.AppendText, text)
+    
+    def flush(self):
+        self.original_stdout.flush()
+    
+    def __enter__(self):
+        sys.stdout = self
+        sys.stderr = self
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout = self.original_stdout
+        sys.stderr = self.original_stderr
 
 class MainFrame(wx.Frame):
     def __init__(self):
@@ -318,7 +342,8 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.lab_result_text.Clear)
                 wx.CallAfter(self.lab_result_text.AppendText, "正在生成LAB文件...\n")
 
-                wavname2lab.run(path, cuts)
+                with TextRedirector(self.lab_result_text):
+                    wavname2lab.run(path, cuts)
 
                 wx.CallAfter(self.lab_result_text.AppendText, "LAB文件生成完成！\n")
                 wx.CallAfter(wx.MessageBox, "LAB文件生成完成", "成功", wx.OK | wx.ICON_INFORMATION)
@@ -413,28 +438,33 @@ class MainFrame(wx.Frame):
             wx.MessageBox("WAV文件夹不存在", "错误", wx.OK | wx.ICON_ERROR)
             return
         
-        try:
-            self.clean_result_text.Clear()
-            self.clean_result_text.AppendText("正在清理SP标记...\n")
-            
-            ignore = 'AP,SP,EP'
-            delete_sp = True
-            
-            deleted_files = del_SP.process_all_textgrid_files(wav_folder, ignore, delete_sp)
-            
-            if deleted_files and deleted_files[0] != '没有文件中有SP被删除':
-                result_msg = "以下文件中有SP被删除（建议复核标记）：\n"
-                result_msg += ', '.join(deleted_files)
-                self.clean_result_text.AppendText(result_msg + "\n")
-                wx.MessageBox("SP清理完成，请查看结果", "成功", wx.OK | wx.ICON_INFORMATION)
-            else:
-                self.clean_result_text.AppendText("没有文件中有SP被删除。\n")
-                wx.MessageBox("没有文件中有SP被删除", "提示", wx.OK | wx.ICON_INFORMATION)
+        def clean_sp_thread():
+            try:
+                wx.CallAfter(self.clean_result_text.Clear)
+                wx.CallAfter(self.clean_result_text.AppendText, "正在清理SP标记...\n")
                 
-        except Exception as e:
-            error_msg = f"清理SP失败：{str(e)}"
-            self.clean_result_text.AppendText(error_msg + "\n")
-            wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
+                ignore = 'AP,SP,EP'
+                delete_sp = True
+                
+                with TextRedirector(self.clean_result_text):
+                    deleted_files = del_SP.process_all_textgrid_files(wav_folder, ignore, delete_sp)
+                
+                if deleted_files and deleted_files[0] != '没有文件中有SP被删除':
+                    result_msg = "以下文件中有SP被删除（建议复核标记）：\n"
+                    result_msg += ', '.join(deleted_files)
+                    wx.CallAfter(self.clean_result_text.AppendText, result_msg + "\n")
+                    wx.CallAfter(wx.MessageBox, "SP清理完成，请查看结果", "成功", wx.OK | wx.ICON_INFORMATION)
+                else:
+                    wx.CallAfter(self.clean_result_text.AppendText, "没有文件中有SP被删除。\n")
+                    wx.CallAfter(wx.MessageBox, "没有文件中有SP被删除", "提示", wx.OK | wx.ICON_INFORMATION)
+                    
+            except Exception as e:
+                error_msg = f"清理SP失败：{str(e)}"
+                wx.CallAfter(self.clean_result_text.AppendText, error_msg + "\n")
+                wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+        thread = threading.Thread(target=clean_sp_thread)
+        thread.start()
 
     def on_generate_json(self, event):
         wav_folder = self.json_path_text.GetValue().strip()
@@ -453,41 +483,48 @@ class MainFrame(wx.Frame):
             wx.MessageBox("请选择模型字典", "错误", wx.OK | wx.ICON_ERROR)
             return
         
-        try:
-            self.json_result_text.Clear()
-            self.json_result_text.AppendText("正在生成JSON文件...\n")
-            
-            # 获取字典路径
-            selected_folder = self.model_folder_choice.GetStringSelection()
-            dict_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HubertFA_model', selected_folder, dict_file)
-            
-            if not os.path.exists(dict_path):
-                wx.MessageBox("字典文件不存在", "错误", wx.OK | wx.ICON_ERROR)
-                return
-            
-            # 生成ds_phone.json
-            rec_preset = None
-            TextGrid2ds_json.run(wav_folder, rec_preset)
-            self.json_result_text.AppendText("1. 生成ds_phone.json完成\n")
-            
-            # 过滤音素
-            json_path = os.path.join(wav_folder, 'json', 'ds_phone.json')
-            dict_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HubertFA_model', selected_folder, dict_file)
-            ds_json2filter.run(dict_file, json_path, ignore)
-            self.json_result_text.AppendText("2. 过滤音素完成\n")
-            
-            # 生成word.json
-            filter_json_path = os.path.join(wav_folder, 'json', 'ds_phone_filter.json')
-            ds_json2word.run(dict_file, filter_json_path)
-            self.json_result_text.AppendText("3. 生成word_phone.json完成\n")
-            
-            self.json_result_text.AppendText("JSON文件生成完成！\n")
-            wx.MessageBox("JSON文件生成完成", "成功", wx.OK | wx.ICON_INFORMATION)
-                
-        except Exception as e:
-            error_msg = f"生成JSON失败：{str(e)}"
-            self.json_result_text.AppendText(error_msg + "\n")
-            wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
+        def generate_json_thread():
+            try:
+                wx.CallAfter(self.json_result_text.Clear)
+                wx.CallAfter(self.json_result_text.AppendText, "正在生成JSON文件...\n")
+
+                # 获取字典路径
+                selected_folder = self.json_folder_choice.GetStringSelection()
+                dict_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HubertFA_model', selected_folder, dict_file)
+
+                if not os.path.exists(dict_path):
+                    wx.CallAfter(wx.MessageBox, "字典文件不存在", "错误", wx.OK | wx.ICON_ERROR)
+                    return
+
+                # 生成ds_phone.json
+                rec_preset = None
+                with TextRedirector(self.json_result_text):
+                    TextGrid2ds_json.run(wav_folder, rec_preset)
+                wx.CallAfter(self.json_result_text.AppendText, "1. 生成ds_phone.json完成\n")
+
+                # 过滤音素
+                json_path = os.path.join(wav_folder, 'json', 'ds_phone.json')
+                dict_full_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HubertFA_model', selected_folder, dict_file)
+                with TextRedirector(self.json_result_text):
+                    ds_json2filter.run(dict_full_path, json_path, ignore)
+                wx.CallAfter(self.json_result_text.AppendText, "2. 过滤音素完成\n")
+
+                # 生成word.json
+                filter_json_path = os.path.join(wav_folder, 'json', 'ds_phone_filter.json')
+                with TextRedirector(self.json_result_text):
+                    ds_json2word.run(dict_full_path, filter_json_path)
+                wx.CallAfter(self.json_result_text.AppendText, "3. 生成word_phone.json完成\n")
+
+                wx.CallAfter(self.json_result_text.AppendText, "JSON文件生成完成！\n")
+                wx.CallAfter(wx.MessageBox, "JSON文件生成完成", "成功", wx.OK | wx.ICON_INFORMATION)
+
+            except Exception as e:
+                error_msg = f"生成JSON失败：{str(e)}"
+                wx.CallAfter(self.json_result_text.AppendText, error_msg + "\n")
+                wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+        thread = threading.Thread(target=generate_json_thread)
+        thread.start()
 
 if __name__ == "__main__":
     app = wx.App()
