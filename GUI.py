@@ -386,6 +386,7 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.infer_result_text.Clear)
                 wx.CallAfter(self.infer_result_text.AppendText, "正在加载模型...\n")
 
+
                 model_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / model_file
                 dict_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / dict_file
 

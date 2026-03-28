@@ -2,6 +2,7 @@ import json
 import os
 import warnings
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
@@ -645,7 +646,7 @@ class NonLexicalDecoder:
 
 
 class InferenceOnnx:
-    def __init__(self, onnx_path: Path):
+    def __init__(self, onnx_path: Path, num_threads=16):
         self.model = None
         self.model_path = onnx_path
         self.model_folder = onnx_path.parent
@@ -657,6 +658,7 @@ class InferenceOnnx:
         self.dataset = []
         self.predictions = []
         self.progress_callback = None
+        self.num_threads = num_threads
 
     def load_config(self):
         vocab_file = self.model_folder / 'vocab.json'
@@ -722,6 +724,22 @@ class InferenceOnnx:
         if self.progress_callback:
             self.progress_callback(msg)
 
+    def _infer_single_padding(self, wav, padded_samples, word_seq, ph_seq, ph_idx_to_word_idx, wav_length, non_lexical_phonemes):
+        padded_frames = int(padded_samples / self.mel_cfg['hop_size'])
+        padded_wav = np.pad(wav, (padded_samples, 0), mode='constant', constant_values=0)
+
+        results = self.run_onnx(self.model, {'waveform': [padded_wav]})
+
+        words, _ = self.fa_decoder.decode(
+            ph_frame_logits=results['ph_frame_logits'][:, :, padded_frames:],
+            ph_edge_logits=results['ph_edge_logits'][:, padded_frames:],
+            wav_length=wav_length, ph_seq=ph_seq, word_seq=word_seq, ph_idx_to_word_idx=ph_idx_to_word_idx
+        )
+
+        non_lexical_words = self.nll_decoder.decode(cvnt_logits=results['cvnt_logits'][:, :, padded_frames:],
+                                                    wav_length=wav_length, non_lexical_phonemes=non_lexical_phonemes)
+        return words, non_lexical_words
+
     def _infer(self, padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx, wav_length, non_lexical_phonemes):
         results = self.run_onnx(self.model, {'waveform': [padded_wav]})
 
@@ -784,18 +802,38 @@ class InferenceOnnx:
             wav_length = len(wav) / self.mel_cfg['sample_rate']
 
             words_list: list[WordList] = []
-            for pl in pad_lengths:
-                padded_samples = int(pl * self.mel_cfg['sample_rate'])
-                padded_frames = int(padded_samples / self.mel_cfg['hop_size'])
-                padded_wav = np.pad(wav, (padded_samples, 0), mode='constant', constant_values=0)
 
-                words, non_lexical_words = self._infer(padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx,
-                                                       wav_length, non_lexical_phonemes)
-                for _words in non_lexical_words:
-                    for word in _words:
-                        words.add_AP(word)
-                words.clear_language_prefix()
-                words_list.append(words)
+            if len(pad_lengths) > 1 and self.num_threads > 1:
+                with ThreadPoolExecutor(max_workers=min(self.num_threads, len(pad_lengths))) as executor:
+                    futures = []
+                    for pl in pad_lengths:
+                        padded_samples = int(pl * self.mel_cfg['sample_rate'])
+                        future = executor.submit(
+                            self._infer_single_padding,
+                            wav, padded_samples, word_seq, ph_seq, ph_idx_to_word_idx, wav_length, non_lexical_phonemes
+                        )
+                        futures.append(future)
+
+                    for future in as_completed(futures):
+                        words, non_lexical_words = future.result()
+                        for _words in non_lexical_words:
+                            for word in _words:
+                                words.add_AP(word)
+                        words.clear_language_prefix()
+                        words_list.append(words)
+            else:
+                for pl in pad_lengths:
+                    padded_samples = int(pl * self.mel_cfg['sample_rate'])
+                    padded_frames = int(padded_samples / self.mel_cfg['hop_size'])
+                    padded_wav = np.pad(wav, (padded_samples, 0), mode='constant', constant_values=0)
+
+                    words, non_lexical_words = self._infer(padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx,
+                                                           wav_length, non_lexical_phonemes)
+                    for _words in non_lexical_words:
+                        for word in _words:
+                            words.add_AP(word)
+                    words.clear_language_prefix()
+                    words_list.append(words)
 
             ph_list = [words.phonemes for words in words_list]
             words_list = [words_list[i] for i in find_all_duplicate_phonemes(ph_list)]
@@ -956,13 +994,14 @@ if __name__ == '__main__':
 
     parser.add_argument('--pad_times', '-pt', type=int, default=1, help='Number of times to pad blank audio')
     parser.add_argument('--pad_length', '-pl', type=int, default=5, help='Max length of blank audio padding')
+    parser.add_argument('--num_threads', '-nt', type=int, default=4, help='Number of threads for parallel processing')
 
     args = parser.parse_args()
 
     assert args.onnx_path.exists() and args.onnx_path.is_file() and args.onnx_path.suffix == '.onnx', \
         f"Path {args.onnx_path} does not exist or is not an ONNX file."
 
-    inference = InferenceOnnx(onnx_path=args.onnx_path)
+    inference = InferenceOnnx(onnx_path=args.onnx_path, num_threads=args.num_threads)
     inference.load_config()
     inference.init_decoder()
     inference.load_model()
