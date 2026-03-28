@@ -1,0 +1,716 @@
+zhi ts` i`
+chi ts`h i`
+shi s` i`
+ri z` i`
+zi ts i\
+ci tsh i\
+si s i\
+ba p a
+pa ph a
+ma m a
+fa f a
+da t a
+ta th a
+na n a
+la l a
+ga k a
+ka kh a
+ha x a
+zha ts` a
+cha ts`h a
+sha s` a
+ra z` a
+za ts a
+ca tsh a
+sa s a
+bo p uo
+po ph uo
+mo m uo
+fo f uo
+do t o
+to th o
+no n o
+lo l o
+go k o
+ko kh o
+ho x o
+zho ts` o
+cho ts`h o
+sho s` o
+ro z` o
+zo ts o
+co tsh o
+so s o
+be p 7
+pe ph 7
+me m 7
+fe f 7
+de t 7
+te th 7
+ne n 7
+le l 7
+ge k 7
+ke kh 7
+he x 7
+zhe ts` 7
+che ts`h 7
+she s` 7
+re z` 7
+ze ts 7
+ce tsh 7
+se s 7
+bai p a :\i
+pai ph a :\i
+mai m a :\i
+fai f a :\i
+dai t a :\i
+tai th a :\i
+nai n a :\i
+lai l a :\i
+gai k a :\i
+kai kh a :\i
+hai x a :\i
+zhai ts` a :\i
+chai ts`h a :\i
+shai s` a :\i
+rai z` a :\i
+zai ts a :\i
+cai tsh a :\i
+sai s a :\i
+bei p e :\i
+pei ph e :\i
+mei m e :\i
+fei f e :\i
+dei t e :\i
+tei th e :\i
+nei n e :\i
+lei l e :\i
+gei k e :\i
+kei kh e :\i
+hei x e :\i
+zhei ts` e :\i
+chei ts`h e :\i
+shei s` e :\i
+rei z` e :\i
+zei ts e :\i
+cei tsh e :\i
+sei s e :\i
+bao p AU
+pao ph AU
+mao m AU
+fao f AU
+dao t AU
+tao th AU
+nao n AU
+lao l AU
+gao k AU
+kao kh AU
+hao x AU
+zhao ts` AU
+chao ts`h AU
+shao s` AU
+rao z` AU
+zao ts AU
+cao tsh AU
+sao s AU
+bou p @U
+pou ph @U
+mou m @U
+fou f @U
+dou t @U
+tou th @U
+nou n @U
+lou l @U
+gou k @U
+kou kh @U
+hou x @U
+zhou ts` @U
+chou ts`h @U
+shou s` @U
+rou z` @U
+zou ts @U
+cou tsh @U
+sou s @U
+ban p a :n
+pan ph a :n
+man m a :n
+fan f a :n
+dan t a :n
+tan th a :n
+nan n a :n
+lan l a :n
+gan k a :n
+kan kh a :n
+han x a :n
+zhan ts` a :n
+chan ts`h a :n
+shan s` a :n
+ran z` a :n
+zan ts a :n
+can tsh a :n
+san s a :n
+ben p @ :n
+pen ph @ :n
+men m @ :n
+fen f @ :n
+den t @ :n
+ten th @ :n
+nen n @ :n
+len l @ :n
+gen k @ :n
+ken kh @ :n
+hen x @ :n
+zhen ts` @ :n
+chen ts`h @ :n
+shen s` @ :n
+ren z` @ :n
+zen ts @ :n
+cen tsh @ :n
+sen s @ :n
+bang p A N
+pang ph A N
+mang m A N
+fang f A N
+dang t A N
+tang th A N
+nang n A N
+lang l A N
+gang k A N
+kang kh A N
+hang x A N
+zhang ts` A N
+chang ts`h A N
+shang s` A N
+rang z` A N
+zang ts A N
+cang tsh A N
+sang s A N
+beng p @ N
+peng ph @ N
+meng m @ N
+feng f @ N
+deng t @ N
+teng th @ N
+neng n @ N
+leng l @ N
+geng k @ N
+keng kh @ N
+heng x @ N
+zheng ts` @ N
+cheng ts`h @ N
+sheng s` @ N
+reng z` @ N
+zeng ts @ N
+ceng tsh @ N
+seng s @ N
+bi p i
+pi ph i
+mi m i
+fi f i
+di t i
+ti th i
+ni n i
+li l i
+gi k i
+ki kh i
+hi x i
+ji ts\ i
+qi ts\h i
+xi s\ i
+bia p ia
+pia ph ia
+mia m ia
+fia f ia
+dia t ia
+tia th ia
+nia n ia
+lia l ia
+gia k ia
+kia kh ia
+hia x ia
+jia ts\ ia
+qia ts\h ia
+xia s\ ia
+bio p iAU
+pio ph iAU
+mio m iAU
+fio f iAU
+dio t iAU
+tio th iAU
+nio n iAU
+lio l iAU
+gio k iAU
+kio kh iAU
+hio x iAU
+jio ts\ iAU
+qio ts\h iAU
+xio s\ iAU
+bie p ie
+pie ph ie
+mie m ie
+fie f ie
+die t ie
+tie th ie
+nie n ie
+lie l ie
+gie k ie
+kie kh ie
+hie x ie
+jie ts\ ie
+qie ts\h ie
+xie s\ ie
+biai p ia :\i
+piai ph ia :\i
+miai m ia :\i
+fiai f ia :\i
+diai t ia :\i
+tiai th ia :\i
+niai n ia :\i
+liai l ia :\i
+giai k ia :\i
+kiai kh ia :\i
+hiai x ia :\i
+jiai ts\ ia :\i
+qiai ts\h ia :\i
+xiai s\ ia :\i
+biao p iAU
+piao ph iAU
+miao m iAU
+fiao f iAU
+diao t iAU
+tiao th iAU
+niao n iAU
+liao l iAU
+giao k iAU
+kiao kh iAU
+hiao x iAU
+jiao ts\ iAU
+qiao ts\h iAU
+xiao s\ iAU
+biu p i@U
+piu ph i@U
+miu m i@U
+fiu f i@U
+diu t i@U
+tiu th i@U
+niu n i@U
+liu l i@U
+giu k i@U
+kiu kh i@U
+hiu x i@U
+jiu ts\ i@U
+qiu ts\h i@U
+xiu s\ i@U
+bian p iE :n
+pian ph iE :n
+mian m iE :n
+fian f iE :n
+dian t iE :n
+tian th iE :n
+nian n iE :n
+lian l iE :n
+gian k iE :n
+kian kh iE :n
+hian x iE :n
+jian ts\ iE :n
+qian ts\h iE :n
+xian s\ iE :n
+bin p i :n
+pin ph i :n
+min m i :n
+fin f i :n
+din t i :n
+tin th i :n
+nin n i :n
+lin l i :n
+gin k i :n
+kin kh i :n
+hin x i :n
+jin ts\ i :n
+qin ts\h i :n
+xin s\ i :n
+biang p iA N
+piang ph iA N
+miang m iA N
+fiang f iA N
+diang t iA N
+tiang th iA N
+niang n iA N
+liang l iA N
+giang k iA N
+kiang kh iA N
+hiang x iA N
+jiang ts\ iA N
+qiang ts\h iA N
+xiang s\ iA N
+bing p i N
+ping ph i N
+ming m i N
+fing f i N
+ding t i N
+ting th i N
+ning n i N
+ling l i N
+ging k i N
+king kh i N
+hing x i N
+jing ts\ i N
+qing ts\h i N
+xing s\ i N
+bu p u
+pu ph u
+mu m u
+fu f u
+du t u
+tu th u
+nu n u
+lu l u
+gu k u
+ku kh u
+hu x u
+ju ts\ y
+qu ts\h y
+xu s\ y
+zhu ts` u
+chu ts`h u
+shu s` u
+ru z` u
+zu ts u
+cu tsh u
+su s u
+bua p ua
+pua ph ua
+mua m ua
+fua f ua
+dua t ua
+tua th ua
+nua n ua
+lua l ua
+gua k ua
+kua kh ua
+hua x ua
+jua ts\ ua
+qua ts\h ua
+xua s\ ua
+zhua ts` ua
+chua ts`h ua
+shua s` ua
+rua z` ua
+zua ts ua
+cua tsh ua
+sua s ua
+buo p uo
+puo ph uo
+muo m uo
+fuo f uo
+duo t uo
+tuo th uo
+nuo n uo
+luo l uo
+guo k uo
+kuo kh uo
+huo x uo
+juo ts\ uo
+quo ts\h uo
+xuo s\ uo
+zhuo ts` uo
+chuo ts`h uo
+shuo s` uo
+ruo z` uo
+zuo ts uo
+cuo tsh uo
+suo s uo
+buai p ua :\i
+puai ph ua :\i
+muai m ua :\i
+fuai f ua :\i
+duai t ua :\i
+tuai th ua :\i
+nuai n ua :\i
+luai l ua :\i
+guai k ua :\i
+kuai kh ua :\i
+huai x ua :\i
+juai ts\ ua :\i
+quai ts\h ua :\i
+xuai s\ ua :\i
+zhuai ts` ua :\i
+chuai ts`h ua :\i
+shuai s` ua :\i
+ruai z` ua :\i
+zuai ts ua :\i
+cuai tsh ua :\i
+suai s ua :\i
+bui p ue :\i
+pui ph ue :\i
+mui m ue :\i
+fui f ue :\i
+dui t ue :\i
+tui th ue :\i
+nui n ue :\i
+lui l ue :\i
+gui k ue :\i
+kui kh ue :\i
+hui x ue :\i
+jui ts\ ue :\i
+qui ts\h ue :\i
+xui s\ ue :\i
+zhui ts` ue :\i
+chui ts`h ue :\i
+shui s` ue :\i
+rui z` ue :\i
+zui ts ue :\i
+cui tsh ue :\i
+sui s ue :\i
+buan p ua :n
+puan ph ua :n
+muan m ua :n
+fuan f ua :n
+duan t ua :n
+tuan th ua :n
+nuan n ua :n
+luan l ua :n
+guan k ua :n
+kuan kh ua :n
+huan x ua :n
+juan ts\ y{ :n
+quan ts\h y{ :n
+xuan s\ y{ :n
+zhuan ts` ua :n
+chuan ts`h ua :n
+shuan s` ua :n
+ruan z` ua :n
+zuan ts ua :n
+cuan tsh ua :n
+suan s ua :n
+bun p u@ :n
+pun ph u@ :n
+mun m u@ :n
+fun f u@ :n
+dun t u@ :n
+tun th u@ :n
+nun n u@ :n
+lun l u@ :n
+gun k u@ :n
+kun kh u@ :n
+hun x u@ :n
+jun ts\ yE :n
+qun ts\h yE :n
+xun s\ yE :n
+zhun ts` u@ :n
+chun ts`h u@ :n
+shun s` u@ :n
+run z` u@ :n
+zun ts u@ :n
+cun tsh u@ :n
+sun s u@ :n
+buang p uA N
+puang ph uA N
+muang m uA N
+fuang f uA N
+duang t uA N
+tuang th uA N
+nuang n uA N
+luang l uA N
+guang k uA N
+kuang kh uA N
+huang x uA N
+juang ts\ uA N
+quang ts\h uA N
+xuang s\ uA N
+zhuang ts` uA N
+chuang ts`h uA N
+shuang s` uA N
+ruang z` uA N
+zuang ts uA N
+cuang tsh uA N
+suang s uA N
+bong p U N
+pong ph U N
+mong m U N
+fong f U N
+dong t U N
+tong th U N
+nong n U N
+long l U N
+gong k U N
+kong kh U N
+hong x U N
+zhong ts` U N
+chong ts`h U N
+shong s` U N
+rong z` U N
+zong ts U N
+cong tsh U N
+song s U N
+bv p y
+byu p y
+pv ph y
+pyu ph y
+mv m y
+myu m y
+fv f y
+fyu f y
+dv t y
+dyu t y
+tv th y
+tyu th y
+nv n y
+nyu n y
+lv l y
+lyu l y
+gv k y
+gyu k y
+kv kh y
+kyu kh y
+hv x y
+hyu x y
+jv ts\ y
+jyu ts\ y
+qv ts\h y
+qyu ts\h y
+xv s\ y
+xyu s\ y
+zhv ts` y
+zhyu ts` y
+chv ts`h y
+chyu ts`h y
+shv s` y
+shyu s` y
+rv z` y
+ryu z` y
+zv ts y
+zyu ts y
+cv tsh y
+cyu tsh y
+sv s y
+syu s y
+bve p yE
+bue p yE
+pve ph yE
+pue ph yE
+mve m yE
+mue m yE
+fve f yE
+fue f yE
+dve t yE
+due t yE
+tve th yE
+tue th yE
+nve n yE
+nue n yE
+lve l yE
+lue l yE
+gve k yE
+gue k yE
+kve kh yE
+kue kh yE
+hve x yE
+hue x yE
+jve ts\ yE
+jue ts\ yE
+qve ts\h yE
+que ts\h yE
+xve s\ yE
+xue s\ yE
+zhve ts` yE
+zhue ts` yE
+chve ts`h yE
+chue ts`h yE
+shve s` yE
+shue s` yE
+rve z` yE
+rue z` yE
+zve ts yE
+zue ts yE
+cve tsh yE
+cue tsh yE
+sve s yE
+sue s yE
+biong p iU N
+piong ph iU N
+miong m iU N
+fiong f iU N
+diong t iU N
+tiong th iU N
+niong n iU N
+liong l iU N
+giong k iU N
+kiong kh iU N
+hiong x iU N
+jiong ts\ iU N
+qiong ts\h iU N
+xiong s\ iU N
+zhiong ts` iU N
+chiong ts`h iU N
+shiong s` iU N
+riong z` iU N
+ziong ts iU N
+ciong tsh iU N
+siong s iU N
+a a
+o o
+e 7
+ai a :\i
+ei e :\i
+ao AU
+ou @U
+an a :n
+en @ :n
+ang A N
+ong U N
+eng @ N
+er a r\`
+i i
+u u
+v y
+yi i
+wu u
+yu y
+ya j ia
+ia j ia
+yo j iAU
+io j iAU
+ye j ie
+ie j ie
+yai j ia :\i
+iai j ia :\i
+yao j iAU
+iao j iAU
+you j i@U
+iou j i@U
+yan j iE :n
+ian j iE :n
+yin j i :n
+in j i :n
+yang j iA N
+iang j iA N
+ying j i N
+ing j i N
+wa w ua
+ua w ua
+wo w uo
+uo w uo
+wai w ua :\i
+uai w ua :\i
+wei w ue :\i
+wui w ue :\i
+ui w ue :\i
+wan w ua :n
+uan w ua :n
+wen w u@ :n
+uen w u@ :n
+wang w uA N
+uang w uA N
+weng w u@ N
+wong w U N
+yue j yE
+ue j yE
+yve j yE
+ve j yE
+yuan j y{ :n
+van j y{ :n
+yun j yE :n
+vn j yE :n
+yong j iU N
+iong j iU N

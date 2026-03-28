@@ -646,5 +646,40 @@ with gr.Blocks(title="UTAU oto生成器") as demo:
                 outputs=transcriptions_output
             )
 
+        with gr.TabItem("tg2svdb"):
+            gr.Markdown("### 生成svR1所使用的标记格式")
+            gr.Markdown("请先运行oto生成，再运行这里")
+            db_path = gr.Textbox(label="选择路径", placeholder="输入wav文件夹路径")
+            dic_path = gr.Radio(
+                choices=[("中文",'tg2svdb/字典/mandarin-xsampa-dict.txt'), ("日语", 'tg2svdb/字典/japanese-romaji-dict.txt'), ("英语",'tg2svdb/字典/eng.txt')],  # (显示文本, 实际值)
+                value='tg2svdb/字典/mandarin-xsampa-dict.txt',  # 默认选中值
+                label="语言"
+            )
+            # 添加按钮
+            tg2svdb_btn = gr.Button("生成标记", variant="primary")
+
+            def svdb_run(db_path, dic_path):
+                import tg2svdb.tg2sv_change
+                folders = [f for f in os.listdir(db_path) if os.path.isdir(os.path.join(db_path, f))]
+                print(folders)
+                for folder in folders:
+                    json_path = os.path.join(db_path, folder, 'TextGrid', 'json', 'word_phone.json')
+                    wav_path = os.path.join(db_path, folder)
+                    print(json_path, wav_path)
+                    tg2svdb.tg2sv_change.run(dic_path, json_path, wav_path)
+
+            # 添加事件绑定
+            tg2svdb_btn.click(
+                fn=svdb_run,  # 需要定义处理函数
+                inputs=[db_path, dic_path]
+            )
+
+        with gr.TabItem("tg2V3db"):
+            gr.Markdown("### 生成V3DB所使用的粗切割标记")
+            gr.Markdown("请先运行oto生成，再运行这里")
+
+
+
+
 if __name__ == "__main__":
     run()
