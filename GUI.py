@@ -94,36 +94,12 @@ class MainFrame(wx.Frame):
         infer_btn.Bind(wx.EVT_BUTTON, self.on_infer)
         textgrid_sizer.Add(infer_btn, 0, wx.ALL | wx.CENTER, 10)
 
-        # 添加分隔线
-        separator_line = wx.StaticLine(textgrid_panel, style=wx.LI_HORIZONTAL)
-        textgrid_sizer.Add(separator_line, 0, wx.EXPAND | wx.ALL, 10)
-
-        # TextGrid清洗区域
-        clean_title = wx.StaticText(textgrid_panel, label="TextGrid清洗")
-        textgrid_sizer.Add(clean_title, 0, wx.ALL | wx.CENTER, 10)
-
-        # WAV路径框
-        clean_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        clean_path_label = wx.StaticText(textgrid_panel, label="WAV文件夹：")
-        self.clean_path_text = wx.TextCtrl(textgrid_panel, size=(400, -1))
-        clean_browse_btn = wx.Button(textgrid_panel, label="选择文件夹")
-        clean_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.clean_path_text))
-        clean_path_sizer.Add(clean_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        clean_path_sizer.Add(self.clean_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        clean_path_sizer.Add(clean_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        textgrid_sizer.Add(clean_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
-
-        # 清理SP按钮
-        clean_sp_btn = wx.Button(textgrid_panel, label="清理SP")
-        clean_sp_btn.Bind(wx.EVT_BUTTON, self.on_clean_sp)
-        textgrid_sizer.Add(clean_sp_btn, 0, wx.ALL | wx.CENTER, 10)
-
         # 结果显示文本框
-        result_label = wx.StaticText(textgrid_panel, label="处理结果：")
-        textgrid_sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 10)
-        
-        self.clean_result_text = wx.TextCtrl(textgrid_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 150))
-        textgrid_sizer.Add(self.clean_result_text, 0, wx.EXPAND | wx.ALL, 10)
+        infer_result_label = wx.StaticText(textgrid_panel, label="处理结果：")
+        textgrid_sizer.Add(infer_result_label, 0, wx.ALL | wx.LEFT, 10)
+
+        self.infer_result_text = wx.TextCtrl(textgrid_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 150))
+        textgrid_sizer.Add(self.infer_result_text, 0, wx.EXPAND | wx.ALL, 10)
 
         textgrid_panel.SetSizer(textgrid_sizer)
 
@@ -184,6 +160,38 @@ class MainFrame(wx.Frame):
         
         json_panel.SetSizer(json_sizer)
 
+        # TextGrid清洗面板
+        clean_panel = wx.Panel(notebook)
+        clean_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        clean_title = wx.StaticText(clean_panel, label="TextGrid清洗")
+        clean_sizer.Add(clean_title, 0, wx.ALL | wx.CENTER, 10)
+
+        # WAV路径框
+        clean_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        clean_path_label = wx.StaticText(clean_panel, label="WAV文件夹：")
+        self.clean_path_text = wx.TextCtrl(clean_panel, size=(400, -1))
+        clean_browse_btn = wx.Button(clean_panel, label="选择文件夹")
+        clean_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.clean_path_text))
+        clean_path_sizer.Add(clean_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        clean_path_sizer.Add(self.clean_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        clean_path_sizer.Add(clean_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        clean_sizer.Add(clean_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # 清理SP按钮
+        clean_sp_btn = wx.Button(clean_panel, label="清理SP")
+        clean_sp_btn.Bind(wx.EVT_BUTTON, self.on_clean_sp)
+        clean_sizer.Add(clean_sp_btn, 0, wx.ALL | wx.CENTER, 10)
+
+        # 结果显示文本框
+        clean_result_label = wx.StaticText(clean_panel, label="处理结果：")
+        clean_sizer.Add(clean_result_label, 0, wx.ALL | wx.LEFT, 10)
+
+        self.clean_result_text = wx.TextCtrl(clean_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 150))
+        clean_sizer.Add(self.clean_result_text, 0, wx.EXPAND | wx.ALL, 10)
+
+        clean_panel.SetSizer(clean_sizer)
+
         mark_panel = wx.Panel(notebook)
         mark_sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -216,6 +224,7 @@ class MainFrame(wx.Frame):
 
         notebook.AddPage(lab_panel, "LAB生成")
         notebook.AddPage(textgrid_panel, "TextGrid推理")
+        notebook.AddPage(clean_panel, "TextGrid清洗")
         notebook.AddPage(json_panel, "JSON生成")
         notebook.AddPage(mark_panel, "标记生成")
 
@@ -304,10 +313,17 @@ class MainFrame(wx.Frame):
         cuts = [s.strip() for s in separator_str.split(',') if s.strip()]
         
         try:
+            self.lab_result_text.Clear()
+            self.lab_result_text.AppendText("正在生成LAB文件...\n")
+
             wavname2lab.run(path, cuts)
+
+            self.lab_result_text.AppendText("LAB文件生成完成！\n")
             wx.MessageBox("LAB文件生成完成", "成功", wx.OK | wx.ICON_INFORMATION)
         except Exception as e:
-            wx.MessageBox(f"生成失败：{str(e)}", "错误", wx.OK | wx.ICON_ERROR)
+            error_msg = f"生成失败：{str(e)}"
+            self.lab_result_text.AppendText(error_msg + "\n")
+            wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
 
     def on_infer(self, event):
         wav_folder = self.textgrid_folder_text.GetValue().strip()
@@ -336,23 +352,39 @@ class MainFrame(wx.Frame):
             return
 
         try:
+            self.infer_result_text.Clear()
+            self.infer_result_text.AppendText("正在加载模型...\n")
+
             model_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / model_file
             dict_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / dict_file
 
             language = dict_file.split('.')[0].split('-')
             language = language[0] if len(language) == 1 else language
 
+            self.infer_result_text.AppendText(f"模型: {model_file}\n")
+            self.infer_result_text.AppendText(f"字典: {dict_file}\n")
+            self.infer_result_text.AppendText(f"语言: {language}\n")
+
             inference = onnx_infer.InferenceOnnx(model_path)
+            self.infer_result_text.AppendText("加载配置...\n")
             inference.load_config()
+            self.infer_result_text.AppendText("加载模型...\n")
             inference.load_model()
+            self.infer_result_text.AppendText("初始化解码器...\n")
             inference.init_decoder()
+            self.infer_result_text.AppendText("加载数据集...\n")
             inference.get_dataset(wav_folder, language=language, g2p="dictionary", dictionary_path=str(dict_path), in_format="lab")
+            self.infer_result_text.AppendText("开始推理...\n")
             inference.infer(non_lexical_phonemes="AP", pad_times=1, pad_length=5)
+            self.infer_result_text.AppendText("导出结果...\n")
             inference.export(wav_folder)
 
+            self.infer_result_text.AppendText("TextGrid推理完成！\n")
             wx.MessageBox("TextGrid推理完成", "成功", wx.OK | wx.ICON_INFORMATION)
         except Exception as e:
-            wx.MessageBox(f"推理失败：{str(e)}", "错误", wx.OK | wx.ICON_ERROR)
+            error_msg = f"推理失败：{str(e)}"
+            self.infer_result_text.AppendText(error_msg + "\n")
+            wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
 
     def on_clean_sp(self, event):
         wav_folder = self.clean_path_text.GetValue().strip()
