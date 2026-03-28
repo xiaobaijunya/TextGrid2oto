@@ -29,20 +29,20 @@ def process_wav_name(wav_name,cuts):
 
 #传入wav路径（可选加入自定义分隔符号）
 def run(path,cuts):
-    wav_files = [f for f in os.listdir(path) if f.endswith('.wav')]
-    # 处理每个WAV文件
-    for wav_file in wav_files:
-        # 处理文件名
-        lab_content = process_wav_name(wav_file,cuts)
-        # # 生成.lab文件的内容
-        # lab_content = ' '.join(pinyin_parts).strip()
-        # 生成.lab文件的文件名
-        lab_file_name = os.path.splitext(wav_file)[0] + '.lab'
-        # 写入.lab文件
-        with open(path + '/' + lab_file_name, 'w', encoding='utf-8') as lab_file:
-            lab_file.write(lab_content)
-        print(f"已生成 {lab_file_name}",end=':')
-        print(lab_content)
+    # 递归查找所有 WAV 文件
+    for root, dirs, files in os.walk(path):
+        for wav_file in files:
+            if wav_file.endswith('.wav'):
+                # 处理文件名
+                lab_content = process_wav_name(wav_file,cuts)
+                # 生成.lab文件的文件名
+                lab_file_name = os.path.splitext(wav_file)[0] + '.lab'
+                # 写入.lab文件（保存在与 WAV 文件相同的目录）
+                lab_file_path = os.path.join(root, lab_file_name)
+                with open(lab_file_path, 'w', encoding='utf-8') as lab_file:
+                    lab_file.write(lab_content)
+                print(f"已生成 {lab_file_path}",end=':')
+                print(lab_content)
 
 
 
@@ -50,5 +50,3 @@ if __name__ == '__main__':
     path = r'E:\OpenUtau\Singers\白锋_02\result'
     # 获取当前目录下所有的WAV文件
     run(path,['_','-'])
-
-
