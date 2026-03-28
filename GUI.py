@@ -1,6 +1,7 @@
 import wx
 import os
 import sys
+import threading
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import wavname2lab
 import onnx_infer
@@ -312,18 +313,22 @@ class MainFrame(wx.Frame):
         
         cuts = [s.strip() for s in separator_str.split(',') if s.strip()]
         
-        try:
-            self.lab_result_text.Clear()
-            self.lab_result_text.AppendText("正在生成LAB文件...\n")
+        def generate_lab_thread():
+            try:
+                wx.CallAfter(self.lab_result_text.Clear)
+                wx.CallAfter(self.lab_result_text.AppendText, "正在生成LAB文件...\n")
 
-            wavname2lab.run(path, cuts)
+                wavname2lab.run(path, cuts)
 
-            self.lab_result_text.AppendText("LAB文件生成完成！\n")
-            wx.MessageBox("LAB文件生成完成", "成功", wx.OK | wx.ICON_INFORMATION)
-        except Exception as e:
-            error_msg = f"生成失败：{str(e)}"
-            self.lab_result_text.AppendText(error_msg + "\n")
-            wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
+                wx.CallAfter(self.lab_result_text.AppendText, "LAB文件生成完成！\n")
+                wx.CallAfter(wx.MessageBox, "LAB文件生成完成", "成功", wx.OK | wx.ICON_INFORMATION)
+            except Exception as e:
+                error_msg = f"生成失败：{str(e)}"
+                wx.CallAfter(self.lab_result_text.AppendText, error_msg + "\n")
+                wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+        thread = threading.Thread(target=generate_lab_thread)
+        thread.start()
 
     def on_infer(self, event):
         wav_folder = self.textgrid_folder_text.GetValue().strip()
@@ -351,40 +356,51 @@ class MainFrame(wx.Frame):
             wx.MessageBox("请选择字典文件", "错误", wx.OK | wx.ICON_ERROR)
             return
 
-        try:
-            self.infer_result_text.Clear()
-            self.infer_result_text.AppendText("正在加载模型...\n")
+        def infer_thread():
+            try:
+                wx.CallAfter(self.infer_result_text.Clear)
+                wx.CallAfter(self.infer_result_text.AppendText, "正在加载模型...\n")
 
-            model_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / model_file
-            dict_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / dict_file
+                model_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / model_file
+                dict_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / dict_file
 
-            language = dict_file.split('.')[0].split('-')
-            language = language[0] if len(language) == 1 else language
+                language = dict_file.split('.')[0].split('-')
+                language = language[0] if len(language) == 1 else language
 
-            self.infer_result_text.AppendText(f"模型: {model_file}\n")
-            self.infer_result_text.AppendText(f"字典: {dict_file}\n")
-            self.infer_result_text.AppendText(f"语言: {language}\n")
+                wx.CallAfter(self.infer_result_text.AppendText, f"模型: {model_file}\n")
+                wx.CallAfter(self.infer_result_text.AppendText, f"字典: {dict_file}\n")
+                wx.CallAfter(self.infer_result_text.AppendText, f"语言: {language}\n")
 
-            inference = onnx_infer.InferenceOnnx(model_path)
-            self.infer_result_text.AppendText("加载配置...\n")
-            inference.load_config()
-            self.infer_result_text.AppendText("加载模型...\n")
-            inference.load_model()
-            self.infer_result_text.AppendText("初始化解码器...\n")
-            inference.init_decoder()
-            self.infer_result_text.AppendText("加载数据集...\n")
-            inference.get_dataset(wav_folder, language=language, g2p="dictionary", dictionary_path=str(dict_path), in_format="lab")
-            self.infer_result_text.AppendText("开始推理...\n")
-            inference.infer(non_lexical_phonemes="AP", pad_times=1, pad_length=5)
-            self.infer_result_text.AppendText("导出结果...\n")
-            inference.export(wav_folder)
+                inference = onnx_infer.InferenceOnnx(model_path)
+                wx.CallAfter(self.infer_result_text.AppendText, "加载配置...\n")
+                inference.load_config()
+                wx.CallAfter(self.infer_result_text.AppendText, "加载模型...\n")
+                inference.load_model()
+                wx.CallAfter(self.infer_result_text.AppendText, "初始化解码器...\n")
+                inference.init_decoder()
 
-            self.infer_result_text.AppendText("TextGrid推理完成！\n")
-            wx.MessageBox("TextGrid推理完成", "成功", wx.OK | wx.ICON_INFORMATION)
-        except Exception as e:
-            error_msg = f"推理失败：{str(e)}"
-            self.infer_result_text.AppendText(error_msg + "\n")
-            wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
+                def progress_callback(msg):
+                    wx.CallAfter(self.infer_result_text.AppendText, msg + "\n")
+                    wx.CallAfter(self.infer_result_text.ShowPosition, self.infer_result_text.GetLastPosition())
+
+                inference.set_progress_callback(progress_callback)
+
+                wx.CallAfter(self.infer_result_text.AppendText, "加载数据集...\n")
+                inference.get_dataset(wav_folder, language=language, g2p="dictionary", dictionary_path=str(dict_path), in_format="lab")
+                wx.CallAfter(self.infer_result_text.AppendText, "开始推理...\n")
+                inference.infer(non_lexical_phonemes="AP", pad_times=1, pad_length=5)
+                wx.CallAfter(self.infer_result_text.AppendText, "导出结果...\n")
+                inference.export(wav_folder)
+
+                wx.CallAfter(self.infer_result_text.AppendText, "TextGrid推理完成！\n")
+                wx.CallAfter(wx.MessageBox, "TextGrid推理完成", "成功", wx.OK | wx.ICON_INFORMATION)
+            except Exception as e:
+                error_msg = f"推理失败：{str(e)}"
+                wx.CallAfter(self.infer_result_text.AppendText, error_msg + "\n")
+                wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+        thread = threading.Thread(target=infer_thread)
+        thread.start()
 
     def on_clean_sp(self, event):
         wav_folder = self.clean_path_text.GetValue().strip()
