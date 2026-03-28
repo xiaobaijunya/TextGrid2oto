@@ -16,6 +16,7 @@ def process_wav_name(wav_name,cuts):
 
     # 执行替换：匹配项之间插入空格
     cleaned_name = pattern.sub(lambda m: f'{m.group()} ', cleaned_name)
+    cleaned_name = 'SP ' + cleaned_name + ' SP'
 
     cleaned_name=cleaned_name.replace('  ',' ')
 
