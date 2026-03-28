@@ -835,7 +835,8 @@ class InferenceOnnx:
 
     def _export_textgrid(self, output_folder):
         for wav_path, wav_length, words in self.predictions:
-            tg_path = Path(output_folder) / wav_path.with_suffix('.TextGrid').name
+            relative_path = wav_path.relative_to(output_folder)
+            tg_path = Path(output_folder) / relative_path.with_suffix('.TextGrid')
             
             phonemes = []
             for word in words:
