@@ -1,0 +1,7 @@
+
+
+onnxruntime-directml
+numpy
+librosa
+textgrid
+wxpython
