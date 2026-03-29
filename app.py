@@ -49,7 +49,7 @@ except ImportError:
 import gradio as gr
 
 from tkinter import filedialog
-import wavname2lab
+import lab_generate.wavname2lab as wavname2lab
 from textgrid2json import ds_json2filter, word2utau_phone, TextGrid2ds_json, ds_json2word,transcriptions_make,del_SP
 from json2oto import json2CV_oto, json2oto, json2VCV_oto ,json2test
 from oto import oto_check

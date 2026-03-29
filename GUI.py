@@ -4,7 +4,8 @@ import sys
 import threading
 import io
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import wavname2lab
+import lab_generate.wavname2lab as wavname2lab
+import lab_generate.index2lab as index2lab
 import onnx_infer
 from pathlib import Path
 from textgrid2json import del_SP, TextGrid2ds_json, ds_json2filter, ds_json2word
@@ -50,37 +51,100 @@ class MainFrame(wx.Frame):
         lab_panel = wx.Panel(notebook)
         lab_sizer = wx.BoxSizer(wx.VERTICAL)
         
-        lab_title = wx.StaticText(lab_panel, label="LAB生成")
-        lab_sizer.Add(lab_title, 0, wx.ALL | wx.CENTER, 10)
+        lab_notebook = wx.Notebook(lab_panel)
+        
+        # 第一个标签页：根据wav名生成lab（常规）
+        lab_wav_panel = wx.Panel(lab_notebook)
+        lab_wav_sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        lab_wav_title = wx.StaticText(lab_wav_panel, label="根据wav名生成lab（常规）")
+        lab_wav_sizer.Add(lab_wav_title, 0, wx.ALL | wx.CENTER, 10)
         
         path_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        path_label = wx.StaticText(lab_panel, label="音源文件夹：")
-        self.path_text = wx.TextCtrl(lab_panel, size=(400, -1))
-        browse_btn = wx.Button(lab_panel, label="选择文件夹")
+        path_label = wx.StaticText(lab_wav_panel, label="音源文件夹：")
+        self.path_text = wx.TextCtrl(lab_wav_panel, size=(400, -1))
+        browse_btn = wx.Button(lab_wav_panel, label="选择文件夹")
         browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.path_text))
         path_sizer.Add(path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         path_sizer.Add(self.path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         path_sizer.Add(browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_sizer.Add(path_sizer, 0, wx.EXPAND | wx.ALL, 10)
+        lab_wav_sizer.Add(path_sizer, 0, wx.EXPAND | wx.ALL, 10)
         
         separator_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        separator_label = wx.StaticText(lab_panel, label="音素分隔符：")
-        self.separator_text = wx.TextCtrl(lab_panel, value="_,-", size=(200, -1))
+        separator_label = wx.StaticText(lab_wav_panel, label="音素分隔符：")
+        self.separator_text = wx.TextCtrl(lab_wav_panel, value="_,-", size=(200, -1))
         separator_sizer.Add(separator_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         separator_sizer.Add(self.separator_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_sizer.Add(separator_sizer, 0, wx.ALL, 10)
+        lab_wav_sizer.Add(separator_sizer, 0, wx.ALL, 10)
         
-        generate_btn = wx.Button(lab_panel, label="生成LAB文件")
+        generate_btn = wx.Button(lab_wav_panel, label="生成LAB文件")
         generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_lab)
-        lab_sizer.Add(generate_btn, 0, wx.ALL | wx.CENTER, 10)
+        lab_wav_sizer.Add(generate_btn, 0, wx.ALL | wx.CENTER, 10)
         
         # 结果显示文本框
-        lab_result_label = wx.StaticText(lab_panel, label="处理结果：")
-        lab_sizer.Add(lab_result_label, 0, wx.ALL | wx.LEFT, 10)
+        lab_result_label = wx.StaticText(lab_wav_panel, label="处理结果：")
+        lab_wav_sizer.Add(lab_result_label, 0, wx.ALL | wx.LEFT, 10)
         
-        self.lab_result_text = wx.TextCtrl(lab_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
-        lab_sizer.Add(self.lab_result_text, 0, wx.EXPAND | wx.ALL, 10)
+        self.lab_result_text = wx.TextCtrl(lab_wav_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        lab_wav_sizer.Add(self.lab_result_text, 0, wx.EXPAND | wx.ALL, 10)
         
+        lab_wav_panel.SetSizer(lab_wav_sizer)
+        
+        # 第二个标签页：根据index生成lab
+        lab_index_panel = wx.Panel(lab_notebook)
+        lab_index_sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        lab_index_title = wx.StaticText(lab_index_panel, label="根据index.csv生成lab")
+        lab_index_sizer.Add(lab_index_title, 0, wx.ALL | wx.CENTER, 10)
+        
+        # WAV路径框
+        lab_wav_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        lab_wav_path_label = wx.StaticText(lab_index_panel, label="WAV路径：")
+        self.lab_wav_path_text = wx.TextCtrl(lab_index_panel, size=(400, -1))
+        lab_wav_browse_btn = wx.Button(lab_index_panel, label="选择文件夹")
+        lab_wav_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.lab_wav_path_text))
+        lab_wav_path_sizer.Add(lab_wav_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        lab_wav_path_sizer.Add(self.lab_wav_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        lab_wav_path_sizer.Add(lab_wav_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        lab_index_sizer.Add(lab_wav_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
+        
+        # Index路径框
+        lab_index_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        lab_index_path_label = wx.StaticText(lab_index_panel, label="Index路径：")
+        self.lab_index_path_text = wx.TextCtrl(lab_index_panel, size=(400, -1))
+        lab_index_browse_btn = wx.Button(lab_index_panel, label="选择文件")
+        lab_index_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.lab_index_path_text))
+        lab_index_path_sizer.Add(lab_index_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        lab_index_path_sizer.Add(self.lab_index_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        lab_index_path_sizer.Add(lab_index_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        lab_index_sizer.Add(lab_index_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
+        
+        # 分隔符输入框
+        lab_separator_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        lab_separator_label = wx.StaticText(lab_index_panel, label="音素分隔符：")
+        self.lab_separator_text = wx.TextCtrl(lab_index_panel, value="_,-", size=(200, -1))
+        lab_separator_sizer.Add(lab_separator_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        lab_separator_sizer.Add(self.lab_separator_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        lab_index_sizer.Add(lab_separator_sizer, 0, wx.ALL, 10)
+
+        lab_index_generate_btn = wx.Button(lab_index_panel, label="生成LAB")
+        lab_index_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_lab_from_index)
+        lab_index_sizer.Add(lab_index_generate_btn, 0, wx.ALL | wx.CENTER, 10)
+        
+        # 结果显示文本框
+        lab_index_result_label = wx.StaticText(lab_index_panel, label="处理结果：")
+        lab_index_sizer.Add(lab_index_result_label, 0, wx.ALL | wx.LEFT, 10)
+        
+        self.lab_index_result_text = wx.TextCtrl(lab_index_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        lab_index_sizer.Add(self.lab_index_result_text, 0, wx.EXPAND | wx.ALL, 10)
+        
+        lab_index_panel.SetSizer(lab_index_sizer)
+        
+        # 添加两个标签页到notebook
+        lab_notebook.AddPage(lab_wav_panel, "根据wav名生成lab（常规）")
+        lab_notebook.AddPage(lab_index_panel, "根据index生成lab")
+        
+        lab_sizer.Add(lab_notebook, 1, wx.EXPAND | wx.ALL, 5)
         lab_panel.SetSizer(lab_sizer)
         
         textgrid_panel = wx.Panel(notebook)
@@ -400,6 +464,13 @@ class MainFrame(wx.Frame):
         svdb_dict_sizer.Add(self.svdb_dict_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         svdb_sizer.Add(svdb_dict_sizer, 0, wx.ALL, 10)
         
+        svdb_tail_ratio_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        svdb_tail_ratio_label = wx.StaticText(svdb_panel, label="音尾比例：")
+        self.svdb_tail_ratio_text = wx.TextCtrl(svdb_panel, value="2", size=(200, -1))
+        svdb_tail_ratio_sizer.Add(svdb_tail_ratio_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        svdb_tail_ratio_sizer.Add(self.svdb_tail_ratio_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        svdb_sizer.Add(svdb_tail_ratio_sizer, 0, wx.ALL, 10)
+        
         svdb_generate_btn = wx.Button(svdb_panel, label="生成json标记")
         svdb_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_svdb)
         svdb_sizer.Add(svdb_generate_btn, 0, wx.ALL | wx.CENTER, 10)
@@ -508,6 +579,7 @@ class MainFrame(wx.Frame):
     def on_generate_svdb(self, event):
         svdb_path = self.svdb_path_text.GetValue().strip()
         dict_file = self.svdb_dict_choice.GetStringSelection()
+        tail_ratio_str = self.svdb_tail_ratio_text.GetValue().strip()
         
         if not svdb_path:
             wx.MessageBox("请选择声库文件夹", "错误", wx.OK | wx.ICON_ERROR)
@@ -519,6 +591,15 @@ class MainFrame(wx.Frame):
         
         if not dict_file:
             wx.MessageBox("请选择字典文件", "错误", wx.OK | wx.ICON_ERROR)
+            return
+        
+        try:
+            num = float(tail_ratio_str)
+            if num <= 0:
+                wx.MessageBox("音尾比例必须大于0", "错误", wx.OK | wx.ICON_ERROR)
+                return
+        except ValueError:
+            wx.MessageBox("音尾比例必须是有效的数字", "错误", wx.OK | wx.ICON_ERROR)
             return
         
         def generate_svdb_thread():
@@ -535,7 +616,7 @@ class MainFrame(wx.Frame):
                     if wav_files and os.path.exists(json_path):
                         display_name = folder_name if folder_name else folder_path
                         wx.CallAfter(self.svdb_result_text.AppendText, f"正在处理: {display_name}\n")
-                        tg2sv_change.run(dict_path, json_path, folder_path)
+                        tg2sv_change.run(dict_path, json_path, folder_path,num)
                         wx.CallAfter(self.svdb_result_text.AppendText, f"完成: {display_name}\n")
                         return True
                     return False
@@ -1107,6 +1188,47 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
 
         thread = threading.Thread(target=generate_lab_thread)
+        thread.start()
+
+    def on_generate_lab_from_index(self, event):
+        wav_path = self.lab_wav_path_text.GetValue().strip()
+        index_path = self.lab_index_path_text.GetValue().strip()
+        separator_str = self.lab_separator_text.GetValue().strip()
+        
+        if not wav_path:
+            wx.MessageBox("请选择WAV路径", "错误", wx.OK | wx.ICON_ERROR)
+            return
+        
+        if not os.path.exists(wav_path):
+            wx.MessageBox("WAV路径不存在", "错误", wx.OK | wx.ICON_ERROR)
+            return
+        
+        if not index_path:
+            wx.MessageBox("请选择Index路径", "错误", wx.OK | wx.ICON_ERROR)
+            return
+        
+        if not os.path.exists(index_path):
+            wx.MessageBox("Index文件不存在", "错误", wx.OK | wx.ICON_ERROR)
+            return
+        
+        cuts = [s.strip() for s in separator_str.split(',') if s.strip()]
+        
+        def generate_lab_from_index_thread():
+            try:
+                wx.CallAfter(self.lab_index_result_text.Clear)
+                wx.CallAfter(self.lab_index_result_text.AppendText, "正在根据index生成LAB文件...\n")
+
+                with TextRedirector(self.lab_index_result_text):
+                    index2lab.run(wav_path, index_path, cuts)
+
+                wx.CallAfter(self.lab_index_result_text.AppendText, "LAB文件生成完成！\n")
+                wx.CallAfter(wx.MessageBox, "LAB文件生成完成", "成功", wx.OK | wx.ICON_INFORMATION)
+            except Exception as e:
+                error_msg = f"生成失败：{str(e)}"
+                wx.CallAfter(self.lab_index_result_text.AppendText, error_msg + "\n")
+                wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+        thread = threading.Thread(target=generate_lab_from_index_thread)
         thread.start()
 
     def on_infer(self, event):

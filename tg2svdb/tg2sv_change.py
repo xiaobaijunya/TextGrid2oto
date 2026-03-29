@@ -19,7 +19,7 @@ def word_phone_json_read(json_path):
         data = json.load(f)
     return data
 
-def word2phone(text,dic):
+def word2phone(text,dic,num):
     word = text['text']
     xmin = text['xmin']
     middle = text['middle']
@@ -39,12 +39,12 @@ def word2phone(text,dic):
         if len(phone) == 1:
             return phone,[xmin]
         elif word in ['ai','ei','an','en','ang','ong','eng','er']:
-            end = Decimal(xmin) + (Decimal(xmax) - Decimal(xmin)) / Decimal(2)
+            end = Decimal(xmin) + (Decimal(xmax) - Decimal(xmin)) / Decimal(num)
             return phone, [xmin, end]
         elif len(phone) == 2:
             return phone,[xmin,middle]
         elif len(phone) == 3 :
-            end = Decimal(middle) + (Decimal(xmax) - Decimal(middle)) / Decimal(2)
+            end = Decimal(middle) + (Decimal(xmax) - Decimal(middle)) / Decimal(num)
             return phone, [xmin, middle, end]
         else:
             print('长度错误！！！')
@@ -53,7 +53,7 @@ def word2phone(text,dic):
         return word,[xmin]
 
 
-def run(dic_path,json_path,wav_path):
+def run(dic_path,json_path,wav_path,num):
     dic = dic_read(dic_path)
     data = word_phone_json_read(json_path)
 
@@ -62,7 +62,7 @@ def run(dic_path,json_path,wav_path):
         phonemes = []
         boundaries = []
         for i in content['phones'].values():
-            j = word2phone(i, dic)
+            j = word2phone(i, dic,num)
             phonemes.append(j[0])
             boundaries.append(j[1])
         boundaries.append([content['wav_long'][1]])
@@ -91,7 +91,8 @@ if __name__ == "__main__":
     dic_path = r'字典/mandarin-xsampa-dict.txt'
     json_path = r'F:\Download\SVDBCreator_Release_1.0.0\xiaxiaobai\wav\D4\json'+'\word_phone.json'
     wav_path = r'F:\Download\SVDBCreator_Release_1.0.0\xiaxiaobai\wav\D4'
+    num = 1.5
 
 
     print('-' * 15 + '欢迎使用TG2SVDB' + '-' * 15)
-    run(dic_path,json_path,wav_path)
+    run(dic_path,json_path,wav_path,num)
