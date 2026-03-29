@@ -136,6 +136,8 @@ def oto_write(file_path,oto_data,pitch,cover,oto_encoding):
 
     if oto_encoding =='shift-jis':
         encodings = ['shift-jis','utf-8']
+    elif oto_encoding =='gbk':
+        encodings = ['gbk', 'utf-8']
     else:
         encodings = ['utf-8','shift-jis','gbk']
 
