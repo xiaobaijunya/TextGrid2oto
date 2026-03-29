@@ -10,7 +10,7 @@ if __name__ == "__main__":
     folders = [f for f in os.listdir(db_path) if os.path.isdir(os.path.join(db_path, f))]
     print(folders)
     for folder in folders:
-        json_path = os.path.join(db_path, folder, 'TextGrid', 'json', 'word_phone.json')
+        json_path = os.path.join(db_path, folder, 'json', 'word_phone.json')
         wav_path = os.path.join(db_path, folder)
         print(json_path, wav_path)
         auto(dic_path,json_path,wav_path)

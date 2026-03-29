@@ -89,7 +89,7 @@ def run(dic_path,json_path,wav_path):
 
 if __name__ == "__main__":
     dic_path = r'字典/mandarin-xsampa-dict.txt'
-    json_path = r'F:\Download\SVDBCreator_Release_1.0.0\xiaxiaobai\wav\D4\TextGrid\json'+'\word_phone.json'
+    json_path = r'F:\Download\SVDBCreator_Release_1.0.0\xiaxiaobai\wav\D4\json'+'\word_phone.json'
     wav_path = r'F:\Download\SVDBCreator_Release_1.0.0\xiaxiaobai\wav\D4'
 
 
