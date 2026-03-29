@@ -182,7 +182,7 @@ def v_cross(oto,cross_sum,V_V):
 
 
 
-def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
+def run(presamp_path,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
     ignore = ignore.split(',')
     C_V,V_V = presamp_read(presamp_path)
     print(C_V)
@@ -223,4 +223,4 @@ if __name__ == '__main__':
     vc_sum=[3,0,2,1,2,3]
     vv_sum=[3,0,2,1,2,3]
     ignore = 'R,SP,AP'
-    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore)
+    run(presamp_path,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore)

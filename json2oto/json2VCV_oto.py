@@ -136,7 +136,7 @@ def json2VCVoto(cv_data,CV_V,sum,ignore):
                 continue
     return oto
 
-def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
+def run(presamp_path,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
     ignore = ignore.split(',')
     CV_V = presamp_read(presamp_path)
     CV_V['R']='R'
@@ -171,7 +171,6 @@ if __name__ == '__main__':
     # wav_path = 'E:\\OpenUtau\\Singers\空气音中文VCV_自动oto测试\VCV'
 
     presamp_path = r'F:\Textgrid2oto4\presamp\jp-hira-presamp.ini'
-    utau_phone = r'E:\OpenUtau\Singers\BaiNi_JP_VCV_0.1\1.C3/TextGrid/json/utau_phone.json'
     word_phone_json = r'E:\OpenUtau\Singers\BaiNi_JP_VCV_0.1\1.C3/TextGrid/json/word_phone.json'
     wav_path = r'E:\OpenUtau\Singers\BaiNi_JP_VCV_0.1\1.C3'
 
@@ -180,4 +179,4 @@ if __name__ == '__main__':
     #VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比
     vc_sum=[1,3,1.5,1,2]
     vv_sum=[0,0,0,0,0]
-    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum)
+    run(presamp_path,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum)

@@ -205,7 +205,7 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum,ignore):
 
 
 
-def run(presamp_path,utau_phone_json,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
+def run(presamp_path,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
     ignore = ignore.split(',')
     CV_V, CV_C,V_V = presamp_read(presamp_path)
     # with open(utau_phone_json, 'r', encoding='utf-8') as f:
@@ -242,4 +242,4 @@ if __name__ == '__main__':
     #VC和VV规则：左线占比,固定的占比,右线占比,预发声不变,交叉占比,VV固定占比
     vc_sum=[3,0,2,1,2,3]
     vv_sum=[3,3,1.5,1,1.5]
-    run(presamp_path,utau_phone,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum)
+    run(presamp_path,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum)
