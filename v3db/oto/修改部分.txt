@@ -1,0 +1,29 @@
+ong,UN
+eng,@N
+R,Sil
+wu,w u
+yi,j i
+u,u
+i,i
+wa,w ua
+wai,w uaI
+wan,w ua_n
+wang,w uAN
+wei,w uei
+wen,w u@_n
+weng,w @N
+wo,w uo
+ya,j ia
+yan,j iE_n
+yang,j iAN
+yao,j iAU
+ye,j iE_r
+yin,j i_n
+ying,j iN
+you,j i@U
+yong,j iUN
+yu,jv y
+v,y
+yuan,jv y{_n
+yue,jv yE_r
+yun,jv y_n
