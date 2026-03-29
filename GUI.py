@@ -39,6 +39,10 @@ class MainFrame(wx.Frame):
     def __init__(self):
         super().__init__(None, title="textgrid-to-多引擎标记转换器", size=(800, 600))
         
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "TextGrid2oto.ico")
+        icon = wx.Icon(icon_path, wx.BITMAP_TYPE_ICO)
+        self.SetIcon(icon)
+        
         panel = wx.Panel(self)
         
         notebook = wx.Notebook(panel)
@@ -376,7 +380,7 @@ class MainFrame(wx.Frame):
         svdb_panel = wx.Panel(mark_notebook)
         svdb_sizer = wx.BoxSizer(wx.VERTICAL)
         
-        svdb_title = wx.StaticText(svdb_panel, label="SVDB生成")
+        svdb_title = wx.StaticText(svdb_panel, label="SVR1DB生成")
         svdb_sizer.Add(svdb_title, 0, wx.ALL | wx.CENTER, 10)
         
         svdb_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -396,7 +400,7 @@ class MainFrame(wx.Frame):
         svdb_dict_sizer.Add(self.svdb_dict_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         svdb_sizer.Add(svdb_dict_sizer, 0, wx.ALL, 10)
         
-        svdb_generate_btn = wx.Button(svdb_panel, label="生成SVDB")
+        svdb_generate_btn = wx.Button(svdb_panel, label="生成json标记")
         svdb_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_svdb)
         svdb_sizer.Add(svdb_generate_btn, 0, wx.ALL | wx.CENTER, 10)
         
@@ -415,7 +419,7 @@ class MainFrame(wx.Frame):
         v3db_panel.SetSizer(v3db_sizer)
 
         mark_notebook.AddPage(oto_panel, "OTO生成")
-        mark_notebook.AddPage(svdb_panel, "SVDB")
+        mark_notebook.AddPage(svdb_panel, "SVR1DB")
         mark_notebook.AddPage(v3db_panel, "V3DB")
 
         mark_sizer.Add(mark_notebook, 1, wx.EXPAND | wx.ALL, 5)
@@ -1140,7 +1144,7 @@ class MainFrame(wx.Frame):
                 model_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / model_file
                 dict_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / dict_file
 
-                language = dict_file.split('-')[0]
+                language = dict_file.split('.')[0].split('-')[0]
                 language = language[0] if len(language) == 1 else language
 
                 wx.CallAfter(self.infer_result_text.AppendText, f"模型: {model_file}\n")
