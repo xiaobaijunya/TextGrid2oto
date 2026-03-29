@@ -189,7 +189,7 @@ def run(ds_dict,json_path,ignore):
         print('写入成功')
 
 if __name__ == '__main__':
-    json_path = r'E:\OpenUtau\Singers\白锋_02\G#3\TextGrid\json\ds_phone.json'
-    ds_dict = r'F:\Textgrid2oto4\HubertFA_model\1201_hfa_model\zh.txt'
+    json_path = r'F:\Download\SVDBCreator_Release_1.0.0\baini_JP\wav\A3\json\ds_phone.json'
+    ds_dict = r'F:\Textgrid2oto4\HubertFA_model\1201_hfa_model\ja.txt'
     ignore = 'AP,SP,R'
     run(ds_dict,json_path,ignore)

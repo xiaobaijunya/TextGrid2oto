@@ -36,7 +36,8 @@ def process_textgrid(file_path,ignore,delete_sp):
                 if prev_phoneme in ignore and next_phoneme in ignore:
                     new_intervals.append(intervals[i])
                     if delete_sp:
-                        print(f"{file_path}已保留 SP 区间: {intervals[i][0]} - {intervals[i][1]}")
+                        pass
+                        # print(f"{file_path}已保留 SP 区间: {intervals[i][0]} - {intervals[i][1]}")
                     i += 1
 
                 else:
