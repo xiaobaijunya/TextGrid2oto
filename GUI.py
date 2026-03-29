@@ -343,7 +343,7 @@ class MainFrame(wx.Frame):
         oto_pitch_sizer.Add(self.oto_pitch_text, 0, wx.ALL, 2)
 
         oto_preset_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_preset_label = wx.StaticText(oto_panel, label="录音表路径（可选）：")
+        oto_preset_label = wx.StaticText(oto_panel, label="录音表路径（暂不可用）：")
         self.oto_preset_text = wx.TextCtrl(oto_panel, value="", size=(210, -1))
         oto_preset_sizer.Add(oto_preset_label, 0, wx.ALL, 2)
         oto_preset_sizer.Add(self.oto_preset_text, 0, wx.ALL, 2)
