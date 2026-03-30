@@ -5,12 +5,6 @@ a = Analysis(
     ['GUI.py'],
     pathex=[],
     binaries=[],
-    datas=[
-    ("presamp", "presamp"),
-    ("HubertFA_model/1218_hfa_model","HubertFA_model/1218_hfa_model"),
-    ("tg2svdb/字典","tg2svdb/字典"),
-    ("img/TextGrid2oto.ico","img")
-],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -19,6 +13,15 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
+#    datas=[
+#    ("presamp", "presamp"),
+#    ("HubertFA_model/1218_hfa_model","HubertFA_model/1218_hfa_model"),
+#    ("tg2svdb/字典","tg2svdb/字典"),
+#    ("img/TextGrid2oto.ico","img")
+#],
+
+
 pyz = PYZ(a.pure)
 
 exe = EXE(

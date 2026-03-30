@@ -143,6 +143,32 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
             if phone not in phone_name:
                 print(phone, end=',')
     elif vcv_mode == '3':
+        phone=[]
+        print('音源类型：ARPAsing')
+        V_C = cvvc_presamp_read(presamps_path)
+        oto_data = oto_rw.oto_read(oto_path)
+        for byname in oto_data:
+            phone_name.append(byname[1].replace(pitch, ''))
+        print('缺少的CV&VC音素：', end='')
+        #V,C,CV,VC,VV
+        for phone0 in V_C[0]:
+            for phone2 in V_C[2]:
+                phone.append(phone0+' '+phone2)
+        for phone3 in phone:
+            if phone3 not in phone_name:
+                print(phone3, end=',')
+        print('\n缺少的- C&V音素：', end='')
+        CV = {'- ' + c for c in V_C[2]}
+        for phone in CV:
+            if phone not in phone_name:
+                print(phone, end=',')
+        print('\n缺少的C&V -音素：', end='')
+        CV = {c + ' -' for c in V_C[2]}
+        for phone in CV:
+            if phone not in phone_name:
+                print(phone, end=',')
+
+    elif vcv_mode == '4':
         print('音源类型：Test')
         V_C = cvvc_presamp_read(presamps_path)
         oto_data = oto_read(oto_path)

@@ -3,14 +3,27 @@ import os
 import sys
 import threading
 import io
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from pathlib import Path
+
+# ✅ 万能获取程序根目录（开发/打包通用）
+def get_app_root() -> Path:
+    if getattr(sys, 'frozen', False):
+        # 打包后运行：返回 exe 所在目录
+        return Path(sys.executable).parent
+    else:
+        # 开发时运行：返回当前 .py 文件所在目录
+        return Path(__file__).parent
+
+# 全局变量，直接用
+ROOT = get_app_root()
+
+sys.path.append(str(ROOT))
 import lab_generate.wavname2lab as wavname2lab
 import lab_generate.index2lab as index2lab
 import onnx_infer
-from pathlib import Path
 from textgrid2json import del_SP, TextGrid2ds_json, ds_json2filter, ds_json2word
-from json2oto import json2CV_oto, json2oto, json2VCV_oto, json2test
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tg2svdb'))
+from json2oto import json2CV_oto, json2oto, json2VCV_oto, json2test,json2arpasing_oto
+sys.path.append(str(ROOT / 'tg2svdb'))
 from tg2svdb import tg2sv_change
 
 class TextRedirector:
@@ -40,7 +53,7 @@ class MainFrame(wx.Frame):
     def __init__(self):
         super().__init__(None, title="textgrid-to-多引擎标记转换器", size=(800, 600))
         
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "TextGrid2oto.ico")
+        icon_path = str(ROOT / "img" / "TextGrid2oto.ico")
         icon = wx.Icon(icon_path, wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
         
@@ -328,7 +341,7 @@ class MainFrame(wx.Frame):
         # 生成模式和编码
         mode_encoding_sizer = wx.BoxSizer(wx.HORIZONTAL)
         oto_mode_label = wx.StaticText(oto_panel, label="生成模式：")
-        self.oto_mode_choice = wx.Choice(oto_panel, choices=["CVVC", "VCV&arpasing", "CVV", "Test"], size=(150, -1))
+        self.oto_mode_choice = wx.Choice(oto_panel, choices=["CVVC", "VCV", "CVV","ARPAsing", "Test"], size=(150, -1))
         self.oto_mode_choice.SetSelection(0)
         self.oto_mode_choice.Bind(wx.EVT_CHOICE, self.on_oto_mode_changed)
         oto_encoding_label = wx.StaticText(oto_panel, label="OTO编码：")
@@ -513,7 +526,7 @@ class MainFrame(wx.Frame):
         self.load_presamp()
 
     def load_models(self):
-        hubert_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HubertFA_model')
+        hubert_path = str(ROOT / 'HubertFA_model')
         if os.path.exists(hubert_path):
             model_folders = [d for d in os.listdir(hubert_path) if os.path.isdir(os.path.join(hubert_path, d))]
             
@@ -534,7 +547,7 @@ class MainFrame(wx.Frame):
     def on_model_folder_selected(self, event):
         selected_folder = self.model_folder_choice.GetStringSelection()
         if selected_folder:
-            model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HubertFA_model', selected_folder)
+            model_path = str(ROOT / 'HubertFA_model' / selected_folder)
             if os.path.exists(model_path):
                 onnx_files = [f for f in os.listdir(model_path) if f.endswith('.onnx')]
                 self.model_file_choice.Clear()
@@ -556,7 +569,7 @@ class MainFrame(wx.Frame):
     def on_json_folder_selected(self, event):
         selected_folder = self.json_folder_choice.GetStringSelection()
         if selected_folder:
-            model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HubertFA_model', selected_folder)
+            model_path = str(ROOT / 'HubertFA_model' / selected_folder)
             if os.path.exists(model_path):
                 dict_files = [f for f in os.listdir(model_path) if f.endswith('.txt')]
                 self.json_dict_choice.Clear()
@@ -568,7 +581,7 @@ class MainFrame(wx.Frame):
         pass
     
     def load_svdb_dicts(self):
-        dict_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tg2svdb', '字典')
+        dict_dir = str(ROOT / 'tg2svdb' / '字典')
         if os.path.exists(dict_dir):
             dict_files = [f for f in os.listdir(dict_dir) if f.endswith('.txt')]
             self.svdb_dict_choice.Clear()
@@ -607,7 +620,7 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.svdb_result_text.Clear)
                 wx.CallAfter(self.svdb_result_text.AppendText, "开始生成SVDB...\n")
                 
-                dict_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tg2svdb', '字典', dict_file)
+                dict_path = str(ROOT / 'tg2svdb' / '字典' / dict_file)
                 
                 def process_folder(folder_path, folder_name=""):
                     json_path = os.path.join(folder_path, 'json', 'word_phone.json')
@@ -641,9 +654,10 @@ class MainFrame(wx.Frame):
         
         thread = threading.Thread(target=generate_svdb_thread)
         thread.start()
+
     
     def load_presamp(self):
-        presamp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'presamp')
+        presamp_dir = str(ROOT / 'presamp')
         if os.path.exists(presamp_dir):
             presamp_files = [f for f in os.listdir(presamp_dir) if os.path.isfile(os.path.join(presamp_dir, f))]
             self.oto_presamp_choice.Clear()
@@ -654,7 +668,7 @@ class MainFrame(wx.Frame):
     def on_oto_presamp_selected(self, event):
         presamp_file = self.oto_presamp_choice.GetStringSelection()
         if presamp_file:
-            presamp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'presamp')
+            presamp_dir = str(ROOT / 'presamp')
             presamp_full_path = os.path.join(presamp_dir, presamp_file)
             self.oto_presamp_path_text.SetValue(presamp_full_path)
     
@@ -678,331 +692,13 @@ class MainFrame(wx.Frame):
             self.oto_vv_sum_text.SetValue("0,0,0,0,6")
             self.oto_cv_offset_text.SetValue("0,0,0,0,0")
             self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 3:  # Test
-            self.oto_cv_sum_text.SetValue("1,8,1.5,1,4")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,2")
-            self.oto_vv_sum_text.SetValue("3,3,1.5,1,2")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-    
-    def on_generate_oto(self, event):
-        wav_path = self.oto_path_text.GetValue().strip()
-        presamp_path = self.oto_presamp_path_text.GetValue().strip()
-        presamp_file = self.oto_presamp_choice.GetStringSelection()
-        vcv_mode = str(self.oto_mode_choice.GetSelection())
-        
-        if not wav_path:
-            wx.MessageBox("请选择音源文件夹", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        if not os.path.exists(wav_path):
-            wx.MessageBox("音源文件夹不存在", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        if not presamp_path:
-            wx.MessageBox("请选择Presamp路径", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        if not os.path.exists(presamp_path):
-            wx.MessageBox("Presamp路径不存在", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        try:
-            cv_sum = [float(x) for x in self.oto_cv_sum_text.GetValue().split(',')]
-            vc_sum = [float(x) for x in self.oto_vc_sum_text.GetValue().split(',')]
-            vv_sum = [float(x) for x in self.oto_vv_sum_text.GetValue().split(',')]
-            cv_offset = [float(x) for x in self.oto_cv_offset_text.GetValue().split(',')]
-            vc_offset = [float(x) for x in self.oto_vc_offset_text.GetValue().split(',')]
-        except ValueError:
-            wx.MessageBox("参数格式错误，请检查逗号分隔的数字", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        pitch = self.oto_pitch_text.GetValue().strip()
-        cv_repeat = self.oto_cv_repeat_text.GetValue().strip()
-        vc_repeat = self.oto_vc_repeat_text.GetValue().strip()
-        ignore = self.oto_ignore_text.GetValue().strip()
-        oto_preset = self.oto_preset_text.GetValue().strip()
-        oto_encoding = self.oto_encoding_choice.GetStringSelection()
-        cover_bool = self.oto_cover_checkbox.GetValue()
-        cover = 'y' if cover_bool else 'n'
-        
-        if not cv_repeat:
-            cv_repeat = "1"
-        if not vc_repeat:
-            vc_repeat = "1"
-        
-        textgrid_path = os.path.join(wav_path, 'TextGrid')
-        
-        if not os.path.exists(textgrid_path):
-            wx.MessageBox("TextGrid文件夹不存在，请先生成TextGrid", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        utau_phone_path = os.path.join(textgrid_path, 'json', 'utau_phone.json')
-        word_phone_path = os.path.join(textgrid_path, 'json', 'word_phone.json')
-        
-        if not os.path.exists(utau_phone_path) or not os.path.exists(word_phone_path):
-            wx.MessageBox("JSON文件不存在，请先生成JSON", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        def generate_oto_thread():
-            try:
-                wx.CallAfter(self.oto_result_text.Clear)
-                wx.CallAfter(self.oto_result_text.AppendText, "开始生成OTO...\n")
-                
-                from oto import oto_rw
-                from oto import oto_check
-                
-                with TextRedirector(self.oto_result_text):
-                    wx.CallAfter(self.oto_result_text.AppendText, f"生成模式: {['CVVC', 'VCV', 'CVV', 'Test'][int(vcv_mode)]}\n")
-                    
-                    if vcv_mode == '1':
-                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：VCV\n")
-                        json2VCV_oto.run(presamp_path, utau_phone_path, word_phone_path,
-                                         wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    elif vcv_mode == '2':
-                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：CVV\n")
-                        json2CV_oto.run(presamp_path, utau_phone_path, word_phone_path,
-                                        wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    elif vcv_mode == '0':
-                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：CVVC\n")
-                        json2oto.run(presamp_path, utau_phone_path, word_phone_path,
-                                     wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    elif vcv_mode == '3':
-                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：Test\n")
-                        json2test.run(presamp_path, utau_phone_path, word_phone_path,
-                                      wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "读取CV和VC oto.ini\n")
-                    cv = oto_rw.oto_read(os.path.join(wav_path, 'cv_oto.ini'))
-                    vc = oto_rw.oto_read(os.path.join(wav_path, 'vc_oto.ini'))
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "剔除重复项\n")
-                    cv = oto_rw.oto_repeat(cv, int(cv_repeat), oto_preset)
-                    vc = oto_rw.oto_repeat(vc, int(vc_repeat), oto_preset)
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "偏移oto数值.ini\n")
-                    if cv_offset != [0.0, 0.0, 0.0, 0.0, 0.0]:
-                        cv = oto_rw.oto_offset(cv, cv_offset)
-                        wx.CallAfter(self.oto_result_text.AppendText, "偏移CV数值,运行成功\n")
-                    if vc_offset != [0.0, 0.0, 0.0, 0.0, 0.0]:
-                        vc = oto_rw.oto_offset(vc, vc_offset)
-                        wx.CallAfter(self.oto_result_text.AppendText, "偏移VC数值,运行成功\n")
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "合并oto.ini\n")
-                    oto_rw.oto_write(os.path.join(wav_path, 'oto.ini'), cv + vc, pitch, cover, oto_encoding)
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "检测缺少的音素\n")
-                    oto_check.run(os.path.join(wav_path, 'oto.ini'), presamp_path, pitch, vcv_mode)
-                
-                wx.CallAfter(self.oto_result_text.AppendText, "\nOTO生成完成！\n")
-                wx.CallAfter(wx.MessageBox, "OTO生成完成！", "成功", wx.OK | wx.ICON_INFORMATION)
-            except Exception as e:
-                error_msg = f"生成失败：{str(e)}"
-                wx.CallAfter(self.oto_result_text.AppendText, error_msg + "\n")
-                wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
-        
-        thread = threading.Thread(target=generate_oto_thread)
-        thread.start()
-    
-    def load_presamp(self):
-        presamp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'presamp')
-        if os.path.exists(presamp_dir):
-            presamp_files = [f for f in os.listdir(presamp_dir) if os.path.isfile(os.path.join(presamp_dir, f))]
-            self.oto_presamp_choice.Clear()
-            self.oto_presamp_choice.AppendItems(presamp_files)
-            if presamp_files:
-                self.oto_presamp_choice.SetSelection(0)
-    
-    def on_oto_presamp_selected(self, event):
-        presamp_file = self.oto_presamp_choice.GetStringSelection()
-        if presamp_file:
-            presamp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'presamp')
-            presamp_full_path = os.path.join(presamp_dir, presamp_file)
-            self.oto_presamp_path_text.SetValue(presamp_full_path)
-    
-    def on_oto_mode_changed(self, event):
-        mode = self.oto_mode_choice.GetSelection()
-        if mode == 0:  # CVVC
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,4")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("3,3,1.5,1,3")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 1:  # VCV
+        elif mode == 3:  # VCV
             self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
             self.oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
             self.oto_vv_sum_text.SetValue("0,0,0,0,0")
             self.oto_cv_offset_text.SetValue("0,0,0,0,0")
             self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 2:  # CVV
-            self.oto_cv_sum_text.SetValue("1,3,1,1,3")
-            self.oto_vc_sum_text.SetValue("5,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("0,0,0,0,6")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 3:  # Test
-            self.oto_cv_sum_text.SetValue("1,8,1.5,1,4")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,2")
-            self.oto_vv_sum_text.SetValue("3,3,1.5,1,2")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-    
-    def on_generate_oto(self, event):
-        wav_path = self.oto_path_text.GetValue().strip()
-        presamp_path = self.oto_presamp_path_text.GetValue().strip()
-        presamp_file = self.oto_presamp_choice.GetStringSelection()
-        vcv_mode = str(self.oto_mode_choice.GetSelection())
-        
-        if not wav_path:
-            wx.MessageBox("请选择音源文件夹", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        if not os.path.exists(wav_path):
-            wx.MessageBox("音源文件夹不存在", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        if not presamp_path:
-            wx.MessageBox("请选择Presamp路径", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        if not os.path.exists(presamp_path):
-            wx.MessageBox("Presamp路径不存在", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        try:
-            cv_sum = [float(x) for x in self.oto_cv_sum_text.GetValue().split(',')]
-            vc_sum = [float(x) for x in self.oto_vc_sum_text.GetValue().split(',')]
-            vv_sum = [float(x) for x in self.oto_vv_sum_text.GetValue().split(',')]
-            cv_offset = [float(x) for x in self.oto_cv_offset_text.GetValue().split(',')]
-            vc_offset = [float(x) for x in self.oto_vc_offset_text.GetValue().split(',')]
-        except ValueError:
-            wx.MessageBox("参数格式错误，请检查逗号分隔的数字", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        pitch = self.oto_pitch_text.GetValue().strip()
-        cv_repeat = self.oto_cv_repeat_text.GetValue().strip()
-        vc_repeat = self.oto_vc_repeat_text.GetValue().strip()
-        ignore = self.oto_ignore_text.GetValue().strip()
-        oto_preset = self.oto_preset_text.GetValue().strip()
-        oto_encoding = self.oto_encoding_choice.GetStringSelection()
-        cover_bool = self.oto_cover_checkbox.GetValue()
-        cover = 'y' if cover_bool else 'n'
-        
-        if not cv_repeat:
-            cv_repeat = "1"
-        if not vc_repeat:
-            vc_repeat = "1"
-        
-        textgrid_path = os.path.join(wav_path, 'TextGrid')
-        
-        if not os.path.exists(textgrid_path):
-            wx.MessageBox("TextGrid文件夹不存在，请先生成TextGrid", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        utau_phone_path = os.path.join(textgrid_path, 'json', 'utau_phone.json')
-        word_phone_path = os.path.join(textgrid_path, 'json', 'word_phone.json')
-        
-        if not os.path.exists(utau_phone_path) or not os.path.exists(word_phone_path):
-            wx.MessageBox("JSON文件不存在，请先生成JSON", "错误", wx.OK | wx.ICON_ERROR)
-            return
-        
-        def generate_oto_thread():
-            try:
-                wx.CallAfter(self.oto_result_text.Clear)
-                wx.CallAfter(self.oto_result_text.AppendText, "开始生成OTO...\n")
-                
-                from oto import oto_rw
-                from oto import oto_check
-                
-                with TextRedirector(self.oto_result_text):
-                    wx.CallAfter(self.oto_result_text.AppendText, f"生成模式: {['CVVC', 'VCV', 'CVV', 'Test'][int(vcv_mode)]}\n")
-                    
-                    if vcv_mode == '1':
-                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：VCV\n")
-                        json2VCV_oto.run(presamp_path, utau_phone_path, word_phone_path,
-                                         wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    elif vcv_mode == '2':
-                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：CVV\n")
-                        json2CV_oto.run(presamp_path, utau_phone_path, word_phone_path,
-                                        wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    elif vcv_mode == '0':
-                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：CVVC\n")
-                        json2oto.run(presamp_path, utau_phone_path, word_phone_path,
-                                     wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    elif vcv_mode == '3':
-                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：Test\n")
-                        json2test.run(presamp_path, utau_phone_path, word_phone_path,
-                                      wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "读取CV和VC oto.ini\n")
-                    cv = oto_rw.oto_read(os.path.join(wav_path, 'cv_oto.ini'))
-                    vc = oto_rw.oto_read(os.path.join(wav_path, 'vc_oto.ini'))
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "剔除重复项\n")
-                    cv = oto_rw.oto_repeat(cv, int(cv_repeat), oto_preset)
-                    vc = oto_rw.oto_repeat(vc, int(vc_repeat), oto_preset)
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "偏移oto数值.ini\n")
-                    if cv_offset != [0.0, 0.0, 0.0, 0.0, 0.0]:
-                        cv = oto_rw.oto_offset(cv, cv_offset)
-                        wx.CallAfter(self.oto_result_text.AppendText, "偏移CV数值,运行成功\n")
-                    if vc_offset != [0.0, 0.0, 0.0, 0.0, 0.0]:
-                        vc = oto_rw.oto_offset(vc, vc_offset)
-                        wx.CallAfter(self.oto_result_text.AppendText, "偏移VC数值,运行成功\n")
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "合并oto.ini\n")
-                    oto_rw.oto_write(os.path.join(wav_path, 'oto.ini'), cv + vc, pitch, cover, oto_encoding)
-                    
-                    wx.CallAfter(self.oto_result_text.AppendText, "检测缺少的音素\n")
-                    oto_check.run(os.path.join(wav_path, 'oto.ini'), presamp_path, pitch, vcv_mode)
-                
-                wx.CallAfter(self.oto_result_text.AppendText, "\nOTO生成完成！\n")
-                wx.CallAfter(wx.MessageBox, "OTO生成完成！", "成功", wx.OK | wx.ICON_INFORMATION)
-            except Exception as e:
-                error_msg = f"生成失败：{str(e)}"
-                wx.CallAfter(self.oto_result_text.AppendText, error_msg + "\n")
-                wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
-        
-        thread = threading.Thread(target=generate_oto_thread)
-        thread.start()
-    
-    def load_presamp(self):
-        presamp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'presamp')
-        if os.path.exists(presamp_dir):
-            presamp_files = [f for f in os.listdir(presamp_dir) if os.path.isfile(os.path.join(presamp_dir, f))]
-            self.oto_presamp_choice.Clear()
-            self.oto_presamp_choice.AppendItems(presamp_files)
-            if presamp_files:
-                self.oto_presamp_choice.SetSelection(0)
-    
-    def on_oto_presamp_selected(self, event):
-        presamp_file = self.oto_presamp_choice.GetStringSelection()
-        if presamp_file:
-            presamp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'presamp')
-            presamp_full_path = os.path.join(presamp_dir, presamp_file)
-            self.oto_presamp_path_text.SetValue(presamp_full_path)
-    
-    def on_oto_mode_changed(self, event):
-        mode = self.oto_mode_choice.GetSelection()
-        if mode == 0:  # CVVC
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,4")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("3,3,1.5,1,3")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 1:  # VCV
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
-            self.oto_vv_sum_text.SetValue("0,0,0,0,0")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 2:  # CVV
-            self.oto_cv_sum_text.SetValue("1,3,1,1,3")
-            self.oto_vc_sum_text.SetValue("5,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("0,0,0,0,6")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 3:  # Test
+        elif mode == 4:  # Test
             self.oto_cv_sum_text.SetValue("1,8,1.5,1,4")
             self.oto_vc_sum_text.SetValue("3,0,2,1,2")
             self.oto_vv_sum_text.SetValue("3,3,1.5,1,2")
@@ -1075,11 +771,15 @@ class MainFrame(wx.Frame):
                 from oto import oto_check
                 
                 with TextRedirector(self.oto_result_text):
-                    wx.CallAfter(self.oto_result_text.AppendText, f"生成模式: {['CVVC', 'VCV', 'CVV', 'Test'][int(vcv_mode)]}\n")
+                    wx.CallAfter(self.oto_result_text.AppendText, f"生成模式: {['CVVC', 'VCV', 'CVV','ARPAsing', 'Test'][int(vcv_mode)]}\n")
                     
                     if vcv_mode == '1':
                         wx.CallAfter(self.oto_result_text.AppendText, "生成模式：VCV\n")
                         json2VCV_oto.run(presamp_path, word_phone_path,
+                                         wav_path, cv_sum, vc_sum, vv_sum, ignore)
+                    elif vcv_mode == '3':
+                        wx.CallAfter(self.oto_result_text.AppendText, "生成模式：ARPAsing\n")
+                        json2arpasing_oto.run(presamp_path, word_phone_path,
                                          wav_path, cv_sum, vc_sum, vv_sum, ignore)
                     elif vcv_mode == '2':
                         wx.CallAfter(self.oto_result_text.AppendText, "生成模式：CVV\n")
@@ -1089,7 +789,7 @@ class MainFrame(wx.Frame):
                         wx.CallAfter(self.oto_result_text.AppendText, "生成模式：CVVC\n")
                         json2oto.run(presamp_path, word_phone_path,
                                      wav_path, cv_sum, vc_sum, vv_sum, ignore)
-                    elif vcv_mode == '3':
+                    elif vcv_mode == '4':
                         wx.CallAfter(self.oto_result_text.AppendText, "生成模式：Test\n")
                         json2test.run(presamp_path, word_phone_path,
                                       wav_path, cv_sum, vc_sum, vv_sum, ignore)
@@ -1263,8 +963,8 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.infer_result_text.AppendText, "正在加载模型...\n")
 
 
-                model_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / model_file
-                dict_path = Path(os.path.dirname(os.path.abspath(__file__))) / 'HubertFA_model' / model_folder / dict_file
+                model_path = ROOT / 'HubertFA_model' / model_folder / model_file
+                dict_path = ROOT / 'HubertFA_model' / model_folder / dict_file
 
                 language = dict_file.split('.')[0].split('-')[0]
                 language = language[0] if len(language) == 1 else language
@@ -1367,7 +1067,7 @@ class MainFrame(wx.Frame):
 
                 # 获取字典路径
                 selected_folder = self.json_folder_choice.GetStringSelection()
-                dict_full_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'HubertFA_model', selected_folder, dict_file)
+                dict_full_path = str(ROOT / 'HubertFA_model' / selected_folder / dict_file)
 
                 if not os.path.exists(dict_full_path):
                     wx.CallAfter(wx.MessageBox, "字典文件不存在", "错误", wx.OK | wx.ICON_ERROR)
