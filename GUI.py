@@ -328,11 +328,11 @@ class MainFrame(wx.Frame):
         # 生成模式和编码
         mode_encoding_sizer = wx.BoxSizer(wx.HORIZONTAL)
         oto_mode_label = wx.StaticText(oto_panel, label="生成模式：")
-        self.oto_mode_choice = wx.Choice(oto_panel, choices=["CVVC", "VCV", "CVV", "Test"], size=(100, -1))
+        self.oto_mode_choice = wx.Choice(oto_panel, choices=["CVVC", "VCV&arpasing", "CVV", "Test"], size=(150, -1))
         self.oto_mode_choice.SetSelection(0)
         self.oto_mode_choice.Bind(wx.EVT_CHOICE, self.on_oto_mode_changed)
         oto_encoding_label = wx.StaticText(oto_panel, label="OTO编码：")
-        self.oto_encoding_choice = wx.Choice(oto_panel, choices=["utf-8", "shift-jis", "gbk"], size=(100, -1))
+        self.oto_encoding_choice = wx.Choice(oto_panel, choices=["utf-8", "shift-jis", "gbk"], size=(150, -1))
         self.oto_encoding_choice.SetSelection(0)
         self.oto_cover_checkbox = wx.CheckBox(oto_panel, label="覆盖现有oto.ini")
         self.oto_cover_checkbox.SetValue(True)
@@ -366,7 +366,7 @@ class MainFrame(wx.Frame):
         params1_sizer.Add(oto_cv_sum_sizer, 0, wx.ALL, 5)
         params1_sizer.Add(oto_vc_sum_sizer, 0, wx.ALL, 5)
         params1_sizer.Add(oto_vv_sum_sizer, 0, wx.ALL, 5)
-        oto_sizer.Add(params1_sizer, 0, wx.ALL, 10)
+        oto_sizer.Add(params1_sizer, 0, wx.ALL, 0)
         
         # 参数组2：CV偏移、VC偏移、音阶后缀
 
@@ -434,7 +434,7 @@ class MainFrame(wx.Frame):
         
         # 结果显示文本框
         oto_result_label = wx.StaticText(oto_panel, label="处理结果：")
-        oto_sizer.Add(oto_result_label, 0, wx.ALL | wx.LEFT, 10)
+        oto_sizer.Add(oto_result_label, 0, wx.ALL | wx.LEFT, 0)
         
         self.oto_result_text = wx.TextCtrl(oto_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
         oto_sizer.Add(self.oto_result_text, 0, wx.EXPAND | wx.ALL, 10)

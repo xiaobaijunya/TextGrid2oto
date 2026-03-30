@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+#pyinstaller GUI.spec
 
 a = Analysis(
     ['GUI.py'],

@@ -437,7 +437,19 @@ class AlignmentDecoder:
                ):
         ph_frame_logits = ph_frame_logits[0]
         ph_edge_logits = ph_edge_logits[0]
-        ph_seq_id = np.array([self.vocab["vocab"][ph] for ph in ph_seq])
+        
+        ph_seq_id_list = []
+        warning_log = []
+        for ph in ph_seq:
+            if ph in self.vocab["vocab"]:
+                ph_seq_id_list.append(self.vocab["vocab"][ph])
+            else:
+                ph_seq_id_list.append(self.vocab["vocab"]["SP"])
+                warning_msg = f"音素 '{ph}' 不在模型词汇表中，已替换为 'SP'"
+                warning_log.append(warning_msg)
+                warnings.warn(warning_msg)
+        
+        ph_seq_id = np.array(ph_seq_id_list)
         self.ph_seq_id = ph_seq_id
 
         ph_mask = np.full(self.vocab["vocab_size"], 1e9)
@@ -502,7 +514,7 @@ class AlignmentDecoder:
                 words.append(word)
                 word_idx_last = word_idx
         self.ph_seq_pred, self.ph_intervals_pred, self.pred_words = words.phonemes, words.intervals, words
-        return words, total_confidence
+        return words, total_confidence, warning_log
 
     @staticmethod
     def forward_pass(T, S, prob_log, edge_prob, curr_ph_max_prob_log, dp, ph_seq_id, prob3_pad_len=2):
@@ -725,7 +737,7 @@ class InferenceOnnx:
     def _infer(self, padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx, wav_length, non_lexical_phonemes):
         results = self.run_onnx(self.model, {'waveform': [padded_wav]})
 
-        words, _ = self.fa_decoder.decode(
+        words, _, warning_log = self.fa_decoder.decode(
             ph_frame_logits=results['ph_frame_logits'][:, :, padded_frames:],
             ph_edge_logits=results['ph_edge_logits'][:, padded_frames:],
             wav_length=wav_length, ph_seq=ph_seq, word_seq=word_seq, ph_idx_to_word_idx=ph_idx_to_word_idx
@@ -733,7 +745,7 @@ class InferenceOnnx:
 
         non_lexical_words = self.nll_decoder.decode(cvnt_logits=results['cvnt_logits'][:, :, padded_frames:],
                                                     wav_length=wav_length, non_lexical_phonemes=non_lexical_phonemes)
-        return words, non_lexical_words
+        return words, non_lexical_words, warning_log
 
     @staticmethod
     def run_onnx(session, input_dict):
@@ -784,18 +796,28 @@ class InferenceOnnx:
             wav_length = len(wav) / self.mel_cfg['sample_rate']
 
             words_list: list[WordList] = []
+            all_warning_logs = []
             for pl in pad_lengths:
                 padded_samples = int(pl * self.mel_cfg['sample_rate'])
                 padded_frames = int(padded_samples / self.mel_cfg['hop_size'])
                 padded_wav = np.pad(wav, (padded_samples, 0), mode='constant', constant_values=0)
 
-                words, non_lexical_words = self._infer(padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx,
+                words, non_lexical_words, warning_log = self._infer(padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx,
                                                        wav_length, non_lexical_phonemes)
+                if warning_log:
+                    all_warning_logs.extend(warning_log)
                 for _words in non_lexical_words:
                     for word in _words:
                         words.add_AP(word)
                 words.clear_language_prefix()
                 words_list.append(words)
+            
+            if all_warning_logs:
+                wav_name = os.path.basename(wav_path)
+                warning_msg = f"{wav_name}:\n" + "\n".join(all_warning_logs)
+                print(warning_msg)
+                if self.progress_callback:
+                    self.progress_callback(warning_msg)
 
             ph_list = [words.phonemes for words in words_list]
             words_list = [words_list[i] for i in find_all_duplicate_phonemes(ph_list)]
