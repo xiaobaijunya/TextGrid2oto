@@ -166,9 +166,10 @@ class MainFrame(wx.Frame):
         textgrid_title = wx.StaticText(textgrid_panel, label="TextGrid推理")
         textgrid_sizer.Add(textgrid_title, 0, wx.ALL | wx.CENTER, 10)
 
+        # 顶部：音源文件夹（占据整个宽度）
         folder_sizer = wx.BoxSizer(wx.HORIZONTAL)
         folder_label = wx.StaticText(textgrid_panel, label="音源文件夹：")
-        self.textgrid_folder_text = wx.TextCtrl(textgrid_panel, size=(400, -1))
+        self.textgrid_folder_text = wx.TextCtrl(textgrid_panel, size=(500, -1))
         browse_folder_btn = wx.Button(textgrid_panel, label="选择文件夹")
         browse_folder_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.textgrid_folder_text))
         folder_sizer.Add(folder_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
@@ -176,38 +177,90 @@ class MainFrame(wx.Frame):
         folder_sizer.Add(browse_folder_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         textgrid_sizer.Add(folder_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
+        # 主内容区域：左右两栏
+        main_content_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # 左侧栏
+        left_panel = wx.Panel(textgrid_panel)
+        left_sizer = wx.BoxSizer(wx.VERTICAL)
+
         model_folder_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        model_folder_label = wx.StaticText(textgrid_panel, label="模型文件夹：")
-        self.model_folder_choice = wx.Choice(textgrid_panel, size=(300, -1))
+        model_folder_label = wx.StaticText(left_panel, label="模型文件夹：")
+        self.model_folder_choice = wx.Choice(left_panel, size=(250, -1))
         self.model_folder_choice.Bind(wx.EVT_CHOICE, self.on_model_folder_selected)
         model_folder_sizer.Add(model_folder_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         model_folder_sizer.Add(self.model_folder_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        textgrid_sizer.Add(model_folder_sizer, 0, wx.ALL, 10)
+        left_sizer.Add(model_folder_sizer, 0, wx.ALL, 10)
 
         model_file_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        model_file_label = wx.StaticText(textgrid_panel, label="选择模型：")
-        self.model_file_choice = wx.Choice(textgrid_panel, size=(300, -1))
+        model_file_label = wx.StaticText(left_panel, label="选择模型：")
+        self.model_file_choice = wx.Choice(left_panel, size=(250, -1))
         model_file_sizer.Add(model_file_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         model_file_sizer.Add(self.model_file_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        textgrid_sizer.Add(model_file_sizer, 0, wx.ALL, 10)
+        left_sizer.Add(model_file_sizer, 0, wx.ALL, 10)
 
         dict_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        dict_label = wx.StaticText(textgrid_panel, label="选择字典：")
-        self.dict_choice = wx.Choice(textgrid_panel, size=(300, -1))
+        dict_label = wx.StaticText(left_panel, label="选择字典：")
+        self.dict_choice = wx.Choice(left_panel, size=(250, -1))
         dict_sizer.Add(dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         dict_sizer.Add(self.dict_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        textgrid_sizer.Add(dict_sizer, 0, wx.ALL, 10)
+        left_sizer.Add(dict_sizer, 0, wx.ALL, 10)
+
+        left_panel.SetSizer(left_sizer)
+        main_content_sizer.Add(left_panel, 1, wx.EXPAND | wx.ALL, 5)
+
+        # 中间分隔线
+        separator = wx.StaticLine(textgrid_panel, style=wx.LI_VERTICAL)
+        main_content_sizer.Add(separator, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
+
+        # 右侧栏：推理设置
+        right_panel = wx.Panel(textgrid_panel)
+        right_sizer = wx.BoxSizer(wx.VERTICAL)
 
         # 设备选择
         device_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        device_label = wx.StaticText(textgrid_panel, label="推理设备：")
-        self.device_choice = wx.Choice(textgrid_panel, size=(300, -1))
+        device_label = wx.StaticText(right_panel, label="推理设备：")
+        self.device_choice = wx.Choice(right_panel, size=(400, -1))
         self.device_choice.Append("CPU (稳定)", "cpu")
         self.device_choice.Append("DirectML (GPU加速更快)", "dml")
-        self.device_choice.SetSelection(0)  # 默认选择CPU
+        self.device_choice.SetSelection(0)
         device_sizer.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         device_sizer.Add(self.device_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        textgrid_sizer.Add(device_sizer, 0, wx.ALL, 10)
+        right_sizer.Add(device_sizer, 0, wx.ALL, 10)
+
+        # pad_times选择
+        pad_times_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        pad_times_label = wx.StaticText(right_panel, label="推理次数：")
+        self.pad_times_choice = wx.Choice(right_panel, size=(400, -1))
+        self.pad_times_choice.SetToolTip("(多次推理选出最优)")
+        self.pad_times_choice.Append("1次 (最快)", 1)
+        self.pad_times_choice.Append("2次 (平衡)", 2)
+        self.pad_times_choice.Append("3次 (平衡)", 3)
+        self.pad_times_choice.Append("5次 (复杂标记)", 5)
+        self.pad_times_choice.SetSelection(0)
+        pad_times_sizer.Add(pad_times_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        pad_times_sizer.Add(self.pad_times_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        right_sizer.Add(pad_times_sizer, 0, wx.ALL, 10)
+
+        # pad_length选择
+        pad_length_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        pad_length_label = wx.StaticText(right_panel, label="填充长度(秒)：")
+        self.pad_length_choice = wx.Choice(right_panel, size=(400, -1))
+        self.pad_length_choice.SetToolTip("(每次推理增加随机空白)")
+        self.pad_length_choice.Append("3秒", 3)
+        self.pad_length_choice.Append("5秒 (默认)", 5)
+        self.pad_length_choice.Append("7秒", 7)
+        self.pad_length_choice.Append("10秒", 10)
+        self.pad_length_choice.SetSelection(1)
+        pad_length_sizer.Add(pad_length_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        pad_length_sizer.Add(self.pad_length_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        right_sizer.Add(pad_length_sizer, 0, wx.ALL, 10)
+
+
+        right_panel.SetSizer(right_sizer)
+        main_content_sizer.Add(right_panel, 1, wx.EXPAND | wx.ALL, 5)
+
+        textgrid_sizer.Add(main_content_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
         infer_btn = wx.Button(textgrid_panel, label="开始推理")
         infer_btn.Bind(wx.EVT_BUTTON, self.on_infer)
@@ -1008,8 +1061,18 @@ class MainFrame(wx.Frame):
 
                 wx.CallAfter(self.infer_result_text.AppendText, "加载数据集...\n")
                 inference.get_dataset(wav_folder, language=language, g2p="dictionary", dictionary_path=str(dict_path), in_format="lab")
+                
+                # 获取用户选择的推理参数
+                pad_times_selection = self.pad_times_choice.GetSelection()
+                pad_times = self.pad_times_choice.GetClientData(pad_times_selection)
+                
+                pad_length_selection = self.pad_length_choice.GetSelection()
+                pad_length = self.pad_length_choice.GetClientData(pad_length_selection)
+                
                 wx.CallAfter(self.infer_result_text.AppendText, "开始推理...\n")
-                inference.infer(non_lexical_phonemes="AP", pad_times=1, pad_length=5)
+                wx.CallAfter(self.infer_result_text.AppendText, f"推理次数: {pad_times}\n")
+                wx.CallAfter(self.infer_result_text.AppendText, f"填充长度: {pad_length}秒\n")
+                inference.infer(non_lexical_phonemes="AP", pad_times=pad_times, pad_length=pad_length)
                 wx.CallAfter(self.infer_result_text.AppendText, "导出结果...\n")
                 inference.export(wav_folder)
 

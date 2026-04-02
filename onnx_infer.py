@@ -829,8 +829,21 @@ class InferenceOnnx:
                 print("INFO: 实际使用 DirectML (GPU加速) 进行推理")
             else:
                 print("INFO: 实际使用 CPU 进行推理")
-        
+
+
         options = ort.SessionOptions()
+        options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+        # DirectML性能优化
+        if 'DmlExecutionProvider' in enabled_providers:
+            # 增加线程数以充分利用GPU
+            options.inter_op_num_threads = 16  # 并行执行线程
+
+            # 设置执行模式为串行（DirectML推荐）
+            options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
+
+            print("INFO: 已启用DirectML性能优化")
+
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         return ort.InferenceSession(str(onnx_path), options, providers=enabled_providers)
 
