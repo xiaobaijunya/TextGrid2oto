@@ -318,6 +318,57 @@ class WordList(list):
         except Exception as e:
             self._add_log(f"ERROR in fill_small_gaps: {e}")
 
+    def merge_duplicate_phonemes(self, min_duration=0.05):
+        """
+        合并相邻的同名音素，当音素自身时长过小时
+        将两个同名音素的总时长平分，消除中间的间隙
+        注意：同名音素可能跨越不同的word
+        """
+        try:
+            # 收集所有音素
+            all_phonemes = []
+            for word in self:
+                all_phonemes.extend(word.phonemes)
+            
+            # 按时间排序
+            all_phonemes.sort(key=lambda ph: ph.start)
+            
+            # 检查相邻音素
+            i = 0
+            while i < len(all_phonemes) - 1:
+                current_ph = all_phonemes[i]
+                next_ph = all_phonemes[i + 1]
+                
+                # 检查是否同名
+                if current_ph.text == next_ph.text:
+                    # 检查两个音素中是否有任何一个的时长小于阈值
+                    current_duration = current_ph.end - current_ph.start
+                    next_duration = next_ph.end - next_ph.start
+                    
+                    if current_duration < min_duration or next_duration < min_duration:
+                        # 计算总时长（包括间隙）
+                        total_duration = next_ph.end - current_ph.start
+                        
+                        # 计算新的边界，将总时长平分
+                        mid_point = current_ph.start + total_duration / 2
+                        
+                        # 更新两个音素的边界
+                        current_ph.end = mid_point
+                        next_ph.start = mid_point
+                        
+                        self._add_log(f"INFO: 平分同名音素 '{current_ph.text}' 时长: {current_ph.start}-{mid_point} 和 {mid_point}-{next_ph.end}")
+                
+                i += 1
+
+            # 更新word的边界
+            for word in self:
+                if word.phonemes:
+                    word.start = word.phonemes[0].start
+                    word.end = word.phonemes[-1].end
+
+        except Exception as e:
+            self._add_log(f"ERROR in merge_duplicate_phonemes: {e}")
+
     def add_SP(self, wav_length, add_phone="SP"):
         try:
             words_res = WordList()
@@ -689,8 +740,8 @@ class InferenceOnnx:
         self.mel_cfg = config['mel_spec_config']
         self.vocab_folder = self.model_folder
 
-    def load_model(self):
-        self.model = self.create_session(self.model_folder / 'model.onnx')
+    def load_model(self, device='cpu'):
+        self.model = self.create_session(self.model_folder / 'model.onnx', device=device)
         self.device_info = self._get_device_info()
 
     def init_decoder(self):
@@ -753,15 +804,39 @@ class InferenceOnnx:
         return dict(zip(output_names, session.run(output_names, input_dict)))
 
     @staticmethod
-    def create_session(onnx_path):
-        providers = ['CUDAExecutionProvider', 'DmlExecutionProvider', 'CPUExecutionProvider']
+    def create_session(onnx_path, device='cpu'):
+        # 根据用户选择设置providers
+        if device.lower() == 'dml':
+            providers = ['DmlExecutionProvider', 'CPUExecutionProvider']
+            print("INFO: 用户选择 DirectML (GPU加速) 进行推理")
+        else:
+            providers = ['CPUExecutionProvider']
+            print("INFO: 用户选择 CPU 进行推理")
+        
+        available_providers = ort.get_available_providers()
+        
+        # 检测可用的provider
+        enabled_providers = [p for p in providers if p in available_providers]
+        
+        if not enabled_providers:
+            # 如果所有指定的provider都不可用，使用CPU
+            enabled_providers = ['CPUExecutionProvider']
+            print("WARNING: 指定的执行提供程序都不可用，使用CPUExecutionProvider")
+        else:
+            # 输出实际使用的设备信息
+            primary_device = enabled_providers[0]
+            if primary_device == 'DmlExecutionProvider':
+                print("INFO: 实际使用 DirectML (GPU加速) 进行推理")
+            else:
+                print("INFO: 实际使用 CPU 进行推理")
+        
         options = ort.SessionOptions()
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        return ort.InferenceSession(str(onnx_path), options, providers=providers)
+        return ort.InferenceSession(str(onnx_path), options, providers=enabled_providers)
 
     @staticmethod
     def _get_device_info():
-        providers = ['CUDAExecutionProvider', 'DmlExecutionProvider', 'CPUExecutionProvider']
+        providers = [ 'CPUExecutionProvider']
         available_providers = ort.get_available_providers()
         enabled_providers = []
         
@@ -840,10 +915,16 @@ class InferenceOnnx:
                     word.append_phoneme(ph)
                 result_word.append(word)
             result_word.fill_small_gaps(wav_length)
+            result_word.merge_duplicate_phonemes(min_duration=0.05)  # 2. 再处理音素重复
             result_word.add_SP(wav_length)
+            
+            # 获取后处理日志并推送到前端
             warning_log = result_word.log()
             if warning_log:
                 warnings.warn(warning_log)
+                if self.progress_callback:
+                    self.progress_callback(warning_log)
+            
             self.predictions.append((wav_path, wav_length, result_word))
 
     def export(self, output_folder, output_format=None):

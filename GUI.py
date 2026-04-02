@@ -198,6 +198,17 @@ class MainFrame(wx.Frame):
         dict_sizer.Add(self.dict_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         textgrid_sizer.Add(dict_sizer, 0, wx.ALL, 10)
 
+        # 设备选择
+        device_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        device_label = wx.StaticText(textgrid_panel, label="推理设备：")
+        self.device_choice = wx.Choice(textgrid_panel, size=(300, -1))
+        self.device_choice.Append("CPU (稳定)", "cpu")
+        self.device_choice.Append("DirectML (GPU加速更快)", "dml")
+        self.device_choice.SetSelection(0)  # 默认选择CPU
+        device_sizer.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        device_sizer.Add(self.device_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        textgrid_sizer.Add(device_sizer, 0, wx.ALL, 10)
+
         infer_btn = wx.Button(textgrid_panel, label="开始推理")
         infer_btn.Bind(wx.EVT_BUTTON, self.on_infer)
         textgrid_sizer.Add(infer_btn, 0, wx.ALL | wx.CENTER, 10)
@@ -361,18 +372,21 @@ class MainFrame(wx.Frame):
         oto_cv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
         oto_cv_sum_label = wx.StaticText(oto_panel, label="CV参数：")
         self.oto_cv_sum_text = wx.TextCtrl(oto_panel, value="1,3,1.5,1,4", size=(120, -1))
+        self.oto_cv_sum_text.SetToolTip("参数说明（5个值）：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
         oto_cv_sum_sizer.Add(oto_cv_sum_label, 0, wx.ALL, 2)
         oto_cv_sum_sizer.Add(self.oto_cv_sum_text, 0, wx.ALL, 2)
         
         oto_vc_sum_sizer = wx.BoxSizer(wx.VERTICAL)
         oto_vc_sum_label = wx.StaticText(oto_panel, label="VC参数：")
         self.oto_vc_sum_text = wx.TextCtrl(oto_panel, value="3,0,2,1,3", size=(120, -1))
+        self.oto_vc_sum_text.SetToolTip("参数说明（5个值）：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
         oto_vc_sum_sizer.Add(oto_vc_sum_label, 0, wx.ALL, 2)
         oto_vc_sum_sizer.Add(self.oto_vc_sum_text, 0, wx.ALL, 2)
         
         oto_vv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
         oto_vv_sum_label = wx.StaticText(oto_panel, label="VV参数：")
         self.oto_vv_sum_text = wx.TextCtrl(oto_panel, value="3,3,1.5,1,3", size=(120, -1))
+        self.oto_vv_sum_text.SetToolTip("参数说明（5个值）：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
         oto_vv_sum_sizer.Add(oto_vv_sum_label, 0, wx.ALL, 2)
         oto_vv_sum_sizer.Add(self.oto_vv_sum_text, 0, wx.ALL, 2)
         
@@ -962,7 +976,11 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.infer_result_text.Clear)
                 wx.CallAfter(self.infer_result_text.AppendText, "正在加载模型...\n")
 
-
+                # 获取用户选择的设备
+                device_selection = self.device_choice.GetSelection()
+                device_data = self.device_choice.GetClientData(device_selection)
+                device = device_data if device_data else 'cpu'
+                
                 model_path = ROOT / 'HubertFA_model' / model_folder / model_file
                 dict_path = ROOT / 'HubertFA_model' / model_folder / dict_file
 
@@ -972,12 +990,13 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.infer_result_text.AppendText, f"模型: {model_file}\n")
                 wx.CallAfter(self.infer_result_text.AppendText, f"字典: {dict_file}\n")
                 wx.CallAfter(self.infer_result_text.AppendText, f"语言: {language}\n")
+                wx.CallAfter(self.infer_result_text.AppendText, f"设备: {device.upper()}\n")
 
                 inference = onnx_infer.InferenceOnnx(model_path)
                 wx.CallAfter(self.infer_result_text.AppendText, "加载配置...\n")
                 inference.load_config()
                 wx.CallAfter(self.infer_result_text.AppendText, "加载模型...\n")
-                inference.load_model()
+                inference.load_model(device=device)  # 传递设备选择
                 wx.CallAfter(self.infer_result_text.AppendText, "初始化解码器...\n")
                 inference.init_decoder()
 
@@ -1126,7 +1145,12 @@ class MainFrame(wx.Frame):
         thread.start()
 
 if __name__ == "__main__":
-    app = wx.App()
-    frame = MainFrame()
-    frame.Show()
-    app.MainLoop()
+    try:
+        app = wx.App()
+        frame = MainFrame()
+        frame.Show()
+        app.MainLoop()
+    except Exception as e:
+        error_msg = f"程序启动失败！\n错误: {str(e)}"
+        print(error_msg)  # 输出到cmd窗口
+        input("按回车键退出...")  # 防止窗口立即关闭
