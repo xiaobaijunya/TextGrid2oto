@@ -144,7 +144,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TextGrid2oto-macos
-          path: dist/TextGrid2oto
+          path: dist/TextGrid2oto.app
 
   release:
     needs: [build-windows, build-macos]
@@ -166,7 +166,7 @@ jobs:
           prerelease: false
           files: |
             artifacts/TextGrid2oto-windows/TextGrid2oto.exe
-            artifacts/TextGrid2oto-macos/TextGrid2oto
+            artifacts/TextGrid2oto-macos/TextGrid2oto.app
           body: |
             ## 版本 ${{ github.ref_name }} 更新内容
 
