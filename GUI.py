@@ -229,32 +229,32 @@ class MainFrame(wx.Frame):
         right_sizer.Add(device_sizer, 0, wx.ALL, 10)
 
         # pad_times选择
-        pad_times_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pad_times_label = wx.StaticText(right_panel, label="推理次数：")
-        self.pad_times_choice = wx.Choice(right_panel, size=(400, -1))
-        self.pad_times_choice.SetToolTip("(多次推理选出最优)")
-        self.pad_times_choice.Append("1次 (最快)", 1)
-        self.pad_times_choice.Append("2次 (平衡)", 2)
-        self.pad_times_choice.Append("3次 (平衡)", 3)
-        self.pad_times_choice.Append("5次 (复杂标记)", 5)
-        self.pad_times_choice.SetSelection(0)
-        pad_times_sizer.Add(pad_times_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        pad_times_sizer.Add(self.pad_times_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        right_sizer.Add(pad_times_sizer, 0, wx.ALL, 10)
+        # pad_times_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        # pad_times_label = wx.StaticText(right_panel, label="推理次数：(没用不用改)")
+        # self.pad_times_choice = wx.Choice(right_panel, size=(400, -1))
+        # self.pad_times_choice.SetToolTip("(多次推理选出最优)")
+        # self.pad_times_choice.Append("1次 (最快)", 1)
+        # self.pad_times_choice.Append("2次 (平衡)", 2)
+        # self.pad_times_choice.Append("3次 (平衡)", 3)
+        # self.pad_times_choice.Append("5次 (复杂标记)", 5)
+        # self.pad_times_choice.SetSelection(0)
+        # pad_times_sizer.Add(pad_times_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        # pad_times_sizer.Add(self.pad_times_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        # right_sizer.Add(pad_times_sizer, 0, wx.ALL, 10)
 
         # pad_length选择
-        pad_length_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pad_length_label = wx.StaticText(right_panel, label="填充长度(秒)：")
-        self.pad_length_choice = wx.Choice(right_panel, size=(400, -1))
-        self.pad_length_choice.SetToolTip("(每次推理增加随机空白)")
-        self.pad_length_choice.Append("3秒", 3)
-        self.pad_length_choice.Append("5秒 (默认)", 5)
-        self.pad_length_choice.Append("7秒", 7)
-        self.pad_length_choice.Append("10秒", 10)
-        self.pad_length_choice.SetSelection(1)
-        pad_length_sizer.Add(pad_length_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        pad_length_sizer.Add(self.pad_length_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        right_sizer.Add(pad_length_sizer, 0, wx.ALL, 10)
+        # pad_length_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        # pad_length_label = wx.StaticText(right_panel, label="填充长度(秒)：(没用不用改)")
+        # self.pad_length_choice = wx.Choice(right_panel, size=(400, -1))
+        # self.pad_length_choice.SetToolTip("(每次推理增加随机空白)")
+        # self.pad_length_choice.Append("3秒", 3)
+        # self.pad_length_choice.Append("5秒 (默认)", 5)
+        # self.pad_length_choice.Append("7秒", 7)
+        # self.pad_length_choice.Append("10秒", 10)
+        # self.pad_length_choice.SetSelection(1)
+        # pad_length_sizer.Add(pad_length_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        # pad_length_sizer.Add(self.pad_length_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        # right_sizer.Add(pad_length_sizer, 0, wx.ALL, 10)
 
 
         right_panel.SetSizer(right_sizer)
@@ -451,13 +451,13 @@ class MainFrame(wx.Frame):
         # 参数组2：CV偏移、VC偏移、音阶后缀
 
         oto_cv_offset_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_cv_offset_label = wx.StaticText(oto_panel, label="CV偏移：")
+        oto_cv_offset_label = wx.StaticText(oto_panel, label="CV偏移(单位ms)：")
         self.oto_cv_offset_text = wx.TextCtrl(oto_panel, value="0,0,0,0,0", size=(120, -1))
         oto_cv_offset_sizer.Add(oto_cv_offset_label, 0, wx.ALL, 2)
         oto_cv_offset_sizer.Add(self.oto_cv_offset_text, 0, wx.ALL, 2)
         
         oto_vc_offset_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_vc_offset_label = wx.StaticText(oto_panel, label="VC偏移：")
+        oto_vc_offset_label = wx.StaticText(oto_panel, label="VC偏移(单位ms)：")
         self.oto_vc_offset_text = wx.TextCtrl(oto_panel, value="0,0,0,0,0", size=(120, -1))
         oto_vc_offset_sizer.Add(oto_vc_offset_label, 0, wx.ALL, 2)
         oto_vc_offset_sizer.Add(self.oto_vc_offset_text, 0, wx.ALL, 2)
@@ -543,12 +543,14 @@ class MainFrame(wx.Frame):
         svdb_dict_sizer.Add(svdb_dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         svdb_dict_sizer.Add(self.svdb_dict_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         svdb_sizer.Add(svdb_dict_sizer, 0, wx.ALL, 10)
-        
+
         svdb_tail_ratio_sizer = wx.BoxSizer(wx.HORIZONTAL)
         svdb_tail_ratio_label = wx.StaticText(svdb_panel, label="音尾比例：")
-        self.svdb_tail_ratio_text = wx.TextCtrl(svdb_panel, value="2", size=(200, -1))
+        self.svdb_tail_ratio_text = wx.TextCtrl(svdb_panel, value="50", size=(40, -1))
+        svdb_tail_ratio_percent = wx.StaticText(svdb_panel, label="%")
         svdb_tail_ratio_sizer.Add(svdb_tail_ratio_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         svdb_tail_ratio_sizer.Add(self.svdb_tail_ratio_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        svdb_tail_ratio_sizer.Add(svdb_tail_ratio_percent, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         svdb_sizer.Add(svdb_tail_ratio_sizer, 0, wx.ALL, 10)
         
         svdb_generate_btn = wx.Button(svdb_panel, label="生成json标记")
@@ -675,8 +677,8 @@ class MainFrame(wx.Frame):
         
         try:
             num = float(tail_ratio_str)
-            if num <= 0:
-                wx.MessageBox("音尾比例必须大于0", "错误", wx.OK | wx.ICON_ERROR)
+            if num <= 0 or num >= 100:
+                wx.MessageBox("音尾比例是0~100", "错误", wx.OK | wx.ICON_ERROR)
                 return
         except ValueError:
             wx.MessageBox("音尾比例必须是有效的数字", "错误", wx.OK | wx.ICON_ERROR)
@@ -803,7 +805,8 @@ class MainFrame(wx.Frame):
             wx.MessageBox("参数格式错误，请检查逗号分隔的数字", "错误", wx.OK | wx.ICON_ERROR)
             return
         
-        pitch = self.oto_pitch_text.GetValue().strip()
+        pitch = self.oto_pitch_text.GetValue()
+        print(pitch)
         cv_repeat = self.oto_cv_repeat_text.GetValue().strip()
         vc_repeat = self.oto_vc_repeat_text.GetValue().strip()
         ignore = self.oto_ignore_text.GetValue().strip()
@@ -1061,14 +1064,17 @@ class MainFrame(wx.Frame):
 
                 wx.CallAfter(self.infer_result_text.AppendText, "加载数据集...\n")
                 inference.get_dataset(wav_folder, language=language, g2p="dictionary", dictionary_path=str(dict_path), in_format="lab")
-                
-                # 获取用户选择的推理参数
-                pad_times_selection = self.pad_times_choice.GetSelection()
-                pad_times = self.pad_times_choice.GetClientData(pad_times_selection)
-                
-                pad_length_selection = self.pad_length_choice.GetSelection()
-                pad_length = self.pad_length_choice.GetClientData(pad_length_selection)
-                
+
+                # # 获取用户选择的推理参数
+                # pad_times_selection = self.pad_times_choice.GetSelection()
+                # pad_times = self.pad_times_choice.GetClientData(pad_times_selection)
+                #
+                # pad_length_selection = self.pad_length_choice.GetSelection()
+                # pad_length = self.pad_length_choice.GetClientData(pad_length_selection)
+
+                pad_times = 1
+                pad_length = 5
+
                 wx.CallAfter(self.infer_result_text.AppendText, "开始推理...\n")
                 wx.CallAfter(self.infer_result_text.AppendText, f"推理次数: {pad_times}\n")
                 wx.CallAfter(self.infer_result_text.AppendText, f"填充长度: {pad_length}秒\n")

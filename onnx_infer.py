@@ -837,7 +837,7 @@ class InferenceOnnx:
         # DirectML性能优化
         if 'DmlExecutionProvider' in enabled_providers:
             # 增加线程数以充分利用GPU
-            options.inter_op_num_threads = 16  # 并行执行线程
+            options.inter_op_num_threads = 64  # 并行执行线程
 
             # 设置执行模式为串行（DirectML推荐）
             options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
@@ -908,7 +908,17 @@ class InferenceOnnx:
                     self.progress_callback(warning_msg)
 
             ph_list = [words.phonemes for words in words_list]
-            words_list = [words_list[i] for i in find_all_duplicate_phonemes(ph_list)]
+            duplicate_indices = find_all_duplicate_phonemes(ph_list)
+
+            if len(duplicate_indices) == 0:
+                wav_name = os.path.basename(wav_path)
+                warning_msg = f"{wav_name}: 多次推理结果不一致，使用第一次推理的结果"
+                print(warning_msg)
+                if self.progress_callback:
+                    self.progress_callback(warning_msg)
+                words_list = [words_list[0]]
+            else:
+                words_list = [words_list[i] for i in duplicate_indices]
 
             phonemes_all = []
             result_word = WordList()
@@ -991,6 +1001,8 @@ class InferenceOnnx:
 
 
 def find_all_duplicate_phonemes(ph_list):
+    if len(ph_list) == 0:
+        return []
     if len(ph_list) == 1:
         return [0]
     index_dict = defaultdict(list)
@@ -1001,7 +1013,7 @@ def find_all_duplicate_phonemes(ph_list):
     duplicate_phonemes = {key: indices for key, indices in index_dict.items() if len(indices) > 1}
 
     if not duplicate_phonemes:
-        raise Exception("No duplicate groups")
+        return []
 
     sorted_groups = sorted(duplicate_phonemes.items(), key=lambda x: (-len(x[1]), -len(x[0])))
     best_key, best_indices = sorted_groups[0]

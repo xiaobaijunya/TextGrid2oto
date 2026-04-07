@@ -1,5 +1,4 @@
 import json
-from decimal import Decimal
 
 def dic_read(dic_path):
     dic = {}
@@ -21,9 +20,9 @@ def word_phone_json_read(json_path):
 
 def word2phone(text,dic,num):
     word = text['text']
-    xmin = text['xmin']
-    middle = text['middle']
-    xmax = text['xmax']
+    xmin = float(text['xmin'])
+    middle = float(text['middle'])
+    xmax = float(text['xmax'])
     try:
         """
         ai	a	:\i
@@ -39,17 +38,18 @@ def word2phone(text,dic,num):
         if len(phone) == 1:
             return phone,[xmin]
         elif word in ['ai','ei','an','en','ang','ong','eng','er']:
-            end = Decimal(xmin) + (Decimal(xmax) - Decimal(xmin)) / Decimal(num)
+            end = xmax - ((xmax - xmin) * num /100)
             return phone, [xmin, end]
         elif len(phone) == 2:
             return phone,[xmin,middle]
         elif len(phone) == 3 :
-            end = Decimal(middle) + (Decimal(xmax) - Decimal(middle)) / Decimal(num)
+            end = xmax - ((xmax - middle) * num /100)
             return phone, [xmin, middle, end]
         else:
             print('长度错误！！！')
-    except:
+    except Exception as e:
         print('没有找到%s'%word)
+        print(e)
         return word,[xmin]
 
 
@@ -89,9 +89,9 @@ def run(dic_path,json_path,wav_path,num):
 
 if __name__ == "__main__":
     dic_path = r'字典/mandarin-xsampa-dict.txt'
-    json_path = r'F:\Download\SVDBCreator_Release_1.0.0\xiaxiaobai\wav\D4\json'+'\word_phone.json'
-    wav_path = r'F:\Download\SVDBCreator_Release_1.0.0\xiaxiaobai\wav\D4'
-    num = 1.5
+    json_path = r'F:\Download\SVDBCreator_Release_1.0.0\baini_zh\wav\E3\json'+'\word_phone.json'
+    wav_path = r'F:\Download\SVDBCreator_Release_1.0.0\baini_zh\wav\E3'
+    num = 50
 
 
     print('-' * 15 + '欢迎使用TG2SVDB' + '-' * 15)
