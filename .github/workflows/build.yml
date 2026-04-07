@@ -76,10 +76,24 @@ jobs:
           $pythonCode | python
           Remove-Item -Path "HubertFA_model.zip"
 
+      - name: 提取版本号
+        id: get_version
+        shell: pwsh
+        run: |
+          if ("${{ github.event.inputs.version }}" -ne "") {
+            $version = "${{ github.event.inputs.version }}"
+          } elseif ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".Replace("v", "")
+          } else {
+            $version = "dev"
+          }
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "Version: $version"
+
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: TextGrid2oto-windows
+          name: TextGrid2oto-windows-${{ steps.get_version.outputs.version }}
           path: dist
 
   build-macos:
@@ -140,10 +154,25 @@ jobs:
           EOF
           rm HubertFA_model.zip
 
+      - name: 提取版本号
+        id: get_version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            version="${{ github.event.inputs.version }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            version="${{ github.ref_name }}"
+            version=${version#v}
+          else
+            version="dev"
+          fi
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "Version: $version"
+
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: TextGrid2oto-macos
+          name: TextGrid2oto-macos-${{ steps.get_version.outputs.version }}
           path: dist/TextGrid2oto.app
 
   release:
@@ -165,8 +194,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            artifacts/TextGrid2oto-windows/TextGrid2oto.exe
-            artifacts/TextGrid2oto-macos/TextGrid2oto.app
+            artifacts/TextGrid2oto-windows-*/TextGrid2oto.exe
+            artifacts/TextGrid2oto-macos-*/TextGrid2oto.app
           body: |
             ## 版本 ${{ github.ref_name }} 更新内容
 
