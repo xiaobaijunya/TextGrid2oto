@@ -30,7 +30,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='tg转换多种标记',
+    name='TextGrid2oto',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

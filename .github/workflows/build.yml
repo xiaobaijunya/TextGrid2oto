@@ -54,9 +54,12 @@ jobs:
           mkdir -p dist/TextGrid2oto/img
           mkdir -p dist/TextGrid2oto/presamp
           mkdir -p dist/TextGrid2oto/tg2svdb/字典
-          Copy-Item -Path img/TextGrid2oto.ico -Destination dist/TextGrid2oto/img/
-          Copy-Item -Path presamp -Destination dist/TextGrid2oto/ -Recurse
-          Copy-Item -Path tg2svdb/字典 -Destination dist/TextGrid2oto/tg2svdb/ -Recurse
+          Copy-Item -Path img/TextGrid2oto.ico -Destination dist/TextGrid2oto/img/ -Force
+          Copy-Item -Path presamp -Destination dist/TextGrid2oto/ -Recurse -Force
+          Copy-Item -Path tg2svdb/字典 -Destination dist/TextGrid2oto/tg2svdb/ -Recurse -Force
+          Invoke-WebRequest -Uri "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip" -OutFile "HubertFA_model.zip"
+          Expand-Archive -Path "HubertFA_model.zip" -DestinationPath "dist/TextGrid2oto/HubertFA_model" -Force
+          Remove-Item -Path "HubertFA_model.zip"
 
       - name: 打包 Mac 版本
         if: matrix.os == 'macos-latest'
@@ -68,6 +71,9 @@ jobs:
           cp img/TextGrid2oto.ico dist/TextGrid2oto.app/Contents/MacOS/img/
           cp -r presamp dist/TextGrid2oto.app/Contents/MacOS/
           cp -r tg2svdb/字典 dist/TextGrid2oto.app/Contents/MacOS/tg2svdb/
+          curl -L -o HubertFA_model.zip "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip"
+          unzip -o HubertFA_model.zip -d dist/TextGrid2oto.app/Contents/MacOS/HubertFA_model
+          rm HubertFA_model.zip
 
       - name: 创建发布压缩包
         id: create_release
@@ -85,7 +91,7 @@ jobs:
           if ("${{ matrix.os }}" -eq "windows-latest") {
             Compress-Archive -Path dist/TextGrid2oto/* -DestinationPath TextGrid2oto-$version-windows.zip
           } else {
-            Compress-Archive -Path dist/TextGrid2oto.app/* -DestinationPath TextGrid2oto-$version-mac.zip
+            Compress-Archive -Path dist/TextGrid2oto.app -DestinationPath TextGrid2oto-$version-mac.zip
           }
 
       - name: 上传构建产物
