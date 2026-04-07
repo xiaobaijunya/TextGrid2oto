@@ -484,7 +484,7 @@ class AlignmentDecoder:
                ph_seq: list[str],
                word_seq: list[str] = None,
                ph_idx_to_word_idx: list[int] = None,
-               ignore_sp: bool = True,
+               ignore_sp: bool = False,
                ):
         ph_frame_logits = ph_frame_logits[0]
         ph_edge_logits = ph_edge_logits[0]
@@ -939,7 +939,7 @@ class InferenceOnnx:
                 result_word.append(word)
             result_word.fill_small_gaps(wav_length)
             result_word.merge_duplicate_phonemes(min_duration=0.05)  # 2. 再处理音素重复
-            result_word.add_SP(wav_length)
+            # result_word.add_SP(wav_length)
             
             # 获取后处理日志并推送到前端
             warning_log = result_word.log()

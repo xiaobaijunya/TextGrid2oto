@@ -229,32 +229,31 @@ class MainFrame(wx.Frame):
         right_sizer.Add(device_sizer, 0, wx.ALL, 10)
 
         # pad_times选择
-        # pad_times_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        # pad_times_label = wx.StaticText(right_panel, label="推理次数：(没用不用改)")
-        # self.pad_times_choice = wx.Choice(right_panel, size=(400, -1))
-        # self.pad_times_choice.SetToolTip("(多次推理选出最优)")
-        # self.pad_times_choice.Append("1次 (最快)", 1)
-        # self.pad_times_choice.Append("2次 (平衡)", 2)
-        # self.pad_times_choice.Append("3次 (平衡)", 3)
-        # self.pad_times_choice.Append("5次 (复杂标记)", 5)
-        # self.pad_times_choice.SetSelection(0)
-        # pad_times_sizer.Add(pad_times_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        # pad_times_sizer.Add(self.pad_times_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        # right_sizer.Add(pad_times_sizer, 0, wx.ALL, 10)
+        pad_times_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        pad_times_label = wx.StaticText(right_panel, label="推理次数：(没用不用改)")
+        self.pad_times_choice = wx.Choice(right_panel, size=(400, -1))
+        self.pad_times_choice.SetToolTip("(多次推理选出最优)")
+        self.pad_times_choice.Append("1次 (最快)", 1)
+        self.pad_times_choice.Append("3次 (平衡)", 3)
+        self.pad_times_choice.Append("5次 (复杂标记)", 5)
+        self.pad_times_choice.SetSelection(1)
+        pad_times_sizer.Add(pad_times_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        pad_times_sizer.Add(self.pad_times_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        right_sizer.Add(pad_times_sizer, 0, wx.ALL, 10)
 
         # pad_length选择
-        # pad_length_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        # pad_length_label = wx.StaticText(right_panel, label="填充长度(秒)：(没用不用改)")
-        # self.pad_length_choice = wx.Choice(right_panel, size=(400, -1))
-        # self.pad_length_choice.SetToolTip("(每次推理增加随机空白)")
-        # self.pad_length_choice.Append("3秒", 3)
-        # self.pad_length_choice.Append("5秒 (默认)", 5)
-        # self.pad_length_choice.Append("7秒", 7)
-        # self.pad_length_choice.Append("10秒", 10)
-        # self.pad_length_choice.SetSelection(1)
-        # pad_length_sizer.Add(pad_length_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        # pad_length_sizer.Add(self.pad_length_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        # right_sizer.Add(pad_length_sizer, 0, wx.ALL, 10)
+        pad_length_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        pad_length_label = wx.StaticText(right_panel, label="填充长度(秒)：(没用不用改)")
+        self.pad_length_choice = wx.Choice(right_panel, size=(400, -1))
+        self.pad_length_choice.SetToolTip("(每次推理增加随机空白)")
+        self.pad_length_choice.Append("3秒", 3)
+        self.pad_length_choice.Append("5秒 (默认)", 5)
+        self.pad_length_choice.Append("7秒", 7)
+        self.pad_length_choice.Append("10秒", 10)
+        self.pad_length_choice.SetSelection(1)
+        pad_length_sizer.Add(pad_length_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        pad_length_sizer.Add(self.pad_length_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        right_sizer.Add(pad_length_sizer, 0, wx.ALL, 10)
 
 
         right_panel.SetSizer(right_sizer)
@@ -1083,14 +1082,14 @@ class MainFrame(wx.Frame):
                 inference.get_dataset(wav_folder, language=language, g2p="dictionary", dictionary_path=str(dict_path), in_format="lab")
 
                 # # 获取用户选择的推理参数
-                # pad_times_selection = self.pad_times_choice.GetSelection()
-                # pad_times = self.pad_times_choice.GetClientData(pad_times_selection)
-                #
-                # pad_length_selection = self.pad_length_choice.GetSelection()
-                # pad_length = self.pad_length_choice.GetClientData(pad_length_selection)
+                pad_times_selection = self.pad_times_choice.GetSelection()
+                pad_times = self.pad_times_choice.GetClientData(pad_times_selection)
 
-                pad_times = 1
-                pad_length = 5
+                pad_length_selection = self.pad_length_choice.GetSelection()
+                pad_length = self.pad_length_choice.GetClientData(pad_length_selection)
+
+                # pad_times = 2
+                # pad_length = 5
 
                 wx.CallAfter(self.infer_result_text.AppendText, "开始推理...\n")
                 wx.CallAfter(self.infer_result_text.AppendText, f"推理次数: {pad_times}\n")
