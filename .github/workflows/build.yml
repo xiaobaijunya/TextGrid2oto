@@ -35,7 +35,6 @@ jobs:
           pip install onnxruntime-directml
           pip install numpy librosa textgrid wxpython
           pip install pyinstaller
-          
 
       - name: 安装依赖
         if: matrix.os == 'macos-latest'
@@ -44,105 +43,18 @@ jobs:
           pip install onnxruntime
           pip install numpy librosa textgrid wxpython
           pip install pyinstaller
-          
 
-      - name: 打包 Windows 版本
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
+      - name: 打包程序
         run: |
           pyinstaller GUI.spec
-          # 创建目标文件夹
-          mkdir -p dist/TextGrid2oto/img
-          mkdir -p dist/TextGrid2oto/presamp
-          mkdir -p dist/TextGrid2oto/tg2svdb/字典
-          # 复制可执行文件到目标文件夹
-          if (Test-Path "dist/TextGrid2oto.exe") {
-            Copy-Item -Path "dist/TextGrid2oto.exe" -Destination "dist/TextGrid2oto/" -Force
-          } elseif (Test-Path "dist/TextGrid2oto/TextGrid2oto.exe") {
-            # 如果已经在正确的位置，不需要移动
-          } else {
-            Write-Host "错误: 未找到可执行文件"
-            Get-ChildItem -Path dist -Recurse | Select-Object FullName
-          }
-          # 复制数据文件
-          Copy-Item -Path img/TextGrid2oto.ico -Destination dist/TextGrid2oto/img/ -Force
-          Copy-Item -Path presamp -Destination dist/TextGrid2oto/ -Recurse -Force
-          Copy-Item -Path tg2svdb/字典 -Destination dist/TextGrid2oto/tg2svdb/ -Recurse -Force
-          # 下载并解压模型文件
-          Invoke-WebRequest -Uri "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip" -OutFile "HubertFA_model.zip"
-          Expand-Archive -Path "HubertFA_model.zip" -DestinationPath "dist/TextGrid2oto/HubertFA_model" -Force
-          Remove-Item -Path "HubertFA_model.zip"
-
-      - name: 打包 Mac 版本
-        if: matrix.os == 'macos-latest'
-        run: |
-          pyinstaller GUI.spec
-          mkdir -p dist/TextGrid2oto.app/Contents/MacOS/img
-          mkdir -p dist/TextGrid2oto.app/Contents/MacOS/presamp
-          mkdir -p dist/TextGrid2oto.app/Contents/MacOS/tg2svdb/字典
-          cp img/TextGrid2oto.ico dist/TextGrid2oto.app/Contents/MacOS/img/
-          cp -r presamp dist/TextGrid2oto.app/Contents/MacOS/
-          cp -r tg2svdb/字典 dist/TextGrid2oto.app/Contents/MacOS/tg2svdb/
-          curl -L -o HubertFA_model.zip "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip"
-          python3 << 'EOF'
-          import zipfile
-          import os
-          import shutil
-          
-          # 创建目标目录
-          target_dir = "dist/TextGrid2oto.app/Contents/MacOS/HubertFA_model"
-          os.makedirs(target_dir, exist_ok=True)
-          
-          # 解压 zip 文件，处理文件名编码
-          with zipfile.ZipFile("HubertFA_model.zip", 'r') as zip_ref:
-              for member in zip_ref.infolist():
-                  # 尝试解码文件名
-                  try:
-                      filename = member.filename
-                  except UnicodeDecodeError:
-                      # 如果 UTF-8 解码失败，尝试其他编码
-                      filename = member.filename.encode('cp437').decode('utf-8')
-                  
-                  # 构建完整路径
-                  filepath = os.path.join(target_dir, filename)
-                  
-                  # 创建目录
-                  if member.is_dir():
-                      os.makedirs(filepath, exist_ok=True)
-                  else:
-                      # 确保父目录存在
-                      os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                      # 提取文件
-                      with zip_ref.open(member) as source, open(filepath, 'wb') as target:
-                          shutil.copyfileobj(source, target)
-          EOF
-          rm HubertFA_model.zip
-
-      - name: 创建发布压缩包
-        id: create_release
-        shell: pwsh
-        run: |
-          if ("${{ github.event.inputs.version }}" -ne "") {
-            $version = "${{ github.event.inputs.version }}"
-          } elseif ("${{ github.ref_type }}" -eq "tag") {
-            $version = "${{ github.ref_name }}".Replace("v", "")
-          } else {
-            $version = "Test"
-          }
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          
-          if ("${{ matrix.os }}" -eq "windows-latest") {
-            Compress-Archive -Path dist/TextGrid2oto/* -DestinationPath TextGrid2oto-$version-windows.zip
-          } else {
-            Compress-Archive -Path dist/TextGrid2oto.app -DestinationPath TextGrid2oto-$version-mac.zip
-          }
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: TextGrid2oto-${{ steps.create_release.outputs.version }}-${{ matrix.os }}
+          name: TextGrid2oto-${{ matrix.os }}
           path: |
-            TextGrid2oto-*.zip
+            dist/TextGrid2oto.exe
+            dist/TextGrid2oto.app
 
   release:
     needs: build
@@ -163,11 +75,10 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            artifacts/TextGrid2oto-*-windows.zip
-            artifacts/TextGrid2oto-*-mac.zip
+            artifacts/TextGrid2oto-windows-latest/TextGrid2oto.exe
+            artifacts/TextGrid2oto-macos-latest/TextGrid2oto.app
           body: |
             ## 版本 ${{ github.ref_name }} 更新内容
-            
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
