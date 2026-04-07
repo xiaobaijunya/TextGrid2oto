@@ -112,12 +112,6 @@ jobs:
       - name: 打包程序
         run: |
           pyinstaller GUI-macos.spec
-#          mkdir -p dist/TextGrid2oto.app/Contents/MacOS/img
-#          mkdir -p dist/TextGrid2oto.app/Contents/MacOS/presamp
-#          mkdir -p dist/TextGrid2oto.app/Contents/MacOS/tg2svdb/字典
-#          cp img/TextGrid2oto.ico dist/TextGrid2oto.app/Contents/MacOS/img/
-#          cp -r presamp dist/TextGrid2oto.app/Contents/MacOS/
-#          cp -r tg2svdb/字典 dist/TextGrid2oto.app/Contents/MacOS/tg2svdb/
           curl -L -o HubertFA_model.zip "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip"
           python3 << 'EOF'
           import zipfile
