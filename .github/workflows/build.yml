@@ -72,7 +72,38 @@ jobs:
           cp -r presamp dist/TextGrid2oto.app/Contents/MacOS/
           cp -r tg2svdb/字典 dist/TextGrid2oto.app/Contents/MacOS/tg2svdb/
           curl -L -o HubertFA_model.zip "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip"
-          unzip -o HubertFA_model.zip -d dist/TextGrid2oto.app/Contents/MacOS/HubertFA_model
+          python3 << 'EOF'
+          import zipfile
+          import os
+          import shutil
+          
+          # 创建目标目录
+          target_dir = "dist/TextGrid2oto.app/Contents/MacOS/HubertFA_model"
+          os.makedirs(target_dir, exist_ok=True)
+          
+          # 解压 zip 文件，处理文件名编码
+          with zipfile.ZipFile("HubertFA_model.zip", 'r') as zip_ref:
+              for member in zip_ref.infolist():
+                  # 尝试解码文件名
+                  try:
+                      filename = member.filename
+                  except UnicodeDecodeError:
+                      # 如果 UTF-8 解码失败，尝试其他编码
+                      filename = member.filename.encode('cp437').decode('utf-8')
+                  
+                  # 构建完整路径
+                  filepath = os.path.join(target_dir, filename)
+                  
+                  # 创建目录
+                  if member.is_dir():
+                      os.makedirs(filepath, exist_ok=True)
+                  else:
+                      # 确保父目录存在
+                      os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                      # 提取文件
+                      with zip_ref.open(member) as source, open(filepath, 'wb') as target:
+                          shutil.copyfileobj(source, target)
+          EOF
           rm HubertFA_model.zip
 
       - name: 创建发布压缩包
