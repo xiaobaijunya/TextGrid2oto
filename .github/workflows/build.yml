@@ -31,7 +31,12 @@ jobs:
       - name: 安装依赖
         run: |
           pip install pyinstaller
-          pip install onnxruntime-directml numpy librosa textgrid wxpython
+          pip install numpy librosa textgrid wxpython
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            pip install onnxruntime-directml
+          else
+            pip install onnxruntime
+          fi
 
       - name: 打包 Windows 版本
         if: matrix.os == 'windows-latest'
