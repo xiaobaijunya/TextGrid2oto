@@ -317,7 +317,18 @@ class MainFrame(wx.Frame):
         json_ignore_sizer.Add(json_ignore_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         json_ignore_sizer.Add(self.json_ignore_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         json_sizer.Add(json_ignore_sizer, 0, wx.ALL, 10)
-        
+
+        # 录音表路径
+        json_recording_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        json_recording_label = wx.StaticText(json_panel, label="录音表路径（可选）（按照录音表顺序排序）：")
+        self.json_recording_text = wx.TextCtrl(json_panel, value="", size=(300, -1))
+        json_recording_browse_btn = wx.Button(json_panel, label="浏览", size=(60, -1))
+        json_recording_browse_btn.Bind(wx.EVT_BUTTON, self.on_browse_json_recording)
+        json_recording_sizer.Add(json_recording_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        json_recording_sizer.Add(self.json_recording_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        json_recording_sizer.Add(json_recording_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        json_sizer.Add(json_recording_sizer, 0, wx.ALL, 10)
+
         # 生成JSON按钮
         generate_json_btn = wx.Button(json_panel, label="生成JSON")
         generate_json_btn.Bind(wx.EVT_BUTTON, self.on_generate_json)
@@ -425,21 +436,21 @@ class MainFrame(wx.Frame):
         oto_cv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
         oto_cv_sum_label = wx.StaticText(oto_panel, label="CV参数：")
         self.oto_cv_sum_text = wx.TextCtrl(oto_panel, value="1,3,1.5,1,4", size=(120, -1))
-        self.oto_cv_sum_text.SetToolTip("参数说明（5个值）：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
+        self.oto_cv_sum_text.SetToolTip("参数说明（5个值）\n注意：1/数值=所占百分比：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
         oto_cv_sum_sizer.Add(oto_cv_sum_label, 0, wx.ALL, 2)
         oto_cv_sum_sizer.Add(self.oto_cv_sum_text, 0, wx.ALL, 2)
         
         oto_vc_sum_sizer = wx.BoxSizer(wx.VERTICAL)
         oto_vc_sum_label = wx.StaticText(oto_panel, label="VC参数：")
         self.oto_vc_sum_text = wx.TextCtrl(oto_panel, value="3,0,2,1,3", size=(120, -1))
-        self.oto_vc_sum_text.SetToolTip("参数说明（5个值）：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
+        self.oto_vc_sum_text.SetToolTip("参数说明（5个值）\n注意：1/数值=所占百分比：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
         oto_vc_sum_sizer.Add(oto_vc_sum_label, 0, wx.ALL, 2)
         oto_vc_sum_sizer.Add(self.oto_vc_sum_text, 0, wx.ALL, 2)
         
         oto_vv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
         oto_vv_sum_label = wx.StaticText(oto_panel, label="VV参数：")
         self.oto_vv_sum_text = wx.TextCtrl(oto_panel, value="3,3,1.5,1,3", size=(120, -1))
-        self.oto_vv_sum_text.SetToolTip("参数说明（5个值）：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
+        self.oto_vv_sum_text.SetToolTip("参数说明（5个值）\n注意：1/数值=所占百分比：\n1. 左线占比\n2. 固定的占比\n3. 右线占比\n4. 预发声不变\n5. 交叉占比")
         oto_vv_sum_sizer.Add(oto_vv_sum_label, 0, wx.ALL, 2)
         oto_vv_sum_sizer.Add(self.oto_vv_sum_text, 0, wx.ALL, 2)
         
@@ -491,7 +502,7 @@ class MainFrame(wx.Frame):
         oto_pitch_sizer.Add(self.oto_pitch_text, 0, wx.ALL, 2)
 
         oto_preset_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_preset_label = wx.StaticText(oto_panel, label="录音表路径（暂不可用）：")
+        oto_preset_label = wx.StaticText(oto_panel, label="oto模版路径（暂不可用）：")
         self.oto_preset_text = wx.TextCtrl(oto_panel, value="", size=(210, -1))
         oto_preset_sizer.Add(oto_preset_label, 0, wx.ALL, 2)
         oto_preset_sizer.Add(self.oto_preset_text, 0, wx.ALL, 2)
@@ -806,7 +817,6 @@ class MainFrame(wx.Frame):
             return
         
         pitch = self.oto_pitch_text.GetValue()
-        print(pitch)
         cv_repeat = self.oto_cv_repeat_text.GetValue().strip()
         vc_repeat = self.oto_vc_repeat_text.GetValue().strip()
         ignore = self.oto_ignore_text.GetValue().strip()
@@ -927,6 +937,13 @@ class MainFrame(wx.Frame):
         path = dialog.GetPath()
         text_ctrl.SetValue(path)
         dialog.Destroy()
+    
+    def on_browse_json_recording(self, event):
+        dialog = wx.FileDialog(None, "选择录音表文件", style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+        if dialog.ShowModal() == wx.ID_CANCEL:
+            return
+        path = dialog.GetPath()
+        self.json_recording_text.SetValue(path)
     
     def on_generate_lab(self, event):
         path = self.path_text.GetValue().strip()
@@ -1135,17 +1152,22 @@ class MainFrame(wx.Frame):
         wav_folder = self.json_path_text.GetValue().strip()
         dict_file = self.json_dict_choice.GetStringSelection()
         ignore = self.json_ignore_text.GetValue().strip()
+        recording_list_path = self.json_recording_text.GetValue().strip()
 
         if not wav_folder:
             wx.MessageBox("请选择WAV文件夹", "错误", wx.OK | wx.ICON_ERROR)
             return
-        
+
         if not os.path.exists(wav_folder):
             wx.MessageBox("WAV文件夹不存在", "错误", wx.OK | wx.ICON_ERROR)
             return
 
         if not dict_file:
             wx.MessageBox("请选择模型字典", "错误", wx.OK | wx.ICON_ERROR)
+            return
+
+        if recording_list_path and not os.path.exists(recording_list_path):
+            wx.MessageBox("录音表文件不存在", "错误", wx.OK | wx.ICON_ERROR)
             return
         
         def generate_json_thread():
@@ -1163,13 +1185,13 @@ class MainFrame(wx.Frame):
 
                 def process_folder(folder_path, folder_name=""):
                     textgrid_files = [f for f in os.listdir(folder_path) if f.endswith('.TextGrid')]
-                    
+
                     if textgrid_files:
                         display_name = folder_name if folder_name else folder_path
                         wx.CallAfter(self.json_result_text.AppendText, f"正在处理: {display_name}\n")
-                        
+
                         # 生成ds_phone.json
-                        rec_preset = None
+                        rec_preset = recording_list_path if recording_list_path else None
                         with TextRedirector(self.json_result_text):
                             TextGrid2ds_json.run(folder_path, rec_preset)
                         
