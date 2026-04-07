@@ -29,14 +29,22 @@ jobs:
           python-version: '3.12'
 
       - name: 安装依赖
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          pip install pyinstaller
+          pip install onnxruntime-directml
           pip install numpy librosa textgrid wxpython
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            pip install onnxruntime-directml
-          else
-            pip install onnxruntime
-          fi
+          pip install pyinstaller
+          
+
+      - name: 安装依赖
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          pip install onnxruntime
+          pip install numpy librosa textgrid wxpython
+          pip install pyinstaller
+          
 
       - name: 打包 Windows 版本
         if: matrix.os == 'windows-latest'
