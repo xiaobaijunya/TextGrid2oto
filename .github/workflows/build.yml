@@ -51,12 +51,24 @@ jobs:
         shell: pwsh
         run: |
           pyinstaller GUI.spec
+          # 创建目标文件夹
           mkdir -p dist/TextGrid2oto/img
           mkdir -p dist/TextGrid2oto/presamp
           mkdir -p dist/TextGrid2oto/tg2svdb/字典
+          # 复制可执行文件到目标文件夹
+          if (Test-Path "dist/TextGrid2oto.exe") {
+            Copy-Item -Path "dist/TextGrid2oto.exe" -Destination "dist/TextGrid2oto/" -Force
+          } elseif (Test-Path "dist/TextGrid2oto/TextGrid2oto.exe") {
+            # 如果已经在正确的位置，不需要移动
+          } else {
+            Write-Host "错误: 未找到可执行文件"
+            Get-ChildItem -Path dist -Recurse | Select-Object FullName
+          }
+          # 复制数据文件
           Copy-Item -Path img/TextGrid2oto.ico -Destination dist/TextGrid2oto/img/ -Force
           Copy-Item -Path presamp -Destination dist/TextGrid2oto/ -Recurse -Force
           Copy-Item -Path tg2svdb/字典 -Destination dist/TextGrid2oto/tg2svdb/ -Recurse -Force
+          # 下载并解压模型文件
           Invoke-WebRequest -Uri "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip" -OutFile "HubertFA_model.zip"
           Expand-Archive -Path "HubertFA_model.zip" -DestinationPath "dist/TextGrid2oto/HubertFA_model" -Force
           Remove-Item -Path "HubertFA_model.zip"
