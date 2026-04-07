@@ -99,10 +99,11 @@ def process_all_textgrid_files(input_dir,ignore,delete_sp):
                 files_with_deleted_sp.append(file_path.stem)
 
             # 直接覆盖原文件内容
-            if delete_sp:
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(processed_content)
-            # print(f"已处理并覆盖 {file_path}")
+            if sp_deleted:
+                print(f"已处理并覆盖 {file_path}")
+                pass
+                # with open(file_path, 'w', encoding='utf-8') as f:
+                #     f.write(processed_content)
         except Exception as e:
             # 捕获所有异常，记录错误文件并跳过
             files_with_deleted_sp.append(f"{file_path.name}: {str(e)}")

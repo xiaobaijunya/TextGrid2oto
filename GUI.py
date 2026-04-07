@@ -163,7 +163,7 @@ class MainFrame(wx.Frame):
         textgrid_panel = wx.Panel(notebook)
         textgrid_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        textgrid_title = wx.StaticText(textgrid_panel, label="TextGrid推理")
+        textgrid_title = wx.StaticText(textgrid_panel, label="TextGrid推理(推理基于HubertFA)")
         textgrid_sizer.Add(textgrid_title, 0, wx.ALL | wx.CENTER, 10)
 
         # 顶部：音源文件夹（占据整个宽度）
@@ -230,7 +230,7 @@ class MainFrame(wx.Frame):
 
         # pad_times选择
         pad_times_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pad_times_label = wx.StaticText(right_panel, label="推理次数：(没用不用改)")
+        pad_times_label = wx.StaticText(right_panel, label="推理次数：")
         self.pad_times_choice = wx.Choice(right_panel, size=(400, -1))
         self.pad_times_choice.SetToolTip("(多次推理选出最优)")
         self.pad_times_choice.Append("1次 (最快)", 1)
@@ -243,7 +243,7 @@ class MainFrame(wx.Frame):
 
         # pad_length选择
         pad_length_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pad_length_label = wx.StaticText(right_panel, label="填充长度(秒)：(没用不用改)")
+        pad_length_label = wx.StaticText(right_panel, label="填充长度(秒)：")
         self.pad_length_choice = wx.Choice(right_panel, size=(400, -1))
         self.pad_length_choice.SetToolTip("(每次推理增加随机空白)")
         self.pad_length_choice.Append("3秒", 3)
@@ -346,7 +346,7 @@ class MainFrame(wx.Frame):
         clean_panel = wx.Panel(notebook)
         clean_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        clean_title = wx.StaticText(clean_panel, label="TextGrid清洗")
+        clean_title = wx.StaticText(clean_panel, label="TextGrid清洗(暂时移除，已失效）")
         clean_sizer.Add(clean_title, 0, wx.ALL | wx.CENTER, 10)
 
         # WAV路径框

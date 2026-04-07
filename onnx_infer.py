@@ -809,6 +809,9 @@ class InferenceOnnx:
         if device.lower() == 'dml':
             providers = ['DmlExecutionProvider', 'CPUExecutionProvider']
             print("INFO: 用户选择 DirectML (GPU加速) 进行推理")
+        elif device.lower() == 'cuda':
+            providers = ['CUDAExecutionProvider','DmlExecutionProvider', 'CPUExecutionProvider']
+            print("INFO: 用户选择 CUDA (GPU加速) 进行推理")
         else:
             providers = ['CPUExecutionProvider']
             print("INFO: 用户选择 CPU 进行推理")
@@ -827,6 +830,8 @@ class InferenceOnnx:
             primary_device = enabled_providers[0]
             if primary_device == 'DmlExecutionProvider':
                 print("INFO: 实际使用 DirectML (GPU加速) 进行推理")
+            elif primary_device == 'CUDAExecutionProvider':
+                print("INFO: 实际使用 CUDA (GPU加速) 进行推理")
             else:
                 print("INFO: 实际使用 CPU 进行推理")
 
@@ -937,7 +942,7 @@ class InferenceOnnx:
                 for ph in phonemes:
                     word.append_phoneme(ph)
                 result_word.append(word)
-            result_word.fill_small_gaps(wav_length)
+            # result_word.fill_small_gaps(wav_length)
             result_word.merge_duplicate_phonemes(min_duration=0.05)  # 2. 再处理音素重复
             # result_word.add_SP(wav_length)
             
