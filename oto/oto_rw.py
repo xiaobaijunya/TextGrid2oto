@@ -77,7 +77,7 @@ def oto_read(file_path):
     print(f'{GREEN}oto文件解析成功：{file_path}{RESET}')
     return oto_check(file_path,oto_data)
 #没写完
-def oto_repeat(oto_data,repeat,oto_preset):
+def oto_repeat(oto_data,repeat):
     phone_count = {}
     new_oto_data = []
     for oto in oto_data:
@@ -122,6 +122,71 @@ def oto_offset(oto_data,offset):
             print(f'{oto[1]}错误的右边界:{oto_sum[2]}，设为{oto[4]}')
 
         new_oto_data.append(oto)
+    return new_oto_data
+
+
+def oto_apply_template(oto_origin, template_path):
+    """
+    根据oto模板生成oto数据。
+    读取模板文件，获取 xxx.wav=音素 对，
+    如果 oto_origin 中有匹配的（wav文件名和音素都相同），保留 oto_origin 的数值；
+    如果没有匹配的，数值设为 0,0,0,0,0。
+    
+    参数:
+        oto_origin: list，oto_read 返回的原始oto数据列表
+        template_path: str，模板oto.ini文件路径
+    返回:
+        list，应用模板后的新oto数据列表
+    """
+    if not os.path.exists(template_path):
+        print(f'{RED}模板文件不存在：{template_path}{RESET}')
+        return oto_origin
+    
+    # 读取模板文件，提取 (wav, 音素) 对
+    template_entries = []  # 存储 [(wav, phoneme), ...]
+    encodings = ['utf-8', 'shift-jis', 'gbk']
+    for encoding in encodings:
+        try:
+            with open(template_path, 'r', encoding=encoding) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or '=' not in line:
+                        continue
+                    parts = line.split('=')
+                    wav_name = parts[0]
+                    parts2 = parts[1].split(',')
+                    phoneme = parts2[0]
+                    template_entries.append((wav_name, phoneme))
+            print(f'{GREEN}成功使用 {encoding} 编码读取模板文件。{RESET}')
+            break
+        except UnicodeDecodeError:
+            continue
+    
+    if not template_entries:
+        print(f'{RED}模板文件为空或读取失败，返回原始数据{RESET}')
+        return oto_origin
+    
+    # 构建 oto_origin 的查找表 key=(wav, phoneme) -> oto条目
+    origin_lookup = {}
+    for oto in oto_origin:
+        key = (oto[0], oto[1])
+        origin_lookup[key] = oto
+    
+    # 按模板顺序生成新的oto数据
+    new_oto_data = []
+    match_count = 0
+    default_count = 0
+    for wav_name, phoneme in template_entries:
+        key = (wav_name, phoneme)
+        if key in origin_lookup:
+            new_oto_data.append(origin_lookup[key])
+            match_count += 1
+        else:
+            # wav或音素不匹配，数值设为0
+            new_oto_data.append([wav_name, phoneme, 0, 0, 0, 0, 0])
+            default_count += 1
+    
+    print(f'{GREEN}模板应用完成：匹配 {match_count} 项，默认值 {default_count} 项{RESET}')
     return new_oto_data
 
 

@@ -869,7 +869,7 @@ class InferenceOnnx:
         }
         return device_info
 
-    def infer(self, non_lexical_phonemes, pad_times=1, pad_length=5):
+    def infer(self, non_lexical_phonemes, pad_times=1, pad_length=5, merge_phonemes=True):
         non_lexical_phonemes = [ph.strip() for ph in non_lexical_phonemes.split(",") if ph.strip()]
         assert set(non_lexical_phonemes).issubset(set(self.vocab['non_lexical_phonemes'])), \
             f"The non_lexical_phonemes contain elements that are not included in the vocab."
@@ -943,7 +943,8 @@ class InferenceOnnx:
                     word.append_phoneme(ph)
                 result_word.append(word)
             # result_word.fill_small_gaps(wav_length)
-            result_word.merge_duplicate_phonemes(min_duration=0.05)  # 2. 再处理音素重复
+            if merge_phonemes:
+                result_word.merge_duplicate_phonemes(min_duration=0.05)  # 2. 再处理音素重复
             # result_word.add_SP(wav_length)
             
             # 获取后处理日志并推送到前端
