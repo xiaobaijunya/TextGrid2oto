@@ -989,7 +989,7 @@ class MainFrame(wx.Frame):
                         wx.CallAfter(self.oto_result_text.AppendText, _('log.offset_vc'))
                     
                     wx.CallAfter(self.oto_result_text.AppendText, _('log.merge_auto_oto'))
-                    oto_rw.oto_write(os.path.join(wav_path, 'auto_oto.ini'), cv + vc, pitch, cover, oto_encoding)
+                    oto_rw.oto_write(os.path.join(wav_path, 'auto_oto.ini'), cv + vc, '', cover, oto_encoding)
                     
                     oto_data = oto_rw.oto_read(os.path.join(wav_path, 'auto_oto.ini'))
                     if os.path.exists(oto_preset):

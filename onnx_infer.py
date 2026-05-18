@@ -570,39 +570,65 @@ class AlignmentDecoder:
     @staticmethod
     def forward_pass(T, S, prob_log, edge_prob, curr_ph_max_prob_log, dp, ph_seq_id, prob3_pad_len=2):
         backtrack_s = np.full_like(dp, -1, dtype=np.int32)
-        edge_prob_log, not_edge_prob_log = np.log(edge_prob + 1e-6), np.log(1 - edge_prob + 1e-6)
+        edge_prob_log = np.log(edge_prob + 1e-6)
+        not_edge_prob_log = np.log(1 - edge_prob + 1e-6)
         mask_reset = (ph_seq_id == 0)
+        T_div_S = T / S  # 缓存比例因子
 
+        # 预分配临时数组，避免每帧创建
         prob1 = np.empty(S, dtype=np.float32)
         prob2 = np.full(S, -np.inf, dtype=np.float32)
         prob3 = np.full(S, -np.inf, dtype=np.float32)
+        stacked_probs = np.empty((3, S), dtype=np.float32)  # 复用，避免 np.vstack
 
         i_vals_prob3 = np.arange(prob3_pad_len, S)
         idx_arr = np.clip(i_vals_prob3 - prob3_pad_len + 1, 0, S - 1)
         mask_cond_prob3 = (idx_arr >= S - 1) | (ph_seq_id[idx_arr] == 0)
+        # 预计算切片范围
+        slice_pad = slice(0, S - prob3_pad_len)
+        slice_skip1 = slice(0, S - 1)
+        skip1_view = prob2[1:]  # 复用视图
+        prob3_view = prob3[i_vals_prob3]
 
         for t in range(1, T):
-            prob_log_t, edge_log_t, not_edge_log_t = prob_log[:, t], edge_prob_log[t], not_edge_prob_log[t]
+            prob_log_t = prob_log[:, t]
+            edge_log_t = edge_prob_log[t]
+            not_edge_log_t = not_edge_prob_log[t]
             dp_prev = dp[:, t - 1]
 
-            prob1[:] = dp_prev + prob_log_t + not_edge_log_t
+            # prob1: 停留在当前音素
+            prob1[:] = dp_prev
+            prob1 += prob_log_t
+            prob1 += not_edge_log_t
 
-            prob2[1:] = dp_prev[:S - 1] + prob_log_t[:S - 1] + edge_log_t + curr_ph_max_prob_log[:S - 1] * (T / S)
+            # prob2: 前进1个音素
+            np.add(dp_prev[slice_skip1], prob_log_t[slice_skip1], out=skip1_view)
+            skip1_view += edge_log_t
+            np.add(skip1_view, curr_ph_max_prob_log[slice_skip1] * T_div_S, out=skip1_view)
 
-            candidate_vals = dp_prev[:S - prob3_pad_len] + prob_log_t[
-                :S - prob3_pad_len] + edge_log_t + curr_ph_max_prob_log[:S - prob3_pad_len] * (T / S)
-            prob3[i_vals_prob3] = np.where(mask_cond_prob3, candidate_vals, -np.inf)
+            # prob3: 跳过1个音素（前进2个）
+            candidate_vals = dp_prev[slice_pad] + prob_log_t[slice_pad] + edge_log_t + curr_ph_max_prob_log[slice_pad] * T_div_S
+            # 用布尔索引替代 np.where，减少中间数组
+            prob3_view[:] = -np.inf
+            prob3_view[mask_cond_prob3] = candidate_vals[mask_cond_prob3]
 
-            stacked_probs = np.vstack((prob1, prob2, prob3))
+            # 复用 stacked_probs，避免 np.vstack 分配
+            stacked_probs[0] = prob1
+            stacked_probs[1] = prob2
+            stacked_probs[2] = prob3
             max_indices = np.argmax(stacked_probs, axis=0)
-            dp[:, t], backtrack_s[:, t] = stacked_probs[max_indices, np.arange(S)], max_indices
+            dp[:, t] = stacked_probs[max_indices, np.arange(S)]
+            backtrack_s[:, t] = max_indices
 
+            # 更新 curr_ph_max_prob_log
             mask_type0 = (max_indices == 0)
             np.maximum(curr_ph_max_prob_log, prob_log_t, out=curr_ph_max_prob_log, where=mask_type0)
             np.copyto(curr_ph_max_prob_log, prob_log_t, where=~mask_type0)
             curr_ph_max_prob_log[mask_reset] = 0.0
 
-            prob2[1:], prob3[i_vals_prob3] = -np.inf, -np.inf
+            # 重置 prob2/prob3 的边界
+            skip1_view.fill(-np.inf)
+            prob3_view.fill(-np.inf)
         return dp, backtrack_s, curr_ph_max_prob_log
 
     def _decode(self,
@@ -627,25 +653,30 @@ class AlignmentDecoder:
             prob3_pad_len=2 if S >= 2 else 1
         )
 
-        ph_idx_seq, ph_time_int, frame_confidence = [], [], []
+        ph_idx_seq = []
+        ph_time_int = []
+        frame_confidence = []
 
         if S == 1:
             s = 0
         else:
             s = S - 2 if dp[-2, -1] > dp[-1, -1] and ph_seq_id[-1] == 0 else S - 1
 
-        for t in np.arange(T - 1, -1, -1):
+        # 用 while 循环替代 np.arange(T-1, -1, -1)，避免创建大数组
+        t = T - 1
+        while t >= 0:
             assert backtrack_s[s, t] >= 0 or t == 0
             frame_confidence.append(dp[s, t])
 
-            if backtrack_s[s, t] != 0:
+            bt = backtrack_s[s, t]
+            if bt != 0:
                 ph_idx_seq.append(s)
                 ph_time_int.append(t)
-
-                if backtrack_s[s, t] == 1:
+                if bt == 1:
                     s -= 1
-                elif backtrack_s[s, t] == 2:
+                elif bt == 2:
                     s -= 2
+            t -= 1
 
         ph_idx_seq.reverse()
         ph_time_int.reverse()
@@ -742,6 +773,8 @@ class InferenceOnnx:
 
     def load_model(self, device='cpu'):
         self.model = self.create_session(self.model_folder / 'model.onnx', device=device)
+        # 缓存输出名称，避免每次 run_onnx 都查询
+        self._output_names = [output.name for output in self.model.get_outputs()]
         self.device_info = self._get_device_info()
 
     def init_decoder(self):
@@ -786,7 +819,11 @@ class InferenceOnnx:
             self.progress_callback(msg)
 
     def _infer(self, padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx, wav_length, non_lexical_phonemes):
-        results = self.run_onnx(self.model, {'waveform': [padded_wav]})
+        # 使用缓存的输出名称，避免每次查询
+        results = dict(zip(
+            self._output_names,
+            self.model.run(self._output_names, {'waveform': [padded_wav]})
+        ))
 
         words, _, warning_log = self.fa_decoder.decode(
             ph_frame_logits=results['ph_frame_logits'][:, :, padded_frames:],
@@ -835,68 +872,117 @@ class InferenceOnnx:
             else:
                 print("INFO: 实际使用 CPU 进行推理")
 
-
         options = ort.SessionOptions()
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        
+        # 禁用内存模式复用，避免 DML 下的内存碎片问题
+        options.enable_mem_pattern = False
+        # 禁用 CPU 内存 arena，减少内存占用
+        options.enable_cpu_mem_arena = False
 
-        # DirectML性能优化
         if 'DmlExecutionProvider' in enabled_providers:
-            # 增加线程数以充分利用GPU
-            options.inter_op_num_threads = 64  # 并行执行线程
+            # DML 不支持真正的并行执行，使用 SEQUENTIAL 模式避免调度开销
+            options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            # DML 下 inter_op 线程数设低，减少不必要的线程切换开销
+            options.inter_op_num_threads = 1
+            options.intra_op_num_threads = 0  # 让 ORT 自动选择
+            print("INFO: 已启用DirectML优化 (SEQUENTIAL模式, 单线程调度)")
 
-            # 设置执行模式为串行（DirectML推荐）
+        elif 'CUDAExecutionProvider' in enabled_providers:
             options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
+            options.inter_op_num_threads = 2
+            options.intra_op_num_threads = 0
+            print("INFO: 已启用CUDA优化")
 
-            print("INFO: 已启用DirectML性能优化")
+        else:
+            # CPU 模式
+            import multiprocessing
+            cpu_count = multiprocessing.cpu_count()
+            options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
+            options.inter_op_num_threads = min(cpu_count, 8)
+            options.intra_op_num_threads = cpu_count
+            print(f"INFO: 已启用CPU优化 (inter_op={options.inter_op_num_threads}, intra_op={options.intra_op_num_threads})")
 
-        options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         return ort.InferenceSession(str(onnx_path), options, providers=enabled_providers)
 
-    @staticmethod
-    def _get_device_info():
-        providers = [ 'CPUExecutionProvider']
-        available_providers = ort.get_available_providers()
-        enabled_providers = []
-        
-        for provider in providers:
-            if provider in available_providers:
-                enabled_providers.append(provider)
-        
-        device_info = {
-            'available_providers': available_providers,
-            'enabled_providers': enabled_providers,
-            'primary_device': enabled_providers[0] if enabled_providers else 'CPUExecutionProvider'
+    def _get_device_info(self):
+        """返回当前 session 实际使用的设备信息"""
+        if self.model is None:
+            return {'available_providers': ort.get_available_providers(), 
+                    'enabled_providers': [], 'primary_device': 'N/A'}
+        enabled = self.model.get_providers()
+        return {
+            'available_providers': ort.get_available_providers(),
+            'enabled_providers': enabled,
+            'primary_device': enabled[0] if enabled else 'CPUExecutionProvider'
         }
-        return device_info
 
     def infer(self, non_lexical_phonemes, pad_times=1, pad_length=5, merge_phonemes=True):
         non_lexical_phonemes = [ph.strip() for ph in non_lexical_phonemes.split(",") if ph.strip()]
         assert set(non_lexical_phonemes).issubset(set(self.vocab['non_lexical_phonemes'])), \
             f"The non_lexical_phonemes contain elements that are not included in the vocab."
 
-        pad_lengths = [round(pad_length / pad_times * i, 1) for i in range(0, pad_times)] if pad_times > 1 else [0]
+        # ── 输出实际推理使用的设备信息 ──
+        primary_device = self.device_info['primary_device']
+        device_name_map = {
+            'DmlExecutionProvider': 'DirectML (GPU加速)',
+            'CUDAExecutionProvider': 'CUDA (NVIDIA GPU)',
+            'CPUExecutionProvider': 'CPU',
+        }
+        device_display = device_name_map.get(primary_device, primary_device)
+        provider_list = ', '.join(self.device_info['enabled_providers'])
+        device_msg = f"实际推理设备: {device_display} | Providers: [{provider_list}]"
+        print("=" * 60)
+        print(device_msg)
+        print("=" * 60)
+        if self.progress_callback:
+            self.progress_callback(device_msg)
 
-        for i in range(len(self.dataset)):
-            if (i + 1) % 10 == 0 or i == len(self.dataset) - 1:
-                msg = f"Processing {i + 1}/{len(self.dataset)}..."
+        pad_lengths = [round(pad_length / pad_times * i, 1) for i in range(0, pad_times)] if pad_times > 1 else [0]
+        total = len(self.dataset)
+
+        # ── 预加载所有音频到内存，减少 I/O 阻塞 ──
+        msg = f"Preloading {total} audio files..."
+        print(msg)
+        if self.progress_callback:
+            self.progress_callback(msg)
+
+        preloaded = []  # [(wav_path, wav_numpy, wav_length, ph_seq, word_seq, ph_idx_to_word_idx)]
+        for i, (wav_path, ph_seq, word_seq, ph_idx_to_word_idx) in enumerate(self.dataset):
+            wav, sr = librosa.load(wav_path, sr=self.mel_cfg['sample_rate'], mono=True)
+            wav_length = len(wav) / self.mel_cfg['sample_rate']
+            preloaded.append((wav_path, wav, wav_length, ph_seq, word_seq, ph_idx_to_word_idx))
+            if (i + 1) % 20 == 0 or i == total - 1:
+                msg = f"Preloaded {i + 1}/{total} audio files"
                 print(msg)
                 if self.progress_callback:
                     self.progress_callback(msg)
 
-            wav_path, ph_seq, word_seq, ph_idx_to_word_idx = self.dataset[i]
+        # 预计算 pad 参数（所有 pad_length 共享同一组模板）
+        pad_params = []
+        for pl in pad_lengths:
+            padded_samples = int(pl * self.mel_cfg['sample_rate'])
+            padded_frames = int(padded_samples / self.mel_cfg['hop_size'])
+            pad_params.append((pl, padded_samples, padded_frames))
 
-            wav, sr = librosa.load(wav_path, sr=self.mel_cfg['sample_rate'], mono=True)
-            wav_length = len(wav) / self.mel_cfg['sample_rate']
+        # ── 批量推理 ──
+        for i, (wav_path, wav, wav_length, ph_seq, word_seq, ph_idx_to_word_idx) in enumerate(preloaded):
+            if (i + 1) % 10 == 0 or i == total - 1:
+                msg = f"Processing {i + 1}/{total}..."
+                print(msg)
+                if self.progress_callback:
+                    self.progress_callback(msg)
 
             words_list: list[WordList] = []
             all_warning_logs = []
-            for pl in pad_lengths:
-                padded_samples = int(pl * self.mel_cfg['sample_rate'])
-                padded_frames = int(padded_samples / self.mel_cfg['hop_size'])
+
+            for pl, padded_samples, padded_frames in pad_params:
+                # 复用预加载的 wav，只需 pad
                 padded_wav = np.pad(wav, (padded_samples, 0), mode='constant', constant_values=0)
 
-                words, non_lexical_words, warning_log = self._infer(padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx,
-                                                       wav_length, non_lexical_phonemes)
+                words, non_lexical_words, warning_log = self._infer(
+                    padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx,
+                    wav_length, non_lexical_phonemes)
                 if warning_log:
                     all_warning_logs.extend(warning_log)
                 for _words in non_lexical_words:
@@ -904,7 +990,7 @@ class InferenceOnnx:
                         words.add_AP(word)
                 words.clear_language_prefix()
                 words_list.append(words)
-            
+
             if all_warning_logs:
                 wav_name = os.path.basename(wav_path)
                 warning_msg = f"{wav_name}:\n" + "\n".join(all_warning_logs)
@@ -912,48 +998,52 @@ class InferenceOnnx:
                 if self.progress_callback:
                     self.progress_callback(warning_msg)
 
-            ph_list = [words.phonemes for words in words_list]
-            duplicate_indices = find_all_duplicate_phonemes(ph_list)
-
-            if len(duplicate_indices) == 0:
-                wav_name = os.path.basename(wav_path)
-                warning_msg = f"{wav_name}: 多次推理结果不一致，使用第一次推理的结果"
-                print(warning_msg)
-                if self.progress_callback:
-                    self.progress_callback(warning_msg)
-                words_list = [words_list[0]]
+            # 多轮推理结果一致性检查与合并
+            if len(words_list) == 1:
+                # pad_times=1 时无需去重，直接使用
+                result_word = words_list[0]
             else:
-                words_list = [words_list[i] for i in duplicate_indices]
+                ph_list = [words.phonemes for words in words_list]
+                duplicate_indices = find_all_duplicate_phonemes(ph_list)
 
-            phonemes_all = []
-            result_word = WordList()
-            for w_idx in range(len(words_list[0])):
-                phonemes = []
-                for ph_idx in range(len(words_list[0][w_idx].phonemes)):
-                    ph_start = \
-                        remove_outliers_per_position([[words[w_idx].phonemes[ph_idx].start for words in words_list]])[0]
-                    ph_end = \
-                        remove_outliers_per_position([[words[w_idx].phonemes[ph_idx].end for words in words_list]])[0]
-                    ph_start = max(ph_start, phonemes_all[-1].end if len(phonemes_all) > 0 else 0)
-                    ph_end = max(ph_start + 0.0001, ph_end)
-                    phonemes.append(Phoneme(ph_start, ph_end, words_list[0][w_idx].phonemes[ph_idx].text))
-                    phonemes_all.append(Phoneme(ph_start, ph_end, words_list[0][w_idx].phonemes[ph_idx].text))
-                word = Word(phonemes[0].start, phonemes[-1].end, words_list[0][w_idx].text)
-                for ph in phonemes:
-                    word.append_phoneme(ph)
-                result_word.append(word)
-            # result_word.fill_small_gaps(wav_length)
+                if len(duplicate_indices) == 0:
+                    wav_name = os.path.basename(wav_path)
+                    warning_msg = f"{wav_name}: 多次推理结果不一致，使用第一次推理的结果"
+                    print(warning_msg)
+                    if self.progress_callback:
+                        self.progress_callback(warning_msg)
+                    words_list = [words_list[0]]
+                else:
+                    words_list = [words_list[i] for i in duplicate_indices]
+
+                phonemes_all = []
+                result_word = WordList()
+                for w_idx in range(len(words_list[0])):
+                    phonemes = []
+                    for ph_idx in range(len(words_list[0][w_idx].phonemes)):
+                        ph_start = remove_outliers_per_position(
+                            [[words[w_idx].phonemes[ph_idx].start for words in words_list]])[0]
+                        ph_end = remove_outliers_per_position(
+                            [[words[w_idx].phonemes[ph_idx].end for words in words_list]])[0]
+                        ph_start = max(ph_start, phonemes_all[-1].end if len(phonemes_all) > 0 else 0)
+                        ph_end = max(ph_start + 0.0001, ph_end)
+                        phonemes.append(Phoneme(ph_start, ph_end, words_list[0][w_idx].phonemes[ph_idx].text))
+                        phonemes_all.append(Phoneme(ph_start, ph_end, words_list[0][w_idx].phonemes[ph_idx].text))
+                    word = Word(phonemes[0].start, phonemes[-1].end, words_list[0][w_idx].text)
+                    for ph in phonemes:
+                        word.append_phoneme(ph)
+                    result_word.append(word)
+
             if merge_phonemes:
-                result_word.merge_duplicate_phonemes(min_duration=0.05)  # 2. 再处理音素重复
-            # result_word.add_SP(wav_length)
-            
+                result_word.merge_duplicate_phonemes(min_duration=0.05)
+
             # 获取后处理日志并推送到前端
             warning_log = result_word.log()
             if warning_log:
                 warnings.warn(warning_log)
                 if self.progress_callback:
                     self.progress_callback(warning_log)
-            
+
             self.predictions.append((wav_path, wav_length, result_word))
 
     def export(self, output_folder, output_format=None):

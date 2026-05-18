@@ -174,19 +174,23 @@ def oto_apply_template(oto_origin, template_path):
     
     # 按模板顺序生成新的oto数据
     new_oto_data = []
-    match_count = 0
-    default_count = 0
+    match_count = 0          # 模板中有匹配，保留原值的条目数
+    default_count = 0         # 模板中无匹配，设为默认值的条目数
+    unmatched_origin = len(oto_origin)  # 记录原数据中尚未匹配的条目数
     for wav_name, phoneme in template_entries:
         key = (wav_name, phoneme)
         if key in origin_lookup:
             new_oto_data.append(origin_lookup[key])
             match_count += 1
+            origin_lookup.pop(key)  # 匹配后移除，剩下的就是未被模板引用的
         else:
             # wav或音素不匹配，数值设为0
             new_oto_data.append([wav_name, phoneme, 0, 0, 0, 0, 0])
             default_count += 1
     
-    print(f'{GREEN}模板应用完成：匹配 {match_count} 项，默认值 {default_count} 项{RESET}')
+    # 未被模板引用的原oto条目数（被丢弃）
+    dropped_count = len(origin_lookup)
+    print(f'{GREEN}模板应用完成：匹配到 {match_count} 项，未匹配项 {default_count} 项，未匹配被丢弃 {dropped_count} 项{RESET}')
     return new_oto_data
 
 
