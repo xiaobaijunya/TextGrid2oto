@@ -142,8 +142,8 @@ def oto_apply_template(oto_origin, template_path):
         print(f'{RED}模板文件不存在：{template_path}{RESET}')
         return oto_origin
     
-    # 读取模板文件，提取 (wav, 音素) 对
-    template_entries = []  # 存储 [(wav, phoneme), ...]
+    # 读取模板文件，提取 (wav, 音素, 数值列表) 元组
+    template_entries = []  # 存储 [(wav, phoneme, [left, fix, right, pre, overlap]), ...]
     encodings = ['utf-8', 'shift-jis', 'gbk']
     for encoding in encodings:
         try:
@@ -156,7 +156,11 @@ def oto_apply_template(oto_origin, template_path):
                     wav_name = parts[0]
                     parts2 = parts[1].split(',')
                     phoneme = parts2[0]
-                    template_entries.append((wav_name, phoneme))
+                    try:
+                        nums = [int(round(float(n))) for n in parts2[1:]]
+                    except ValueError:
+                        nums = [0, 0, 0, 0, 0]
+                    template_entries.append((wav_name, phoneme, nums))
             print(f'{GREEN}成功使用 {encoding} 编码读取模板文件。{RESET}')
             break
         except UnicodeDecodeError:
@@ -177,15 +181,15 @@ def oto_apply_template(oto_origin, template_path):
     match_count = 0          # 模板中有匹配，保留原值的条目数
     default_count = 0         # 模板中无匹配，设为默认值的条目数
     unmatched_origin = len(oto_origin)  # 记录原数据中尚未匹配的条目数
-    for wav_name, phoneme in template_entries:
+    for wav_name, phoneme, nums in template_entries:
         key = (wav_name, phoneme)
         if key in origin_lookup:
             new_oto_data.append(origin_lookup[key])
             match_count += 1
             origin_lookup.pop(key)  # 匹配后移除，剩下的就是未被模板引用的
         else:
-            # wav或音素不匹配，数值设为0
-            new_oto_data.append([wav_name, phoneme, 0, 0, 0, 0, 0])
+            # wav或音素不匹配，使用模板文件中的数值
+            new_oto_data.append([wav_name, phoneme] + nums)
             default_count += 1
     
     # 未被模板引用的原oto条目数（被丢弃）

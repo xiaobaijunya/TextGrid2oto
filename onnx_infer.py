@@ -818,6 +818,38 @@ class InferenceOnnx:
         if self.progress_callback:
             self.progress_callback(msg)
 
+    def get_dataset_from_list(self, wav_paths, language, g2p="dictionary", dictionary_path=None, in_format="lab"):
+        """从指定的 wav 文件列表加载数据集（用于并行推理时每个子进程加载自己的子集）"""
+        if dictionary_path is None:
+            dictionary_path = self.vocab_folder / self.vocab["dictionaries"].get(language, "")
+        language = language if self.vocab['language_prefix'] else None
+
+        if g2p == "dictionary":
+            assert os.path.exists(dictionary_path), f"{Path(dictionary_path).absolute()} does not exist."
+            g2p_obj = DictionaryG2P(language, dictionary_path)
+        elif g2p == "phoneme":
+            g2p_obj = PhonemeG2P(language)
+        else:
+            raise ValueError(f"g2p - {g2p} is not supported, which should be 'dictionary' or 'phoneme'.")
+
+        for wav_path in wav_paths:
+            wav_path = Path(wav_path)
+            try:
+                lab_path = wav_path.with_suffix("." + in_format)
+                if lab_path.exists():
+                    with open(lab_path, "r", encoding="utf-8") as f:
+                        lab_text = f.read().strip()
+                    ph_seq, word_seq, ph_idx_to_word_idx = g2p_obj(lab_text)
+                    self.dataset.append((wav_path, ph_seq, word_seq, ph_idx_to_word_idx))
+                else:
+                    warnings.warn(f"{lab_path} does not exist.")
+            except Exception as e:
+                e.args = (f" Error when processing {wav_path}: {e} ",)
+        msg = f"Loaded {len(self.dataset)} samples."
+        print(msg)
+        if self.progress_callback:
+            self.progress_callback(msg)
+
     def _infer(self, padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx, wav_length, non_lexical_phonemes):
         # 使用缓存的输出名称，避免每次查询
         results = dict(zip(
@@ -1164,6 +1196,53 @@ class PhonemeG2P:
         phonemes = list(text)
         ph_idx_to_word_idx = list(range(len(phonemes)))
         return phonemes, phonemes, ph_idx_to_word_idx
+
+
+def dml_worker(worker_id, onnx_path_str, wav_folder_str, language, dict_path_str,
+               device, pad_times, pad_length, merge_phonemes, non_lexical_phonemes,
+               wav_files_list, msg_queue=None):
+    """
+    DML 并行推理的工作进程函数。
+    每个子进程加载自己的模型实例，处理一半的 wav 文件，输出 TextGrid 到同一目录。
+    由于各进程独立，DML 不会冲突。
+
+    Args:
+        msg_queue: multiprocessing.Queue，用于将进度消息传回主进程（GUI 显示）
+    """
+    import onnxruntime as _ort
+    _ort.set_default_logger_severity(3)  # 抑制 ORT 日志
+
+    onnx_path = Path(onnx_path_str)
+    wav_folder = Path(wav_folder_str)
+
+    inference = InferenceOnnx(onnx_path)
+    inference.load_config()
+    inference.load_model(device=device)
+    inference.init_decoder()
+
+    def _send(msg):
+        """向主进程发送消息（同时打印到子进程自己的控制台）"""
+        print(msg)
+        if msg_queue is not None:
+            try:
+                msg_queue.put_nowait(msg)
+            except Exception:
+                pass
+
+    inference.set_progress_callback(lambda m: _send(f"[Worker {worker_id}] {m}"))
+
+    _send(f"[Worker {worker_id}] Loading {len(wav_files_list)} files...")
+    inference.get_dataset_from_list(
+        wav_files_list, language=language,
+        g2p="dictionary", dictionary_path=dict_path_str, in_format="lab"
+    )
+    inference.infer(
+        non_lexical_phonemes=non_lexical_phonemes,
+        pad_times=pad_times, pad_length=pad_length,
+        merge_phonemes=merge_phonemes
+    )
+    inference.export(str(wav_folder))
+    _send(f"[Worker {worker_id}] ✅ 完成处理 {len(wav_files_list)} 个文件")
 
 
 if __name__ == '__main__':

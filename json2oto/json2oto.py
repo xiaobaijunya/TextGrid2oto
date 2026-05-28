@@ -72,7 +72,10 @@ def json2cvoto(cv_data,sum,ignore):
                     fixed = Prevoice
                 else:
                     fixed = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[1]+ Prevoice
-                cross = float(Prevoice)/sum[4]
+                if Prevoice == 0:
+                    cross = 20
+                else:
+                    cross = float(Prevoice) / sum[4]
                 i+=2
                 oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
@@ -91,7 +94,10 @@ def json2cvoto(cv_data,sum,ignore):
                 fixed = Prevoice
             else:
                 fixed = (float(cont['xmax'])-float(cont['middle']))*1000/sum[1]+ Prevoice
-            cross = float(Prevoice) / sum[4]
+            if Prevoice == 0:
+                cross = 20
+            else:
+                cross = float(Prevoice) / sum[4]
             i += 1
 
             oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
@@ -177,6 +183,42 @@ def json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum,ignore):
                 continue
     return oto
 
+def json2coto(cv_data,sum,ignore,CV_C):
+    oto = []
+    for audio_file, data in cv_data.items():
+        autio_name = audio_file
+        phones = data.get('phones', {})
+        long = data.get('long', [])
+        if not phones:
+            continue
+
+        sorted_phones = sorted(phones.items(), key=lambda x: int(x[0]))
+        i = 0
+
+        while i < len(sorted_phones):
+            key, cont = sorted_phones[i]
+            # -CV规则
+            if i + 1 < len(sorted_phones):
+                if cont['text'] in ignore and sorted_phones[i + 1][1]['text'] in ignore:
+                    i += 1
+                    continue
+            if cont['text'] in ignore and i < len(sorted_phones) - 1:
+                key1, cont2 = sorted_phones[i + 1]
+                phone_name = '- ' + CV_C[cont2['text']]
+                # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
+                left = float(cont2['xmin']) * 1000
+                # 右线占比
+                right = (float(cont2['middle']) - float(cont2['xmin']))/1.5 * 1000
+                # 固定的占比
+                Prevoice = 0
+                fixed = Prevoice
+                cross = 0
+                i += 2
+                oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
+                continue
+            i += 1
+            continue
+    return oto
 
 
 def run(presamp_path,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
@@ -192,6 +234,11 @@ def run(presamp_path,word_phone_json,wav_path,cv_sum,vc_sum,vv_sum,ignore):
         for i in oto:
             f.write(i)
         print('cv_oto.ini生成成功')
+    oto = json2coto(cv_data,cv_sum,ignore,CV_C)
+    with open(wav_path + '/cv_oto.ini', 'a', encoding='utf-8') as f:
+        for i in oto:
+            f.write(i)
+        print('-c生成成功')
     oto = json2vcoto(cv_data,CV_V, CV_C,V_V , vc_sum,vv_sum,ignore)
     # print(oto)
     with open(wav_path+'/vc_oto.ini', 'w', encoding='utf-8') as f:

@@ -50,7 +50,7 @@ def cvvc_presamp_read(presamps_path):
     VV = set(VV)
     # CVVC = VC | CV
     # print(V,C,VV)
-    return V,C,CV,VC,VV
+    return V,C,CV,VC,VV,
 
 def oto_read(file_path):
     oto_data=[]
@@ -86,7 +86,12 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
         oto_data = oto_read(oto_path)
         for byname in oto_data:
             phone_name.append(byname[1].replace(pitch, ''))
-        print('缺少的CV音素：', end='')
+        print('缺少的-C音素：', end='')
+        for phone in V_C[1]:
+            phone = '- '+ phone
+            if phone not in phone_name:
+                print(phone,end=',')
+        print('\n缺少的CV音素：', end='')
         for phone in V_C[2]:
             if phone not in phone_name:
                 print(phone,end=',')
@@ -174,7 +179,12 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
         oto_data = oto_read(oto_path)
         for byname in oto_data:
             phone_name.append(byname[1].replace(pitch, ''))
-        print('缺少的CV音素：', end='')
+        print('缺少的-C音素：', end='')
+        for phone in V_C[1]:
+            phone = '- '+ phone
+            if phone not in phone_name:
+                print(phone,end=',')
+        print('\n缺少的CV音素：', end='')
         for phone in V_C[2]:
             if phone not in phone_name:
                 print(phone,end=',')
@@ -202,7 +212,7 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
 
 if __name__ == '__main__':
     print('test')
-    run(r'E:\OpenUtau\Singers\weina2\F4\oto.ini','E:\OpenUtau\Singers\weina2\presamp.ini','','3')
+    run(r'G:\Coding\utau录音表生成器2\录音表制作\oto.ini',r'G:\Coding\utau录音表生成器2\录音表制作\risku简化版presamp.ini','','4')
     # print('CVVC')
     # run('E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3\oto.ini','E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini',' F3','0')
     # print('VCV')

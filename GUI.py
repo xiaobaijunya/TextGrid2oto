@@ -254,6 +254,23 @@ class MainFrame(wx.Frame):
         device_sizer.Add(self.device_choice, 1, wx.EXPAND | wx.ALL, 5)
         right_sizer.Add(device_sizer, 0, wx.ALL, 10)
 
+        # DML并行工作进程数选择
+        worker_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        worker_label = wx.StaticText(right_panel, label=_('textgrid.workers'))
+        register(worker_label, 'textgrid.workers')
+        self.worker_choice = wx.Choice(right_panel, size=(400, -1))
+        self.worker_choice.SetToolTip(_('textgrid.workers.tooltip'))
+        register(self.worker_choice, 'textgrid.workers.tooltip', 'tooltip')
+        self.worker_choice.Append(_('textgrid.workers.1'), 1)
+        self.worker_choice.Append(_('textgrid.workers.2'), 2)
+        self.worker_choice.Append(_('textgrid.workers.3'), 3)
+        self.worker_choice.Append(_('textgrid.workers.4'), 4)
+        self.worker_choice.SetSelection(0)
+        register(self.worker_choice, '', 'choice', [('textgrid.workers.1', 1), ('textgrid.workers.2', 2), ('textgrid.workers.3', 3), ('textgrid.workers.4', 4)])
+        worker_sizer.Add(worker_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        worker_sizer.Add(self.worker_choice, 1, wx.EXPAND | wx.ALL, 5)
+        right_sizer.Add(worker_sizer, 0, wx.ALL, 10)
+
         # pad_times选择
         pad_times_sizer = wx.BoxSizer(wx.HORIZONTAL)
         pad_times_label = wx.StaticText(right_panel, label=_('textgrid.pad_times'))
@@ -479,7 +496,7 @@ class MainFrame(wx.Frame):
         oto_cv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
         oto_cv_sum_label = wx.StaticText(oto_panel, label=_('mark.oto.cv_params'))
         register(oto_cv_sum_label, 'mark.oto.cv_params')
-        self.oto_cv_sum_text = wx.TextCtrl(oto_panel, value="1,3,1.5,1,4", size=(120, -1))
+        self.oto_cv_sum_text = wx.TextCtrl(oto_panel, value="1,3,1.5,1,2", size=(120, -1))
         self.oto_cv_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
         register(self.oto_cv_sum_text, 'mark.oto.params_tooltip', 'tooltip')
         oto_cv_sum_sizer.Add(oto_cv_sum_label, 0, wx.ALL, 2)
@@ -633,19 +650,182 @@ class MainFrame(wx.Frame):
         
         svdb_panel.SetSizer(svdb_sizer)
 
-        # v3db_panel = wx.Panel(mark_notebook)
-        # v3db_sizer = wx.BoxSizer(wx.VERTICAL)
-        # v3db_text = wx.StaticText(v3db_panel, label=_('mark.v3db.title'))
-        # register(v3db_text, 'mark.v3db.title')
-        # v3db_sizer.Add(v3db_text, 0, wx.ALL | wx.CENTER, 20)
-        # v3db_panel.SetSizer(v3db_sizer)
+        # ── 多音阶 OTO 面板 ──
+        multi_oto_panel = wx.Panel(mark_notebook)
+        multi_oto_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        multi_oto_title = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.title'))
+        register(multi_oto_title, 'mark.multi_oto.title')
+        multi_oto_sizer.Add(multi_oto_title, 0, wx.ALL | wx.CENTER, 10)
+
+        # 根文件夹（包含各音阶子文件夹）
+        multi_oto_root_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        multi_oto_root_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.root_folder'))
+        register(multi_oto_root_label, 'mark.multi_oto.root_folder')
+        self.multi_oto_root_text = wx.TextCtrl(multi_oto_panel, size=(400, -1))
+        self.multi_oto_root_text.SetToolTip(_('mark.multi_oto.root_folder.tooltip'))
+        register(self.multi_oto_root_text, 'mark.multi_oto.root_folder.tooltip', 'tooltip')
+        multi_oto_root_browse = wx.Button(multi_oto_panel, label=_('mark.multi_oto.browse_folder'))
+        register(multi_oto_root_browse, 'mark.multi_oto.browse_folder', 'button')
+        multi_oto_root_browse.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.multi_oto_root_text))
+        multi_oto_root_sizer.Add(multi_oto_root_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_root_sizer.Add(self.multi_oto_root_text, 1, wx.EXPAND | wx.ALL, 5)
+        multi_oto_root_sizer.Add(multi_oto_root_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_sizer.Add(multi_oto_root_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Presamp
+        multi_oto_presamp_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        multi_oto_presamp_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.presamp_path'))
+        register(multi_oto_presamp_label, 'mark.multi_oto.presamp_path')
+        self.multi_oto_presamp_text = wx.TextCtrl(multi_oto_panel, size=(300, -1))
+        multi_oto_presamp_browse = wx.Button(multi_oto_panel, label=_('mark.multi_oto.browse'))
+        register(multi_oto_presamp_browse, 'mark.multi_oto.browse', 'button')
+        multi_oto_presamp_browse.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.multi_oto_presamp_text))
+        multi_oto_presamp_preset_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.presamp_preset'))
+        register(multi_oto_presamp_preset_label, 'mark.multi_oto.presamp_preset')
+        self.multi_oto_presamp_choice = wx.Choice(multi_oto_panel, size=(150, -1))
+        self.multi_oto_presamp_choice.Bind(wx.EVT_CHOICE, self.on_multi_oto_presamp_selected)
+        multi_oto_presamp_sizer.Add(multi_oto_presamp_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_presamp_sizer.Add(self.multi_oto_presamp_text, 1, wx.EXPAND | wx.ALL, 5)
+        multi_oto_presamp_sizer.Add(multi_oto_presamp_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_presamp_sizer.Add(multi_oto_presamp_preset_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_presamp_sizer.Add(self.multi_oto_presamp_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_sizer.Add(multi_oto_presamp_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # oto 模板路径
+        multi_oto_preset_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        multi_oto_preset_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.template'))
+        register(multi_oto_preset_label, 'mark.multi_oto.template')
+        self.multi_oto_preset_text = wx.TextCtrl(multi_oto_panel, value="", size=(300, -1))
+        multi_oto_preset_browse = wx.Button(multi_oto_panel, label=_('mark.multi_oto.browse'))
+        register(multi_oto_preset_browse, 'mark.multi_oto.browse', 'button')
+        multi_oto_preset_browse.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.multi_oto_preset_text))
+        multi_oto_preset_sizer.Add(multi_oto_preset_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_preset_sizer.Add(self.multi_oto_preset_text, 1, wx.EXPAND | wx.ALL, 5)
+        multi_oto_preset_sizer.Add(multi_oto_preset_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_sizer.Add(multi_oto_preset_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # 模式和编码
+        multi_oto_mode_encoding_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        multi_oto_mode_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.mode'))
+        register(multi_oto_mode_label, 'mark.multi_oto.mode')
+        self.multi_oto_mode_choice = wx.Choice(multi_oto_panel, choices=["CVVC", "VCV", "CVV","ARPAsing", "Test"], size=(150, -1))
+        self.multi_oto_mode_choice.SetSelection(0)
+        self.multi_oto_mode_choice.Bind(wx.EVT_CHOICE, self.on_multi_oto_mode_changed)
+        multi_oto_encoding_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.encoding'))
+        register(multi_oto_encoding_label, 'mark.multi_oto.encoding')
+        self.multi_oto_encoding_choice = wx.Choice(multi_oto_panel, choices=["utf-8", "shift-jis", "gbk"], size=(150, -1))
+        self.multi_oto_encoding_choice.SetSelection(0)
+        self.multi_oto_cover_checkbox = wx.CheckBox(multi_oto_panel, label=_('mark.multi_oto.cover'))
+        register(self.multi_oto_cover_checkbox, 'mark.multi_oto.cover', 'checkbox')
+        self.multi_oto_cover_checkbox.SetValue(True)
+        multi_oto_mode_encoding_sizer.Add(multi_oto_mode_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_mode_encoding_sizer.Add(self.multi_oto_mode_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_mode_encoding_sizer.Add(multi_oto_encoding_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_mode_encoding_sizer.Add(self.multi_oto_encoding_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_mode_encoding_sizer.Add(self.multi_oto_cover_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        multi_oto_sizer.Add(multi_oto_mode_encoding_sizer, 0, wx.ALL, 10)
+
+        # 参数
+        multi_oto_params1_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        # CV参数
+        multi_oto_cv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
+        multi_oto_cv_sum_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.cv_params'))
+        register(multi_oto_cv_sum_label, 'mark.multi_oto.cv_params')
+        self.multi_oto_cv_sum_text = wx.TextCtrl(multi_oto_panel, value="1,3,1.5,1,2", size=(120, -1))
+        self.multi_oto_cv_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
+        register(self.multi_oto_cv_sum_text, 'mark.oto.params_tooltip', 'tooltip')
+        multi_oto_cv_sum_sizer.Add(multi_oto_cv_sum_label, 0, wx.ALL, 2)
+        multi_oto_cv_sum_sizer.Add(self.multi_oto_cv_sum_text, 0, wx.ALL, 2)
+        # VC参数
+        multi_oto_vc_sum_sizer = wx.BoxSizer(wx.VERTICAL)
+        multi_oto_vc_sum_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.vc_params'))
+        register(multi_oto_vc_sum_label, 'mark.multi_oto.vc_params')
+        self.multi_oto_vc_sum_text = wx.TextCtrl(multi_oto_panel, value="3,0,2,1,3", size=(120, -1))
+        self.multi_oto_vc_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
+        register(self.multi_oto_vc_sum_text, 'mark.oto.params_tooltip', 'tooltip')
+        multi_oto_vc_sum_sizer.Add(multi_oto_vc_sum_label, 0, wx.ALL, 2)
+        multi_oto_vc_sum_sizer.Add(self.multi_oto_vc_sum_text, 0, wx.ALL, 2)
+        # VV参数
+        multi_oto_vv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
+        multi_oto_vv_sum_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.vv_params'))
+        register(multi_oto_vv_sum_label, 'mark.multi_oto.vv_params')
+        self.multi_oto_vv_sum_text = wx.TextCtrl(multi_oto_panel, value="3,3,1.5,1,3", size=(120, -1))
+        self.multi_oto_vv_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
+        register(self.multi_oto_vv_sum_text, 'mark.oto.params_tooltip', 'tooltip')
+        multi_oto_vv_sum_sizer.Add(multi_oto_vv_sum_label, 0, wx.ALL, 2)
+        multi_oto_vv_sum_sizer.Add(self.multi_oto_vv_sum_text, 0, wx.ALL, 2)
+        multi_oto_params1_sizer.Add(multi_oto_cv_sum_sizer, 0, wx.ALL, 5)
+        multi_oto_params1_sizer.Add(multi_oto_vc_sum_sizer, 0, wx.ALL, 5)
+        multi_oto_params1_sizer.Add(multi_oto_vv_sum_sizer, 0, wx.ALL, 5)
+
+        # CV偏移
+        multi_oto_cv_offset_sizer = wx.BoxSizer(wx.VERTICAL)
+        multi_oto_cv_offset_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.cv_offset'))
+        register(multi_oto_cv_offset_label, 'mark.multi_oto.cv_offset')
+        self.multi_oto_cv_offset_text = wx.TextCtrl(multi_oto_panel, value="0,0,0,0,0", size=(120, -1))
+        multi_oto_cv_offset_sizer.Add(multi_oto_cv_offset_label, 0, wx.ALL, 2)
+        multi_oto_cv_offset_sizer.Add(self.multi_oto_cv_offset_text, 0, wx.ALL, 2)
+        multi_oto_params1_sizer.Add(multi_oto_cv_offset_sizer, 0, wx.ALL, 5)
+        # VC偏移
+        multi_oto_vc_offset_sizer = wx.BoxSizer(wx.VERTICAL)
+        multi_oto_vc_offset_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.vc_offset'))
+        register(multi_oto_vc_offset_label, 'mark.multi_oto.vc_offset')
+        self.multi_oto_vc_offset_text = wx.TextCtrl(multi_oto_panel, value="0,0,0,0,0", size=(120, -1))
+        multi_oto_vc_offset_sizer.Add(multi_oto_vc_offset_label, 0, wx.ALL, 2)
+        multi_oto_vc_offset_sizer.Add(self.multi_oto_vc_offset_text, 0, wx.ALL, 2)
+        multi_oto_params1_sizer.Add(multi_oto_vc_offset_sizer, 0, wx.ALL, 5)
+        multi_oto_sizer.Add(multi_oto_params1_sizer, 0, wx.ALL, 0)
+
+        # CV重复、VC重复、忽略音素
+        multi_oto_params2_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        multi_oto_cv_repeat_sizer = wx.BoxSizer(wx.VERTICAL)
+        multi_oto_cv_repeat_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.cv_repeat'))
+        register(multi_oto_cv_repeat_label, 'mark.multi_oto.cv_repeat')
+        self.multi_oto_cv_repeat_text = wx.TextCtrl(multi_oto_panel, value="1", size=(80, -1))
+        multi_oto_cv_repeat_sizer.Add(multi_oto_cv_repeat_label, 0, wx.ALL, 2)
+        multi_oto_cv_repeat_sizer.Add(self.multi_oto_cv_repeat_text, 0, wx.ALL, 2)
+        multi_oto_params2_sizer.Add(multi_oto_cv_repeat_sizer, 0, wx.ALL, 5)
+
+        multi_oto_vc_repeat_sizer = wx.BoxSizer(wx.VERTICAL)
+        multi_oto_vc_repeat_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.vc_repeat'))
+        register(multi_oto_vc_repeat_label, 'mark.multi_oto.vc_repeat')
+        self.multi_oto_vc_repeat_text = wx.TextCtrl(multi_oto_panel, value="1", size=(80, -1))
+        multi_oto_vc_repeat_sizer.Add(multi_oto_vc_repeat_label, 0, wx.ALL, 2)
+        multi_oto_vc_repeat_sizer.Add(self.multi_oto_vc_repeat_text, 0, wx.ALL, 2)
+        multi_oto_params2_sizer.Add(multi_oto_vc_repeat_sizer, 0, wx.ALL, 5)
+
+        multi_oto_ignore_sizer = wx.BoxSizer(wx.VERTICAL)
+        multi_oto_ignore_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.ignore'))
+        register(multi_oto_ignore_label, 'mark.multi_oto.ignore')
+        self.multi_oto_ignore_text = wx.TextCtrl(multi_oto_panel, value="AP,SP,EP,R", size=(130, -1))
+        multi_oto_ignore_sizer.Add(multi_oto_ignore_label, 0, wx.ALL, 2)
+        multi_oto_ignore_sizer.Add(self.multi_oto_ignore_text, 0, wx.ALL, 2)
+        multi_oto_params2_sizer.Add(multi_oto_ignore_sizer, 0, wx.ALL, 5)
+        multi_oto_sizer.Add(multi_oto_params2_sizer, 0, wx.ALL, 10)
+
+        # 生成按钮
+        multi_oto_generate_btn = wx.Button(multi_oto_panel, label=_('mark.multi_oto.generate'))
+        register(multi_oto_generate_btn, 'mark.multi_oto.generate', 'button')
+        multi_oto_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_multi_oto)
+        multi_oto_sizer.Add(multi_oto_generate_btn, 0, wx.ALL | wx.CENTER, 10)
+
+        # 结果文本框
+        multi_oto_result_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.result'))
+        register(multi_oto_result_label, 'mark.multi_oto.result')
+        multi_oto_sizer.Add(multi_oto_result_label, 0, wx.ALL | wx.LEFT, 0)
+
+        self.multi_oto_result_text = wx.TextCtrl(multi_oto_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        multi_oto_sizer.Add(self.multi_oto_result_text, 1, wx.EXPAND | wx.ALL, 10)
+
+        multi_oto_panel.SetSizer(multi_oto_sizer)
 
         mark_notebook.AddPage(oto_panel, _('mark.oto.title'))
         register(mark_notebook, 'mark.oto.title', 'notebook_tab', 0)
         mark_notebook.AddPage(svdb_panel, _('mark.svdb.title'))
         register(mark_notebook, 'mark.svdb.title', 'notebook_tab', 1)
-        # mark_notebook.AddPage(v3db_panel, _('mark.v3db.title'))
-        # register(mark_notebook, 'mark.v3db.title', 'notebook_tab', 2)
+        mark_notebook.AddPage(multi_oto_panel, _('mark.multi_oto.title'))
+        register(mark_notebook, 'mark.multi_oto.title', 'notebook_tab', 2)
 
         mark_sizer.Add(mark_notebook, 1, wx.EXPAND | wx.ALL, 5)
         mark_panel.SetSizer(mark_sizer)
@@ -830,6 +1010,10 @@ class MainFrame(wx.Frame):
             self.oto_presamp_choice.AppendItems(presamp_files)
             if presamp_files:
                 self.oto_presamp_choice.SetSelection(0)
+            self.multi_oto_presamp_choice.Clear()
+            self.multi_oto_presamp_choice.AppendItems(presamp_files)
+            if presamp_files:
+                self.multi_oto_presamp_choice.SetSelection(0)
     
     def on_language_switch(self, event):
         """切换语言（实时生效）"""
@@ -848,7 +1032,7 @@ class MainFrame(wx.Frame):
     def on_oto_mode_changed(self, event):
         mode = self.oto_mode_choice.GetSelection()
         if mode == 0:  # CVVC
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,4")
+            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
             self.oto_vc_sum_text.SetValue("3,0,2,1,3")
             self.oto_vv_sum_text.SetValue("3,3,1.5,1,3")
             self.oto_cv_offset_text.SetValue("0,0,0,0,0")
@@ -877,6 +1061,46 @@ class MainFrame(wx.Frame):
             self.oto_vv_sum_text.SetValue("3,3,1.5,1,2")
             self.oto_cv_offset_text.SetValue("0,0,0,0,0")
             self.oto_vc_offset_text.SetValue("0,0,0,0,0")
+
+    def on_multi_oto_presamp_selected(self, event):
+        presamp_file = self.multi_oto_presamp_choice.GetStringSelection()
+        if presamp_file:
+            presamp_dir = str(ROOT / 'presamp')
+            presamp_full_path = os.path.join(presamp_dir, presamp_file)
+            self.multi_oto_presamp_text.SetValue(presamp_full_path)
+
+    def on_multi_oto_mode_changed(self, event):
+        mode = self.multi_oto_mode_choice.GetSelection()
+        if mode == 0:
+            self.multi_oto_cv_sum_text.SetValue("1,3,1.5,1,2")
+            self.multi_oto_vc_sum_text.SetValue("3,0,2,1,3")
+            self.multi_oto_vv_sum_text.SetValue("3,3,1.5,1,3")
+            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
+        elif mode == 1:
+            self.multi_oto_cv_sum_text.SetValue("1,3,1.5,1,2")
+            self.multi_oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
+            self.multi_oto_vv_sum_text.SetValue("0,0,0,0,0")
+            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
+        elif mode == 2:
+            self.multi_oto_cv_sum_text.SetValue("1,3,1,1,3")
+            self.multi_oto_vc_sum_text.SetValue("5,0,2,1,3")
+            self.multi_oto_vv_sum_text.SetValue("0,0,0,0,6")
+            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
+        elif mode == 3:
+            self.multi_oto_cv_sum_text.SetValue("1,3,1.5,1,2")
+            self.multi_oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
+            self.multi_oto_vv_sum_text.SetValue("0,0,0,0,0")
+            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
+        elif mode == 4:
+            self.multi_oto_cv_sum_text.SetValue("1,8,1.5,1,4")
+            self.multi_oto_vc_sum_text.SetValue("3,0,2,1,2")
+            self.multi_oto_vv_sum_text.SetValue("3,3,1.5,1,2")
+            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
     
     def on_generate_oto(self, event):
         wav_path = self.oto_path_text.GetValue().strip()
@@ -1009,6 +1233,137 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(wx.MessageBox, _('log.failed').format(error=str(e)), _('msg.error'), wx.OK | wx.ICON_ERROR)
         
         thread = threading.Thread(target=generate_oto_thread)
+        thread.start()
+
+    def on_generate_multi_oto(self, event):
+        """多音阶 OTO 生成：遍历根目录下所有子文件夹，以文件夹名作为音阶后缀"""
+        root_path = self.multi_oto_root_text.GetValue().strip()
+        presamp_path = self.multi_oto_presamp_text.GetValue().strip()
+        vcv_mode = str(self.multi_oto_mode_choice.GetSelection())
+
+        if not root_path:
+            wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.exists(root_path):
+            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not presamp_path:
+            wx.MessageBox(_('msg.err.select_presamp'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.exists(presamp_path):
+            wx.MessageBox(_('msg.err.presamp_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        try:
+            cv_sum = [float(x) for x in self.multi_oto_cv_sum_text.GetValue().split(',')]
+            vc_sum = [float(x) for x in self.multi_oto_vc_sum_text.GetValue().split(',')]
+            vv_sum = [float(x) for x in self.multi_oto_vv_sum_text.GetValue().split(',')]
+            cv_offset = [float(x) for x in self.multi_oto_cv_offset_text.GetValue().split(',')]
+            vc_offset = [float(x) for x in self.multi_oto_vc_offset_text.GetValue().split(',')]
+        except ValueError:
+            wx.MessageBox(_('msg.err.params_format'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        cv_repeat = self.multi_oto_cv_repeat_text.GetValue().strip()
+        vc_repeat = self.multi_oto_vc_repeat_text.GetValue().strip()
+        ignore = self.multi_oto_ignore_text.GetValue().strip()
+        oto_preset = self.multi_oto_preset_text.GetValue().strip()
+        oto_encoding = self.multi_oto_encoding_choice.GetStringSelection()
+        cover_bool = self.multi_oto_cover_checkbox.GetValue()
+        cover = 'y' if cover_bool else 'n'
+
+        if not cv_repeat:
+            cv_repeat = "1"
+        if not vc_repeat:
+            vc_repeat = "1"
+
+        # 获取所有子文件夹
+        subfolders = sorted([d for d in os.listdir(root_path)
+                             if os.path.isdir(os.path.join(root_path, d))])
+        if not subfolders:
+            wx.MessageBox(_('msg.err.multi_oto.no_subfolders'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        def generate_multi_oto_thread():
+            try:
+                wx.CallAfter(self.multi_oto_result_text.Clear)
+                wx.CallAfter(self.multi_oto_result_text.AppendText,
+                             _('log.multi_oto.start').format(count=len(subfolders)))
+
+                from oto import oto_rw
+                from oto import oto_check
+
+                success_count = 0
+                for folder_name in subfolders:
+                    sub_path = os.path.join(root_path, folder_name)
+                    word_phone_path = os.path.join(sub_path, 'json', 'word_phone.json')
+
+                    if not os.path.exists(word_phone_path):
+                        wx.CallAfter(self.multi_oto_result_text.AppendText,
+                                     _('log.multi_oto.skip').format(folder=folder_name))
+                        continue
+
+                    pitch = folder_name  # 音阶后缀 = 文件夹名
+                    wx.CallAfter(self.multi_oto_result_text.AppendText,
+                                 _('log.multi_oto.processing').format(folder=folder_name, pitch=pitch))
+
+                    with TextRedirector(self.multi_oto_result_text):
+                        wx.CallAfter(self.multi_oto_result_text.AppendText,
+                                     _('log.generate_mode').format(
+                                         mode=['CVVC', 'VCV', 'CVV', 'ARPAsing', 'Test'][int(vcv_mode)]))
+
+                        if vcv_mode == '1':
+                            json2VCV_oto.run(presamp_path, word_phone_path,
+                                             sub_path, cv_sum, vc_sum, vv_sum, ignore)
+                        elif vcv_mode == '3':
+                            json2arpasing_oto.run(presamp_path, word_phone_path,
+                                                  sub_path, cv_sum, vc_sum, vv_sum, ignore)
+                        elif vcv_mode == '2':
+                            json2CV_oto.run(presamp_path, word_phone_path,
+                                            sub_path, cv_sum, vc_sum, vv_sum, ignore)
+                        elif vcv_mode == '0':
+                            json2oto.run(presamp_path, word_phone_path,
+                                         sub_path, cv_sum, vc_sum, vv_sum, ignore)
+                        elif vcv_mode == '4':
+                            json2test.run(presamp_path, word_phone_path,
+                                          sub_path, cv_sum, vc_sum, vv_sum, ignore)
+
+                        cv = oto_rw.oto_read(os.path.join(sub_path, 'cv_oto.ini'))
+                        vc = oto_rw.oto_read(os.path.join(sub_path, 'vc_oto.ini'))
+
+                        if not os.path.exists(oto_preset) or oto_preset == "":
+                            cv = oto_rw.oto_repeat(cv, int(cv_repeat))
+                            vc = oto_rw.oto_repeat(vc, int(vc_repeat))
+
+                        if cv_offset != [0.0, 0.0, 0.0, 0.0, 0.0]:
+                            cv = oto_rw.oto_offset(cv, cv_offset)
+                        if vc_offset != [0.0, 0.0, 0.0, 0.0, 0.0]:
+                            vc = oto_rw.oto_offset(vc, vc_offset)
+
+                        oto_rw.oto_write(os.path.join(sub_path, 'auto_oto.ini'), cv + vc, '', cover, oto_encoding)
+
+                        oto_data = oto_rw.oto_read(os.path.join(sub_path, 'auto_oto.ini'))
+                        if os.path.exists(oto_preset):
+                            oto_data = oto_rw.oto_apply_template(oto_data, oto_preset)
+                        oto_rw.oto_write(os.path.join(sub_path, 'oto.ini'), oto_data, pitch, cover, oto_encoding)
+
+                        oto_check.run(os.path.join(sub_path, 'oto.ini'), presamp_path, pitch, vcv_mode)
+
+                    success_count += 1
+                    wx.CallAfter(self.multi_oto_result_text.AppendText,
+                                 _('log.multi_oto.done').format(folder=folder_name))
+
+                wx.CallAfter(self.multi_oto_result_text.AppendText,
+                             _('log.multi_oto.complete').format(success=success_count, total=len(subfolders)))
+                wx.CallAfter(wx.MessageBox,
+                             _('msg.ok.multi_oto_complete').format(success=success_count, total=len(subfolders)),
+                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception as e:
+                wx.CallAfter(self.multi_oto_result_text.AppendText, _('log.failed').format(error=str(e)))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=str(e)),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+
+        thread = threading.Thread(target=generate_multi_oto_thread)
         thread.start()
 
     def on_browse_folder(self, event, text_ctrl):
@@ -1150,7 +1505,6 @@ class MainFrame(wx.Frame):
         def infer_thread():
             try:
                 wx.CallAfter(self.infer_result_text.Clear)
-                wx.CallAfter(self.infer_result_text.AppendText, _('log.loading_model'))
 
                 # 获取用户选择的设备
                 device_selection = self.device_choice.GetSelection()
@@ -1168,47 +1522,132 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.lang_info').format(lang=language))
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.device_info').format(device=device.upper()))
 
-                inference = onnx_infer.InferenceOnnx(model_path)
-                wx.CallAfter(self.infer_result_text.AppendText, _('log.loading_config'))
-                inference.load_config()
-                wx.CallAfter(self.infer_result_text.AppendText, _('log.loading_model_weights'))
-                inference.load_model(device=device)  # 传递设备选择
-                wx.CallAfter(self.infer_result_text.AppendText, _('log.init_decoder'))
-                inference.init_decoder()
-
-                def progress_callback(msg):
-                    wx.CallAfter(self.infer_result_text.AppendText, msg + "\n")
-                    wx.CallAfter(self.infer_result_text.ShowPosition, self.infer_result_text.GetLastPosition())
-
-                inference.set_progress_callback(progress_callback)
-
-                wx.CallAfter(self.infer_result_text.AppendText, _('log.loading_dataset'))
-                inference.get_dataset(wav_folder, language=language, g2p="dictionary", dictionary_path=str(dict_path), in_format="lab")
-
-                # # 获取用户选择的推理参数
+                # 获取用户选择的推理参数
                 pad_times_selection = self.pad_times_choice.GetSelection()
                 pad_times = self.pad_times_choice.GetClientData(pad_times_selection)
-
                 pad_length_selection = self.pad_length_choice.GetSelection()
                 pad_length = self.pad_length_choice.GetClientData(pad_length_selection)
-
-                # pad_times = 2
-                # pad_length = 5
+                merge_phonemes = self.merge_phonemes_checkbox.GetValue()
 
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.start_infer'))
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_times').format(times=pad_times))
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.pad_length').format(len=pad_length))
-                merge_phonemes = self.merge_phonemes_checkbox.GetValue()
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.merge_phonemes').format(merge=merge_phonemes))
-                inference.infer(non_lexical_phonemes="AP", pad_times=pad_times, pad_length=pad_length, merge_phonemes=merge_phonemes)
-                wx.CallAfter(self.infer_result_text.AppendText, _('log.exporting'))
-                inference.export(wav_folder)
 
-                wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_complete'))
-                wx.CallAfter(wx.MessageBox, _('msg.ok.infer_complete'), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+                # ── DML 模式：多进程并行推理 ──
+                if device == 'dml':
+                    import multiprocessing
+                    from pathlib import Path as _Path
+
+                    # 获取用户选择的并行工作线程数
+                    worker_sel = self.worker_choice.GetSelection()
+                    num_workers = self.worker_choice.GetClientData(worker_sel)
+
+                    # 收集所有 wav 文件
+                    all_wavs = sorted([str(p) for p in _Path(wav_folder).rglob("*.wav") if p.with_suffix(".lab").exists()])
+                    total_files = len(all_wavs)
+
+                    if num_workers <= 1 or total_files < num_workers * 2:
+                        # 线程数<=1或文件太少，退化为单进程推理
+                        wx.CallAfter(self.infer_result_text.AppendText,
+                            _('log.parallel_dml_skip').format(count=total_files, workers=num_workers))
+                        _run_single_inference(model_path, wav_folder, language, dict_path,
+                                            device, pad_times, pad_length, merge_phonemes)
+                    else:
+                        # 将文件列表平分给各工作进程
+                        chunk_size = (total_files + num_workers - 1) // num_workers
+                        wav_chunks = [all_wavs[i:i + chunk_size] for i in range(0, total_files, chunk_size)]
+
+                        wx.CallAfter(self.infer_result_text.AppendText,
+                            _('log.parallel_dml_start').format(total=total_files, workers=num_workers,
+                                                               sizes=", ".join(str(len(c)) for c in wav_chunks)))
+
+                        # 创建消息队列，让子进程回传进度信息
+                        msg_queue = multiprocessing.Queue()
+
+                        processes = []
+                        for i, chunk in enumerate(wav_chunks):
+                            p = multiprocessing.Process(
+                                target=onnx_infer.dml_worker,
+                                args=(i + 1, str(model_path), wav_folder, language, str(dict_path),
+                                      device, pad_times, pad_length, merge_phonemes, "AP", chunk, msg_queue)
+                            )
+                            processes.append(p)
+                            p.start()
+
+                        # 监控队列：将子进程消息实时显示到 GUI
+                        def monitor_queue():
+                            alive = [True] * len(processes)
+                            while any(alive):
+                                # 从队列读取所有可用消息
+                                while not msg_queue.empty():
+                                    try:
+                                        msg = msg_queue.get_nowait()
+                                        wx.CallAfter(self.infer_result_text.AppendText, msg + "\n")
+                                        wx.CallAfter(self.infer_result_text.ShowPosition,
+                                                     self.infer_result_text.GetLastPosition())
+                                    except Exception:
+                                        break
+                                # 检查进程状态
+                                for i, p in enumerate(processes):
+                                    if alive[i] and not p.is_alive():
+                                        alive[i] = False
+                                import time
+                                time.sleep(0.2)
+                            # 最后再清一次队列
+                            while not msg_queue.empty():
+                                try:
+                                    msg = msg_queue.get_nowait()
+                                    wx.CallAfter(self.infer_result_text.AppendText, msg + "\n")
+                                except Exception:
+                                    break
+
+                        monitor_queue()
+                        # 确保所有进程真正结束
+                        for p in processes:
+                            p.join()
+
+                        wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_complete'))
+                        wx.CallAfter(wx.MessageBox, _('msg.ok.infer_complete'), _('msg.success'),
+                                     wx.OK | wx.ICON_INFORMATION)
+                else:
+                    # ── CPU 模式：单进程推理 ──
+                    _run_single_inference(model_path, wav_folder, language, dict_path,
+                                         device, pad_times, pad_length, merge_phonemes)
+
             except Exception as e:
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_failed').format(error=str(e)))
                 wx.CallAfter(wx.MessageBox, _('log.infer_failed').format(error=str(e)), _('msg.error'), wx.OK | wx.ICON_ERROR)
+
+        def _run_single_inference(model_path, wav_folder, language, dict_path,
+                                  device, pad_times, pad_length, merge_phonemes):
+            """单进程推理（CPU 模式或 DML 文件太少时使用）"""
+            inference = onnx_infer.InferenceOnnx(model_path)
+            wx.CallAfter(self.infer_result_text.AppendText, _('log.loading_config'))
+            inference.load_config()
+            wx.CallAfter(self.infer_result_text.AppendText, _('log.loading_model_weights'))
+            inference.load_model(device=device)
+            wx.CallAfter(self.infer_result_text.AppendText, _('log.init_decoder'))
+            inference.init_decoder()
+
+            def progress_callback(msg):
+                wx.CallAfter(self.infer_result_text.AppendText, msg + "\n")
+                wx.CallAfter(self.infer_result_text.ShowPosition, self.infer_result_text.GetLastPosition())
+
+            inference.set_progress_callback(progress_callback)
+
+            wx.CallAfter(self.infer_result_text.AppendText, _('log.loading_dataset'))
+            inference.get_dataset(wav_folder, language=language, g2p="dictionary",
+                                  dictionary_path=str(dict_path), in_format="lab")
+
+            inference.infer(non_lexical_phonemes="AP", pad_times=pad_times,
+                           pad_length=pad_length, merge_phonemes=merge_phonemes)
+            wx.CallAfter(self.infer_result_text.AppendText, _('log.exporting'))
+            inference.export(wav_folder)
+
+            wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_complete'))
+            wx.CallAfter(wx.MessageBox, _('msg.ok.infer_complete'), _('msg.success'),
+                         wx.OK | wx.ICON_INFORMATION)
 
         thread = threading.Thread(target=infer_thread)
         thread.start()
@@ -1302,6 +1741,8 @@ class MainFrame(wx.Frame):
         thread.start()
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     try:
         app = wx.App()
         frame = MainFrame()
