@@ -1,6 +1,7 @@
 import wx
 import os
 import sys
+import traceback
 import threading
 from pathlib import Path
 
@@ -39,6 +40,7 @@ class TextRedirector:
     
     def flush(self):
         self.original_stdout.flush()
+        self.original_stderr.flush()
     
     def __enter__(self):
         sys.stdout = self
@@ -994,9 +996,10 @@ class MainFrame(wx.Frame):
                 
                 wx.CallAfter(self.svdb_result_text.AppendText, _('log.svdb_complete').format(count=processed_count))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.svgdb_complete').format(count=processed_count), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
-            except Exception as e:
-                wx.CallAfter(self.svdb_result_text.AppendText, _('log.failed').format(error=str(e)))
-                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=str(e)), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.svdb_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb), _('msg.error'), wx.OK | wx.ICON_ERROR)
         
         thread = threading.Thread(target=generate_svdb_thread)
         thread.start()
@@ -1056,8 +1059,8 @@ class MainFrame(wx.Frame):
             self.oto_cv_offset_text.SetValue("0,0,0,0,0")
             self.oto_vc_offset_text.SetValue("0,0,0,0,0")
         elif mode == 4:  # Test
-            self.oto_cv_sum_text.SetValue("1,8,1.5,1,4")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,2")
+            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
+            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
             self.oto_vv_sum_text.SetValue("3,3,1.5,1,2")
             self.oto_cv_offset_text.SetValue("0,0,0,0,0")
             self.oto_vc_offset_text.SetValue("0,0,0,0,0")
@@ -1097,7 +1100,7 @@ class MainFrame(wx.Frame):
             self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
         elif mode == 4:
             self.multi_oto_cv_sum_text.SetValue("1,8,1.5,1,4")
-            self.multi_oto_vc_sum_text.SetValue("3,0,2,1,2")
+            self.multi_oto_vc_sum_text.SetValue("3,0,2,1,3")
             self.multi_oto_vv_sum_text.SetValue("3,3,1.5,1,2")
             self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
             self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
@@ -1218,7 +1221,7 @@ class MainFrame(wx.Frame):
                     oto_data = oto_rw.oto_read(os.path.join(wav_path, 'auto_oto.ini'))
                     if os.path.exists(oto_preset):
                         wx.CallAfter(self.oto_result_text.AppendText, _('log.apply_template').format(path=oto_preset))
-                        oto_data = oto_rw.oto_apply_template(oto_data, oto_preset)
+                        oto_data = oto_rw.oto_apply_template(oto_data, oto_preset,pitch)
                     oto_rw.oto_write(os.path.join(wav_path, 'oto.ini'), oto_data, pitch, cover, oto_encoding)
                     
                     
@@ -1228,9 +1231,10 @@ class MainFrame(wx.Frame):
                 
                 wx.CallAfter(self.oto_result_text.AppendText, _('log.oto_complete'))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.oto_complete'), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
-            except Exception as e:
-                wx.CallAfter(self.oto_result_text.AppendText, _('log.failed').format(error=str(e)))
-                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=str(e)), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.oto_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb), _('msg.error'), wx.OK | wx.ICON_ERROR)
         
         thread = threading.Thread(target=generate_oto_thread)
         thread.start()
@@ -1358,9 +1362,10 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(wx.MessageBox,
                              _('msg.ok.multi_oto_complete').format(success=success_count, total=len(subfolders)),
                              _('msg.success'), wx.OK | wx.ICON_INFORMATION)
-            except Exception as e:
-                wx.CallAfter(self.multi_oto_result_text.AppendText, _('log.failed').format(error=str(e)))
-                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=str(e)),
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.multi_oto_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
                              _('msg.error'), wx.OK | wx.ICON_ERROR)
 
         thread = threading.Thread(target=generate_multi_oto_thread)
@@ -1429,9 +1434,10 @@ class MainFrame(wx.Frame):
 
                 wx.CallAfter(self.lab_result_text.AppendText, _('log.lab_complete'))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.generate_complete'), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
-            except Exception as e:
-                wx.CallAfter(self.lab_result_text.AppendText, _('log.failed').format(error=str(e)))
-                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=str(e)), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.lab_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb), _('msg.error'), wx.OK | wx.ICON_ERROR)
 
         thread = threading.Thread(target=generate_lab_thread)
         thread.start()
@@ -1469,9 +1475,10 @@ class MainFrame(wx.Frame):
 
                 wx.CallAfter(self.lab_index_result_text.AppendText, _('log.lab_index_complete'))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.generate_complete'), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
-            except Exception as e:
-                wx.CallAfter(self.lab_index_result_text.AppendText, _('log.failed').format(error=str(e)))
-                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=str(e)), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.lab_index_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb), _('msg.error'), wx.OK | wx.ICON_ERROR)
 
         thread = threading.Thread(target=generate_lab_from_index_thread)
         thread.start()
@@ -1615,9 +1622,10 @@ class MainFrame(wx.Frame):
                     _run_single_inference(model_path, wav_folder, language, dict_path,
                                          device, pad_times, pad_length, merge_phonemes)
 
-            except Exception as e:
-                wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_failed').format(error=str(e)))
-                wx.CallAfter(wx.MessageBox, _('log.infer_failed').format(error=str(e)), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.infer_failed').format(error=tb), _('msg.error'), wx.OK | wx.ICON_ERROR)
 
         def _run_single_inference(model_path, wav_folder, language, dict_path,
                                   device, pad_times, pad_length, merge_phonemes):
@@ -1733,9 +1741,10 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.json_result_text.AppendText, _('log.json_complete').format(count=processed_count))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.generate_json_complete').format(count=processed_count), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
 
-            except Exception as e:
-                wx.CallAfter(self.json_result_text.AppendText, _('log.failed').format(error=str(e)))
-                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=str(e)), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.json_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb), _('msg.error'), wx.OK | wx.ICON_ERROR)
 
         thread = threading.Thread(target=generate_json_thread)
         thread.start()
@@ -1748,7 +1757,7 @@ if __name__ == "__main__":
         frame = MainFrame()
         frame.Show()
         app.MainLoop()
-    except Exception as e:
-        error_msg = f"程序启动失败！\n错误: {str(e)}"
-        print(error_msg)  # 输出到cmd窗口
+    except Exception:
+        error_msg = f"程序启动失败！\n{traceback.format_exc()}"
+        print(error_msg, file=sys.stderr)  # 输出到cmd窗口
         input("按回车键退出...")  # 防止窗口立即关闭

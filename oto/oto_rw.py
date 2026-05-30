@@ -76,7 +76,8 @@ def oto_read(file_path):
         quit()
     print(f'{GREEN}oto文件解析成功：{file_path}{RESET}')
     return oto_check(file_path,oto_data)
-#没写完
+
+
 def oto_repeat(oto_data,repeat):
     phone_count = {}
     new_oto_data = []
@@ -125,7 +126,7 @@ def oto_offset(oto_data,offset):
     return new_oto_data
 
 
-def oto_apply_template(oto_origin, template_path):
+def oto_apply_template(oto_origin, template_path,pitch):
     """
     根据oto模板生成oto数据。
     读取模板文件，获取 xxx.wav=音素 对，
@@ -156,6 +157,9 @@ def oto_apply_template(oto_origin, template_path):
                     wav_name = parts[0]
                     parts2 = parts[1].split(',')
                     phoneme = parts2[0]
+                    # 如果音素名已包含 pitch 后缀，剥离掉，避免后续 oto_write 重复追加
+                    if pitch and phoneme.endswith(pitch):
+                        phoneme = phoneme[:-len(pitch)]
                     try:
                         nums = [int(round(float(n))) for n in parts2[1:]]
                     except ValueError:

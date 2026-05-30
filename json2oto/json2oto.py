@@ -73,6 +73,7 @@ def json2cvoto(cv_data,sum,ignore):
                 else:
                     fixed = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[1]+ Prevoice
                 if Prevoice == 0:
+                    Prevoice = 20
                     cross = 20
                 else:
                     cross = float(Prevoice) / sum[4]
@@ -95,6 +96,7 @@ def json2cvoto(cv_data,sum,ignore):
             else:
                 fixed = (float(cont['xmax'])-float(cont['middle']))*1000/sum[1]+ Prevoice
             if Prevoice == 0:
+                Prevoice = 20
                 cross = 20
             else:
                 cross = float(Prevoice) / sum[4]
@@ -204,6 +206,9 @@ def json2coto(cv_data,sum,ignore,CV_C):
                     continue
             if cont['text'] in ignore and i < len(sorted_phones) - 1:
                 key1, cont2 = sorted_phones[i + 1]
+                if cont2['text'] not in CV_C:
+                    i += 2
+                    continue
                 phone_name = '- ' + CV_C[cont2['text']]
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont2['xmin']) * 1000
