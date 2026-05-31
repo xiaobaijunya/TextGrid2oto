@@ -65,7 +65,11 @@ def json2cvoto(cv_data,sum,ignore):
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont2['xmin'])*1000/sum[0]
 
-                Prevoice = (float(cont2['middle']) - float(cont2['xmin'])) * 1000 / sum[3]
+                Prevoice = (float(cont2['middle']) - float(cont2['xmin'])) * 1000
+                if sum[3] != 1 or sum[3] != '1':
+                    Prevoice2 = Prevoice / sum[3]
+                    left += Prevoice - Prevoice2
+                    Prevoice = Prevoice2
                 #右线占比
                 right = (float(cont2['xmax'])-float(cont2['middle']))*1000/sum[2] + Prevoice
                 # 固定的占比
@@ -85,7 +89,11 @@ def json2cvoto(cv_data,sum,ignore):
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont['xmin']) * 1000 / sum[0]
 
-                Prevoice = (float(cont['middle']) - float(cont['xmin'])) * 1000 / sum[3]
+                Prevoice = (float(cont['middle']) - float(cont['xmin'])) * 1000
+                if sum[3] != 1 or sum[3] != '1':
+                    Prevoice2 = Prevoice / sum[3]
+                    left += Prevoice - Prevoice2
+                    Prevoice = Prevoice2
                 if sum[3] != 1:
                     left = left + ((float(cont['middle']) - float(cont['xmin'])) * 1000 - Prevoice)
                 # 右线占比
@@ -111,7 +119,11 @@ def json2cvoto(cv_data,sum,ignore):
             # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
             left = float(cont['xmin']) * 1000 / sum[0]
 
-            Prevoice = (float(cont['middle'])- float(cont['xmin'])) * 1000 / sum[3]
+            Prevoice = (float(cont['middle'])- float(cont['xmin'])) * 1000
+            if sum[3] != 1 or sum[3] != '1':
+                Prevoice2 = Prevoice / sum[3]
+                left += Prevoice - Prevoice2
+                Prevoice = Prevoice2
             if sum[3] != 1:
                 left = left + ((float(cont['middle'])- float(cont['xmin'])) * 1000 - Prevoice)
             # 右线占比

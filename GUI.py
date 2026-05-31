@@ -1047,9 +1047,9 @@ class MainFrame(wx.Frame):
             self.oto_cv_offset_text.SetValue("0,0,0,0,0")
             self.oto_vc_offset_text.SetValue("0,0,0,0,0")
         elif mode == 2:  # CVV
-            self.oto_cv_sum_text.SetValue("1,3,1,1,3")
-            self.oto_vc_sum_text.SetValue("5,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("0,0,0,0,6")
+            self.oto_cv_sum_text.SetValue("1,3,1.3,2,2")
+            self.oto_vc_sum_text.SetValue("5,1,2,1,3")
+            self.oto_vv_sum_text.SetValue("5,3,1,1,2")
             self.oto_cv_offset_text.SetValue("0,0,0,0,0")
             self.oto_vc_offset_text.SetValue("0,0,0,0,0")
         elif mode == 3:  # VCV
@@ -1074,36 +1074,36 @@ class MainFrame(wx.Frame):
 
     def on_multi_oto_mode_changed(self, event):
         mode = self.multi_oto_mode_choice.GetSelection()
-        if mode == 0:
-            self.multi_oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.multi_oto_vc_sum_text.SetValue("3,0,2,1,3")
-            self.multi_oto_vv_sum_text.SetValue("3,3,1.5,1,3")
-            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 1:
-            self.multi_oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.multi_oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
-            self.multi_oto_vv_sum_text.SetValue("0,0,0,0,0")
-            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 2:
-            self.multi_oto_cv_sum_text.SetValue("1,3,1,1,3")
-            self.multi_oto_vc_sum_text.SetValue("5,0,2,1,3")
-            self.multi_oto_vv_sum_text.SetValue("0,0,0,0,6")
-            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 3:
-            self.multi_oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.multi_oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
-            self.multi_oto_vv_sum_text.SetValue("0,0,0,0,0")
-            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 4:
-            self.multi_oto_cv_sum_text.SetValue("1,8,1.5,1,4")
-            self.multi_oto_vc_sum_text.SetValue("3,0,2,1,3")
-            self.multi_oto_vv_sum_text.SetValue("3,3,1.5,1,2")
-            self.multi_oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.multi_oto_vc_offset_text.SetValue("0,0,0,0,0")
+        if mode == 0:  # CVVC
+            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
+            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
+            self.oto_vv_sum_text.SetValue("3,3,1.5,1,3")
+            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
+        elif mode == 1:  # VCV
+            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
+            self.oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
+            self.oto_vv_sum_text.SetValue("0,0,0,0,0")
+            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
+        elif mode == 2:  # CVV
+            self.oto_cv_sum_text.SetValue("1,2.5,1.5,1.5,2")
+            self.oto_vc_sum_text.SetValue("5,1,2,1,3")
+            self.oto_vv_sum_text.SetValue("2,3,1,1,2")
+            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
+        elif mode == 3:  # VCV
+            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
+            self.oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
+            self.oto_vv_sum_text.SetValue("0,0,0,0,0")
+            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
+        elif mode == 4:  # Test
+            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
+            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
+            self.oto_vv_sum_text.SetValue("3,3,1.5,1,2")
+            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
+            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
     
     def on_generate_oto(self, event):
         wav_path = self.oto_path_text.GetValue().strip()
