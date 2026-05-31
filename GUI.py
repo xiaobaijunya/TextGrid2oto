@@ -26,6 +26,7 @@ from json2oto import json2CV_oto, json2oto, json2VCV_oto, json2test,json2arpasin
 sys.path.append(str(ROOT / 'tg2svdb'))
 from tg2svdb import tg2sv_change
 from i18n import _
+from oto.oto_param_panel import OtoParamPanel
 
 class TextRedirector:
     def __init__(self, text_ctrl):
@@ -53,7 +54,7 @@ class TextRedirector:
 
 class MainFrame(wx.Frame):
     def __init__(self):
-        super().__init__(None, title=_('window.title'), size=(960, 720))
+        super().__init__(None, title=_('window.title'), size=(850, 760))
         from i18n import register
         register(self, 'window.title', 'title')
         
@@ -73,11 +74,12 @@ class MainFrame(wx.Frame):
         # 第一个标签页：根据wav名生成lab（常规）
         lab_wav_panel = wx.Panel(lab_notebook)
         lab_wav_sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        lab_wav_title = wx.StaticText(lab_wav_panel, label=_('lab.tab.wavname'))
-        register(lab_wav_title, 'lab.tab.wavname')
-        lab_wav_sizer.Add(lab_wav_title, 0, wx.ALL | wx.CENTER, 10)
-        
+
+        # ── 音源设置 ──
+        wav_box = wx.StaticBox(lab_wav_panel, label=_('lab.wavname.settings'))
+        wav_box_sizer = wx.StaticBoxSizer(wav_box, wx.VERTICAL)
+        register(wav_box, 'lab.wavname.settings', 'label')
+
         path_sizer = wx.BoxSizer(wx.HORIZONTAL)
         path_label = wx.StaticText(lab_wav_panel, label=_('lab.wavname.folder'))
         register(path_label, 'lab.wavname.folder')
@@ -85,42 +87,45 @@ class MainFrame(wx.Frame):
         browse_btn = wx.Button(lab_wav_panel, label=_('lab.wavname.browse_folder'))
         register(browse_btn, 'lab.wavname.browse_folder', 'button')
         browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.path_text))
-        path_sizer.Add(path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        path_sizer.Add(self.path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        path_sizer.Add(browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_wav_sizer.Add(path_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+        path_sizer.Add(path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        path_sizer.Add(self.path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        path_sizer.Add(browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        wav_box_sizer.Add(path_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
         separator_sizer = wx.BoxSizer(wx.HORIZONTAL)
         separator_label = wx.StaticText(lab_wav_panel, label=_('lab.wavname.separator'))
         register(separator_label, 'lab.wavname.separator')
         self.separator_text = wx.TextCtrl(lab_wav_panel, value="_,-", size=(200, -1))
-        separator_sizer.Add(separator_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        separator_sizer.Add(self.separator_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_wav_sizer.Add(separator_sizer, 0, wx.ALL, 10)
-        
+        separator_sizer.Add(separator_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        separator_sizer.Add(self.separator_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        wav_box_sizer.Add(separator_sizer, 0, wx.ALL, 3)
+
         generate_btn = wx.Button(lab_wav_panel, label=_('lab.wavname.generate'))
         register(generate_btn, 'lab.wavname.generate', 'button')
         generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_lab)
-        lab_wav_sizer.Add(generate_btn, 0, wx.ALL | wx.CENTER, 10)
-        
+        wav_box_sizer.Add(generate_btn, 0, wx.ALL | wx.CENTER, 5)
+
+        lab_wav_sizer.Add(wav_box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
         # 结果显示文本框
         lab_result_label = wx.StaticText(lab_wav_panel, label=_('lab.wavname.result'))
         register(lab_result_label, 'lab.wavname.result')
-        lab_wav_sizer.Add(lab_result_label, 0, wx.ALL | wx.LEFT, 10)
-        
+        lab_wav_sizer.Add(lab_result_label, 0, wx.ALL | wx.LEFT, 5)
+
         self.lab_result_text = wx.TextCtrl(lab_wav_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
-        lab_wav_sizer.Add(self.lab_result_text, 1, wx.EXPAND | wx.ALL, 10)
-        
+        lab_wav_sizer.Add(self.lab_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
         lab_wav_panel.SetSizer(lab_wav_sizer)
         
         # 第二个标签页：根据index生成lab
         lab_index_panel = wx.Panel(lab_notebook)
         lab_index_sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        lab_index_title = wx.StaticText(lab_index_panel, label=_('lab.tab.index'))
-        register(lab_index_title, 'lab.tab.index')
-        lab_index_sizer.Add(lab_index_title, 0, wx.ALL | wx.CENTER, 10)
-        
+
+        # ── 音源设置 ──
+        idx_box = wx.StaticBox(lab_index_panel, label=_('lab.index.settings'))
+        idx_box_sizer = wx.StaticBoxSizer(idx_box, wx.VERTICAL)
+        register(idx_box, 'lab.index.settings', 'label')
+
         # WAV路径框
         lab_wav_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
         lab_wav_path_label = wx.StaticText(lab_index_panel, label=_('lab.index.wav_path'))
@@ -129,11 +134,11 @@ class MainFrame(wx.Frame):
         lab_wav_browse_btn = wx.Button(lab_index_panel, label=_('lab.index.browse_wav'))
         register(lab_wav_browse_btn, 'lab.index.browse_wav', 'button')
         lab_wav_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.lab_wav_path_text))
-        lab_wav_path_sizer.Add(lab_wav_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_wav_path_sizer.Add(self.lab_wav_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_wav_path_sizer.Add(lab_wav_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_index_sizer.Add(lab_wav_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+        lab_wav_path_sizer.Add(lab_wav_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        lab_wav_path_sizer.Add(self.lab_wav_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        lab_wav_path_sizer.Add(lab_wav_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        idx_box_sizer.Add(lab_wav_path_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
         # Index路径框
         lab_index_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
         lab_index_path_label = wx.StaticText(lab_index_panel, label=_('lab.index.index_path'))
@@ -142,33 +147,35 @@ class MainFrame(wx.Frame):
         lab_index_browse_btn = wx.Button(lab_index_panel, label=_('lab.index.browse_file'))
         register(lab_index_browse_btn, 'lab.index.browse_file', 'button')
         lab_index_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.lab_index_path_text))
-        lab_index_path_sizer.Add(lab_index_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_index_path_sizer.Add(self.lab_index_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_index_path_sizer.Add(lab_index_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_index_sizer.Add(lab_index_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+        lab_index_path_sizer.Add(lab_index_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        lab_index_path_sizer.Add(self.lab_index_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        lab_index_path_sizer.Add(lab_index_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        idx_box_sizer.Add(lab_index_path_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
         # 分隔符输入框
         lab_separator_sizer = wx.BoxSizer(wx.HORIZONTAL)
         lab_separator_label = wx.StaticText(lab_index_panel, label=_('lab.index.separator'))
         register(lab_separator_label, 'lab.index.separator')
         self.lab_separator_text = wx.TextCtrl(lab_index_panel, value="_,-", size=(200, -1))
-        lab_separator_sizer.Add(lab_separator_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_separator_sizer.Add(self.lab_separator_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        lab_index_sizer.Add(lab_separator_sizer, 0, wx.ALL, 10)
+        lab_separator_sizer.Add(lab_separator_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        lab_separator_sizer.Add(self.lab_separator_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        idx_box_sizer.Add(lab_separator_sizer, 0, wx.ALL, 3)
 
         lab_index_generate_btn = wx.Button(lab_index_panel, label=_('lab.index.generate'))
         register(lab_index_generate_btn, 'lab.index.generate', 'button')
         lab_index_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_lab_from_index)
-        lab_index_sizer.Add(lab_index_generate_btn, 0, wx.ALL | wx.CENTER, 10)
-        
+        idx_box_sizer.Add(lab_index_generate_btn, 0, wx.ALL | wx.CENTER, 5)
+
+        lab_index_sizer.Add(idx_box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
         # 结果显示文本框
         lab_index_result_label = wx.StaticText(lab_index_panel, label=_('lab.index.result'))
         register(lab_index_result_label, 'lab.index.result')
-        lab_index_sizer.Add(lab_index_result_label, 0, wx.ALL | wx.LEFT, 10)
-        
+        lab_index_sizer.Add(lab_index_result_label, 0, wx.ALL | wx.LEFT, 5)
+
         self.lab_index_result_text = wx.TextCtrl(lab_index_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
-        lab_index_sizer.Add(self.lab_index_result_text, 1, wx.EXPAND | wx.ALL, 10)
-        
+        lab_index_sizer.Add(self.lab_index_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
         lab_index_panel.SetSizer(lab_index_sizer)
         
         # 添加两个标签页到notebook
@@ -185,82 +192,82 @@ class MainFrame(wx.Frame):
 
         textgrid_title = wx.StaticText(textgrid_panel, label=_('textgrid.title'))
         register(textgrid_title, 'textgrid.title')
-        textgrid_sizer.Add(textgrid_title, 0, wx.ALL | wx.CENTER, 10)
+        textgrid_sizer.Add(textgrid_title, 0, wx.ALL | wx.CENTER, 5)
 
-        # 顶部：音源文件夹（占据整个宽度）
-        folder_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        folder_label = wx.StaticText(textgrid_panel, label=_('textgrid.folder'))
-        register(folder_label, 'textgrid.folder')
+        # ── 音源文件夹 ──
+        folder_box = wx.StaticBox(textgrid_panel, label=_('textgrid.folder'))
+        folder_box_sizer = wx.StaticBoxSizer(folder_box, wx.HORIZONTAL)
+        register(folder_box, 'textgrid.folder', 'label')
         self.textgrid_folder_text = wx.TextCtrl(textgrid_panel, size=(500, -1))
         browse_folder_btn = wx.Button(textgrid_panel, label=_('textgrid.browse_folder'))
         register(browse_folder_btn, 'textgrid.browse_folder', 'button')
         browse_folder_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.textgrid_folder_text))
-        folder_sizer.Add(folder_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        folder_sizer.Add(self.textgrid_folder_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        folder_sizer.Add(browse_folder_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        textgrid_sizer.Add(folder_sizer, 0, wx.EXPAND | wx.ALL, 10)
+        folder_box_sizer.Add(self.textgrid_folder_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        folder_box_sizer.Add(browse_folder_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        textgrid_sizer.Add(folder_box_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # 主内容区域：左右两栏
         main_content_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        # 左侧栏
-        left_panel = wx.Panel(textgrid_panel)
-        left_sizer = wx.BoxSizer(wx.VERTICAL)
+        # 左侧栏：模型选择
+        left_model_box = wx.StaticBox(textgrid_panel, label=_('textgrid.model_section'))
+        left_sizer = wx.StaticBoxSizer(left_model_box, wx.VERTICAL)
+        register(left_model_box, 'textgrid.model_section', 'label')
 
         model_folder_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        model_folder_label = wx.StaticText(left_panel, label=_('textgrid.model_folder'))
+        model_folder_label = wx.StaticText(textgrid_panel, label=_('textgrid.model_folder'))
         register(model_folder_label, 'textgrid.model_folder')
-        self.model_folder_choice = wx.Choice(left_panel, size=(250, -1))
+        self.model_folder_choice = wx.Choice(textgrid_panel, size=(250, -1))
         self.model_folder_choice.Bind(wx.EVT_CHOICE, self.on_model_folder_selected)
-        model_folder_sizer.Add(model_folder_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        model_folder_sizer.Add(self.model_folder_choice, 1, wx.EXPAND | wx.ALL, 5)
-        left_sizer.Add(model_folder_sizer, 0, wx.ALL, 10)
+        model_folder_sizer.Add(model_folder_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        model_folder_sizer.Add(self.model_folder_choice, 1, wx.EXPAND | wx.ALL, 3)
+        left_sizer.Add(model_folder_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         model_file_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        model_file_label = wx.StaticText(left_panel, label=_('textgrid.model_file'))
+        model_file_label = wx.StaticText(textgrid_panel, label=_('textgrid.model_file'))
         register(model_file_label, 'textgrid.model_file')
-        self.model_file_choice = wx.Choice(left_panel, size=(250, -1))
-        model_file_sizer.Add(model_file_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        model_file_sizer.Add(self.model_file_choice, 1, wx.EXPAND | wx.ALL, 5)
-        left_sizer.Add(model_file_sizer, 0, wx.ALL, 10)
+        self.model_file_choice = wx.Choice(textgrid_panel, size=(250, -1))
+        model_file_sizer.Add(model_file_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        model_file_sizer.Add(self.model_file_choice, 1, wx.EXPAND | wx.ALL, 3)
+        left_sizer.Add(model_file_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         dict_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        dict_label = wx.StaticText(left_panel, label=_('textgrid.dict'))
+        dict_label = wx.StaticText(textgrid_panel, label=_('textgrid.dict'))
         register(dict_label, 'textgrid.dict')
-        self.dict_choice = wx.Choice(left_panel, size=(250, -1))
-        dict_sizer.Add(dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        dict_sizer.Add(self.dict_choice, 1, wx.EXPAND | wx.ALL, 5)
-        left_sizer.Add(dict_sizer, 0, wx.ALL, 10)
+        self.dict_choice = wx.Choice(textgrid_panel, size=(250, -1))
+        dict_sizer.Add(dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        dict_sizer.Add(self.dict_choice, 1, wx.EXPAND | wx.ALL, 3)
+        left_sizer.Add(dict_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
-        left_panel.SetSizer(left_sizer)
-        main_content_sizer.Add(left_panel, 1, wx.EXPAND | wx.ALL, 5)
+        main_content_sizer.Add(left_sizer, 1, wx.EXPAND | wx.ALL, 5)
 
         # 中间分隔线
         separator = wx.StaticLine(textgrid_panel, style=wx.LI_VERTICAL)
         main_content_sizer.Add(separator, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
 
         # 右侧栏：推理设置
-        right_panel = wx.Panel(textgrid_panel)
-        right_sizer = wx.BoxSizer(wx.VERTICAL)
+        right_infer_box = wx.StaticBox(textgrid_panel, label=_('textgrid.infer_section'))
+        right_sizer = wx.StaticBoxSizer(right_infer_box, wx.VERTICAL)
+        register(right_infer_box, 'textgrid.infer_section', 'label')
 
         # 设备选择
         device_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        device_label = wx.StaticText(right_panel, label=_('textgrid.device'))
+        device_label = wx.StaticText(textgrid_panel, label=_('textgrid.device'))
         register(device_label, 'textgrid.device')
-        self.device_choice = wx.Choice(right_panel, size=(400, -1))
+        self.device_choice = wx.Choice(textgrid_panel, size=(400, -1))
         self.device_choice.Append(_('textgrid.device.cpu'), "cpu")
         self.device_choice.Append(_('textgrid.device.dml'), "dml")
         self.device_choice.SetSelection(0)
         register(self.device_choice, '', 'choice', [('textgrid.device.cpu', 'cpu'), ('textgrid.device.dml', 'dml')])
-        device_sizer.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        device_sizer.Add(self.device_choice, 1, wx.EXPAND | wx.ALL, 5)
-        right_sizer.Add(device_sizer, 0, wx.ALL, 10)
+        device_sizer.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        device_sizer.Add(self.device_choice, 1, wx.EXPAND | wx.ALL, 3)
+        right_sizer.Add(device_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         # DML并行工作进程数选择
         worker_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        worker_label = wx.StaticText(right_panel, label=_('textgrid.workers'))
+        worker_label = wx.StaticText(textgrid_panel, label=_('textgrid.workers'))
         register(worker_label, 'textgrid.workers')
-        self.worker_choice = wx.Choice(right_panel, size=(400, -1))
+        self.worker_choice = wx.Choice(textgrid_panel, size=(400, -1))
         self.worker_choice.SetToolTip(_('textgrid.workers.tooltip'))
         register(self.worker_choice, 'textgrid.workers.tooltip', 'tooltip')
         self.worker_choice.Append(_('textgrid.workers.1'), 1)
@@ -269,15 +276,15 @@ class MainFrame(wx.Frame):
         self.worker_choice.Append(_('textgrid.workers.4'), 4)
         self.worker_choice.SetSelection(0)
         register(self.worker_choice, '', 'choice', [('textgrid.workers.1', 1), ('textgrid.workers.2', 2), ('textgrid.workers.3', 3), ('textgrid.workers.4', 4)])
-        worker_sizer.Add(worker_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        worker_sizer.Add(self.worker_choice, 1, wx.EXPAND | wx.ALL, 5)
-        right_sizer.Add(worker_sizer, 0, wx.ALL, 10)
+        worker_sizer.Add(worker_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        worker_sizer.Add(self.worker_choice, 1, wx.EXPAND | wx.ALL, 3)
+        right_sizer.Add(worker_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         # pad_times选择
         pad_times_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pad_times_label = wx.StaticText(right_panel, label=_('textgrid.pad_times'))
+        pad_times_label = wx.StaticText(textgrid_panel, label=_('textgrid.pad_times'))
         register(pad_times_label, 'textgrid.pad_times')
-        self.pad_times_choice = wx.Choice(right_panel, size=(400, -1))
+        self.pad_times_choice = wx.Choice(textgrid_panel, size=(400, -1))
         self.pad_times_choice.SetToolTip(_('textgrid.pad_times.tooltip'))
         register(self.pad_times_choice, 'textgrid.pad_times.tooltip', 'tooltip')
         self.pad_times_choice.Append(_('textgrid.pad_times.1'), 1)
@@ -285,15 +292,15 @@ class MainFrame(wx.Frame):
         self.pad_times_choice.Append(_('textgrid.pad_times.5'), 5)
         self.pad_times_choice.SetSelection(1)
         register(self.pad_times_choice, '', 'choice', [('textgrid.pad_times.1', 1), ('textgrid.pad_times.3', 3), ('textgrid.pad_times.5', 5)])
-        pad_times_sizer.Add(pad_times_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        pad_times_sizer.Add(self.pad_times_choice, 1, wx.EXPAND | wx.ALL, 5)
-        right_sizer.Add(pad_times_sizer, 0, wx.ALL, 10)
+        pad_times_sizer.Add(pad_times_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        pad_times_sizer.Add(self.pad_times_choice, 1, wx.EXPAND | wx.ALL, 3)
+        right_sizer.Add(pad_times_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         # pad_length选择
         pad_length_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pad_length_label = wx.StaticText(right_panel, label=_('textgrid.pad_length'))
+        pad_length_label = wx.StaticText(textgrid_panel, label=_('textgrid.pad_length'))
         register(pad_length_label, 'textgrid.pad_length')
-        self.pad_length_choice = wx.Choice(right_panel, size=(400, -1))
+        self.pad_length_choice = wx.Choice(textgrid_panel, size=(400, -1))
         self.pad_length_choice.SetToolTip(_('textgrid.pad_length.tooltip'))
         register(self.pad_length_choice, 'textgrid.pad_length.tooltip', 'tooltip')
         self.pad_length_choice.Append(_('textgrid.pad_length.3'), 3)
@@ -302,50 +309,48 @@ class MainFrame(wx.Frame):
         self.pad_length_choice.Append(_('textgrid.pad_length.10'), 10)
         self.pad_length_choice.SetSelection(1)
         register(self.pad_length_choice, '', 'choice', [('textgrid.pad_length.3', 3), ('textgrid.pad_length.5', 5), ('textgrid.pad_length.7', 7), ('textgrid.pad_length.10', 10)])
-        pad_length_sizer.Add(pad_length_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        pad_length_sizer.Add(self.pad_length_choice, 1, wx.EXPAND | wx.ALL, 5)
-        right_sizer.Add(pad_length_sizer, 0, wx.ALL, 10)
+        pad_length_sizer.Add(pad_length_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        pad_length_sizer.Add(self.pad_length_choice, 1, wx.EXPAND | wx.ALL, 3)
+        right_sizer.Add(pad_length_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         # 合并重复音素选项
         merge_phonemes_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.merge_phonemes_checkbox = wx.CheckBox(right_panel, label=_('textgrid.merge_phonemes'))
+        self.merge_phonemes_checkbox = wx.CheckBox(textgrid_panel, label=_('textgrid.merge_phonemes'))
         self.merge_phonemes_checkbox.SetToolTip(_('textgrid.merge_phonemes.tooltip'))
         register(self.merge_phonemes_checkbox, 'textgrid.merge_phonemes.tooltip', 'tooltip')
         register(self.merge_phonemes_checkbox, 'textgrid.merge_phonemes', 'checkbox')
         self.merge_phonemes_checkbox.SetValue(True)
-        merge_phonemes_sizer.Add(self.merge_phonemes_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        right_sizer.Add(merge_phonemes_sizer, 0, wx.ALL, 10)
+        merge_phonemes_sizer.Add(self.merge_phonemes_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        right_sizer.Add(merge_phonemes_sizer, 0, wx.ALL, 3)
 
-
-        right_panel.SetSizer(right_sizer)
-        main_content_sizer.Add(right_panel, 1, wx.EXPAND | wx.ALL, 5)
+        main_content_sizer.Add(right_sizer, 1, wx.EXPAND | wx.ALL, 5)
 
         textgrid_sizer.Add(main_content_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
         infer_btn = wx.Button(textgrid_panel, label=_('textgrid.infer'))
         register(infer_btn, 'textgrid.infer', 'button')
         infer_btn.Bind(wx.EVT_BUTTON, self.on_infer)
-        textgrid_sizer.Add(infer_btn, 0, wx.ALL | wx.CENTER, 10)
+        textgrid_sizer.Add(infer_btn, 0, wx.ALL | wx.CENTER, 5)
 
         # 结果显示文本框
         infer_result_label = wx.StaticText(textgrid_panel, label=_('textgrid.result'))
         register(infer_result_label, 'textgrid.result')
-        textgrid_sizer.Add(infer_result_label, 0, wx.ALL | wx.LEFT, 10)
+        textgrid_sizer.Add(infer_result_label, 0, wx.ALL | wx.LEFT, 5)
 
         self.infer_result_text = wx.TextCtrl(textgrid_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
-        textgrid_sizer.Add(self.infer_result_text, 1, wx.EXPAND | wx.ALL, 10)
+        textgrid_sizer.Add(self.infer_result_text, 1, wx.EXPAND | wx.ALL, 5)
 
         textgrid_panel.SetSizer(textgrid_sizer)
 
         # JSON生成面板
         json_panel = wx.Panel(notebook)
         json_sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        json_title = wx.StaticText(json_panel, label=_('json.title'))
-        register(json_title, 'json.title')
-        json_sizer.Add(json_title, 0, wx.ALL | wx.CENTER, 10)
-        
-        # WAV路径框
+
+        # ── 音源设置 ──
+        json_src_box = wx.StaticBox(json_panel, label=_('json.src_section'))
+        json_src_sizer = wx.StaticBoxSizer(json_src_box, wx.VERTICAL)
+        register(json_src_box, 'json.src_section', 'label')
+
         json_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
         json_path_label = wx.StaticText(json_panel, label=_('json.wav_folder'))
         register(json_path_label, 'json.wav_folder')
@@ -353,40 +358,11 @@ class MainFrame(wx.Frame):
         json_browse_btn = wx.Button(json_panel, label=_('json.browse_folder'))
         register(json_browse_btn, 'json.browse_folder', 'button')
         json_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.json_path_text))
-        json_path_sizer.Add(json_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        json_path_sizer.Add(self.json_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        json_path_sizer.Add(json_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        json_sizer.Add(json_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
+        json_path_sizer.Add(json_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_path_sizer.Add(self.json_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_path_sizer.Add(json_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_src_sizer.Add(json_path_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
-        json_folder_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        json_folder_label = wx.StaticText(json_panel, label=_('json.model_folder'))
-        register(json_folder_label, 'json.model_folder')
-        self.json_folder_choice = wx.Choice(json_panel, size=(300, -1))
-        self.json_folder_choice.Bind(wx.EVT_CHOICE, self.on_json_folder_selected)
-        json_folder_sizer.Add(json_folder_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        json_folder_sizer.Add(self.json_folder_choice, 1, wx.EXPAND | wx.ALL, 5)
-        json_sizer.Add(json_folder_sizer, 0, wx.ALL, 10)
-
-        # 模型字典选择
-        json_dict_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        json_dict_label = wx.StaticText(json_panel, label=_('json.model_dict'))
-        register(json_dict_label, 'json.model_dict')
-        self.json_dict_choice = wx.Choice(json_panel, size=(300, -1))
-        self.json_dict_choice.Bind(wx.EVT_CHOICE, self.on_json_dict_selected)
-        json_dict_sizer.Add(json_dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        json_dict_sizer.Add(self.json_dict_choice, 1, wx.EXPAND | wx.ALL, 5)
-        json_sizer.Add(json_dict_sizer, 0, wx.ALL, 10)
-        
-        # 忽略音素
-        json_ignore_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        json_ignore_label = wx.StaticText(json_panel, label=_('json.ignore'))
-        register(json_ignore_label, 'json.ignore')
-        self.json_ignore_text = wx.TextCtrl(json_panel, value="AP,SP,EP,R", size=(200, -1))
-        json_ignore_sizer.Add(json_ignore_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        json_ignore_sizer.Add(self.json_ignore_text, 1, wx.EXPAND | wx.ALL, 5)
-        json_sizer.Add(json_ignore_sizer, 0, wx.ALL, 10)
-
-        # 录音表路径
         json_recording_sizer = wx.BoxSizer(wx.HORIZONTAL)
         json_recording_label = wx.StaticText(json_panel, label=_('json.recording'))
         register(json_recording_label, 'json.recording')
@@ -394,25 +370,61 @@ class MainFrame(wx.Frame):
         json_recording_browse_btn = wx.Button(json_panel, label=_('json.browse'), size=(60, -1))
         register(json_recording_browse_btn, 'json.browse', 'button')
         json_recording_browse_btn.Bind(wx.EVT_BUTTON, self.on_browse_json_recording)
-        json_recording_sizer.Add(json_recording_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        json_recording_sizer.Add(self.json_recording_text, 1, wx.EXPAND | wx.ALL, 5)
-        json_recording_sizer.Add(json_recording_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        json_sizer.Add(json_recording_sizer, 0, wx.ALL, 10)
+        json_recording_sizer.Add(json_recording_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_recording_sizer.Add(self.json_recording_text, 1, wx.EXPAND | wx.ALL, 3)
+        json_recording_sizer.Add(json_recording_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_src_sizer.Add(json_recording_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
+        json_sizer.Add(json_src_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        # ── 模型与过滤 ──
+        json_model_box = wx.StaticBox(json_panel, label=_('json.model_section'))
+        json_model_sizer = wx.StaticBoxSizer(json_model_box, wx.VERTICAL)
+        register(json_model_box, 'json.model_section', 'label')
+
+        json_folder_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        json_folder_label = wx.StaticText(json_panel, label=_('json.model_folder'))
+        register(json_folder_label, 'json.model_folder')
+        self.json_folder_choice = wx.Choice(json_panel, size=(300, -1))
+        self.json_folder_choice.Bind(wx.EVT_CHOICE, self.on_json_folder_selected)
+        json_folder_sizer.Add(json_folder_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_folder_sizer.Add(self.json_folder_choice, 1, wx.EXPAND | wx.ALL, 3)
+        json_model_sizer.Add(json_folder_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
+        json_dict_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        json_dict_label = wx.StaticText(json_panel, label=_('json.model_dict'))
+        register(json_dict_label, 'json.model_dict')
+        self.json_dict_choice = wx.Choice(json_panel, size=(300, -1))
+        self.json_dict_choice.Bind(wx.EVT_CHOICE, self.on_json_dict_selected)
+        json_dict_sizer.Add(json_dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_dict_sizer.Add(self.json_dict_choice, 1, wx.EXPAND | wx.ALL, 3)
+        json_model_sizer.Add(json_dict_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 忽略音素
+        json_ignore_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        json_ignore_label = wx.StaticText(json_panel, label=_('json.ignore'))
+        register(json_ignore_label, 'json.ignore')
+        self.json_ignore_text = wx.TextCtrl(json_panel, value="AP,SP,EP,R", size=(200, -1))
+        json_ignore_sizer.Add(json_ignore_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_ignore_sizer.Add(self.json_ignore_text, 1, wx.EXPAND | wx.ALL, 3)
+        json_model_sizer.Add(json_ignore_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
+        json_sizer.Add(json_model_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # 生成JSON按钮
         generate_json_btn = wx.Button(json_panel, label=_('json.generate'))
         register(generate_json_btn, 'json.generate', 'button')
         generate_json_btn.Bind(wx.EVT_BUTTON, self.on_generate_json)
-        json_sizer.Add(generate_json_btn, 0, wx.ALL | wx.CENTER, 10)
-        
+        json_sizer.Add(generate_json_btn, 0, wx.ALL | wx.CENTER, 5)
+
         # 结果显示文本框
         json_result_label = wx.StaticText(json_panel, label=_('json.result'))
         register(json_result_label, 'json.result')
-        json_sizer.Add(json_result_label, 0, wx.ALL | wx.LEFT, 10)
-        
+        json_sizer.Add(json_result_label, 0, wx.ALL | wx.LEFT, 5)
+
         self.json_result_text = wx.TextCtrl(json_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
-        json_sizer.Add(self.json_result_text, 1, wx.EXPAND | wx.ALL, 10)
-        
+        json_sizer.Add(self.json_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
         json_panel.SetSizer(json_sizer)
 
         mark_panel = wx.Panel(notebook)
@@ -425,171 +437,29 @@ class MainFrame(wx.Frame):
         
         oto_title = wx.StaticText(oto_panel, label=_('mark.oto.title'))
         register(oto_title, 'mark.oto.title')
-        oto_sizer.Add(oto_title, 0, wx.ALL | wx.CENTER, 10)
+        oto_sizer.Add(oto_title, 0, wx.ALL | wx.CENTER, 5)
         
-        # WAV路径框
-        oto_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        oto_path_label = wx.StaticText(oto_panel, label=_('mark.oto.folder'))
-        register(oto_path_label, 'mark.oto.folder')
+        # ── 音源文件夹 ──
+        oto_folder_box = wx.StaticBox(oto_panel, label=_('mark.oto.folder'))
+        oto_folder_sizer = wx.StaticBoxSizer(oto_folder_box, wx.HORIZONTAL)
+        register(oto_folder_box, 'mark.oto.folder', 'label')
         self.oto_path_text = wx.TextCtrl(oto_panel, size=(400, -1))
         oto_browse_btn = wx.Button(oto_panel, label=_('mark.oto.browse_folder'))
         register(oto_browse_btn, 'mark.oto.browse_folder', 'button')
         oto_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.oto_path_text))
-        oto_path_sizer.Add(oto_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        oto_path_sizer.Add(self.oto_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        oto_path_sizer.Add(oto_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        oto_sizer.Add(oto_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
-        # Presamp路径和预设
-        presamp_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        presamp_path_label = wx.StaticText(oto_panel, label=_('mark.oto.presamp_path'))
-        register(presamp_path_label, 'mark.oto.presamp_path')
-        self.oto_presamp_path_text = wx.TextCtrl(oto_panel, size=(300, -1))
-        presamp_browse_btn = wx.Button(oto_panel, label=_('mark.oto.browse'))
-        register(presamp_browse_btn, 'mark.oto.browse', 'button')
-        presamp_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.oto_presamp_path_text))
-        presamp_preset_label = wx.StaticText(oto_panel, label=_('mark.oto.presamp_preset'))
-        register(presamp_preset_label, 'mark.oto.presamp_preset')
-        self.oto_presamp_choice = wx.Choice(oto_panel, size=(150, -1))
-        self.oto_presamp_choice.Bind(wx.EVT_CHOICE, self.on_oto_presamp_selected)
-        presamp_sizer.Add(presamp_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        presamp_sizer.Add(self.oto_presamp_path_text, 1, wx.EXPAND | wx.ALL, 5)
-        presamp_sizer.Add(presamp_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        presamp_sizer.Add(presamp_preset_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        presamp_sizer.Add(self.oto_presamp_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        oto_sizer.Add(presamp_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
-        # oto模板路径
-        oto_preset_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        oto_preset_label = wx.StaticText(oto_panel, label=_('mark.oto.template'))
-        register(oto_preset_label, 'mark.oto.template')
-        self.oto_preset_text = wx.TextCtrl(oto_panel, value="", size=(300, -1))
-        oto_preset_browse_btn = wx.Button(oto_panel, label=_('mark.oto.browse'))
-        register(oto_preset_browse_btn, 'mark.oto.browse', 'button')
-        oto_preset_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.oto_preset_text))
-        oto_preset_sizer.Add(oto_preset_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        oto_preset_sizer.Add(self.oto_preset_text, 1, wx.EXPAND | wx.ALL, 5)
-        oto_preset_sizer.Add(oto_preset_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        oto_sizer.Add(oto_preset_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
-        # 生成模式和编码
-        mode_encoding_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        oto_mode_label = wx.StaticText(oto_panel, label=_('mark.oto.mode'))
-        register(oto_mode_label, 'mark.oto.mode')
-        self.oto_mode_choice = wx.Choice(oto_panel, choices=["CVVC", "VCV", "CVV","ARPAsing", "Test"], size=(150, -1))
-        self.oto_mode_choice.SetSelection(0)
-        self.oto_mode_choice.Bind(wx.EVT_CHOICE, self.on_oto_mode_changed)
-        oto_encoding_label = wx.StaticText(oto_panel, label=_('mark.oto.encoding'))
-        register(oto_encoding_label, 'mark.oto.encoding')
-        self.oto_encoding_choice = wx.Choice(oto_panel, choices=["utf-8", "shift-jis", "gbk"], size=(150, -1))
-        self.oto_encoding_choice.SetSelection(0)
-        self.oto_cover_checkbox = wx.CheckBox(oto_panel, label=_('mark.oto.cover'))
-        register(self.oto_cover_checkbox, 'mark.oto.cover', 'checkbox')
-        self.oto_cover_checkbox.SetValue(True)
-        mode_encoding_sizer.Add(oto_mode_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        mode_encoding_sizer.Add(self.oto_mode_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        mode_encoding_sizer.Add(oto_encoding_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        mode_encoding_sizer.Add(self.oto_encoding_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        mode_encoding_sizer.Add(self.oto_cover_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        oto_sizer.Add(mode_encoding_sizer, 0, wx.ALL, 10)
-        
-        # 参数组1：CV参数、VC参数、VV参数
-        params1_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        oto_cv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_cv_sum_label = wx.StaticText(oto_panel, label=_('mark.oto.cv_params'))
-        register(oto_cv_sum_label, 'mark.oto.cv_params')
-        self.oto_cv_sum_text = wx.TextCtrl(oto_panel, value="1,3,1.5,1,2", size=(120, -1))
-        self.oto_cv_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
-        register(self.oto_cv_sum_text, 'mark.oto.params_tooltip', 'tooltip')
-        oto_cv_sum_sizer.Add(oto_cv_sum_label, 0, wx.ALL, 2)
-        oto_cv_sum_sizer.Add(self.oto_cv_sum_text, 0, wx.ALL, 2)
-        
-        oto_vc_sum_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_vc_sum_label = wx.StaticText(oto_panel, label=_('mark.oto.vc_params'))
-        register(oto_vc_sum_label, 'mark.oto.vc_params')
-        self.oto_vc_sum_text = wx.TextCtrl(oto_panel, value="3,0,2,1,3", size=(120, -1))
-        self.oto_vc_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
-        register(self.oto_vc_sum_text, 'mark.oto.params_tooltip', 'tooltip')
-        oto_vc_sum_sizer.Add(oto_vc_sum_label, 0, wx.ALL, 2)
-        oto_vc_sum_sizer.Add(self.oto_vc_sum_text, 0, wx.ALL, 2)
-        
-        oto_vv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_vv_sum_label = wx.StaticText(oto_panel, label=_('mark.oto.vv_params'))
-        register(oto_vv_sum_label, 'mark.oto.vv_params')
-        self.oto_vv_sum_text = wx.TextCtrl(oto_panel, value="3,3,1.5,1,3", size=(120, -1))
-        self.oto_vv_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
-        register(self.oto_vv_sum_text, 'mark.oto.params_tooltip', 'tooltip')
-        oto_vv_sum_sizer.Add(oto_vv_sum_label, 0, wx.ALL, 2)
-        oto_vv_sum_sizer.Add(self.oto_vv_sum_text, 0, wx.ALL, 2)
-        
-        params1_sizer.Add(oto_cv_sum_sizer, 0, wx.ALL, 5)
-        params1_sizer.Add(oto_vc_sum_sizer, 0, wx.ALL, 5)
-        params1_sizer.Add(oto_vv_sum_sizer, 0, wx.ALL, 5)
-        oto_sizer.Add(params1_sizer, 0, wx.ALL, 0)
-        
-        # 参数组2：CV偏移、VC偏移、音阶后缀
+        oto_folder_sizer.Add(self.oto_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        oto_folder_sizer.Add(oto_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        oto_sizer.Add(oto_folder_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
-        oto_cv_offset_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_cv_offset_label = wx.StaticText(oto_panel, label=_('mark.oto.cv_offset'))
-        register(oto_cv_offset_label, 'mark.oto.cv_offset')
-        self.oto_cv_offset_text = wx.TextCtrl(oto_panel, value="0,0,0,0,0", size=(120, -1))
-        oto_cv_offset_sizer.Add(oto_cv_offset_label, 0, wx.ALL, 2)
-        oto_cv_offset_sizer.Add(self.oto_cv_offset_text, 0, wx.ALL, 2)
-        
-        oto_vc_offset_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_vc_offset_label = wx.StaticText(oto_panel, label=_('mark.oto.vc_offset'))
-        register(oto_vc_offset_label, 'mark.oto.vc_offset')
-        self.oto_vc_offset_text = wx.TextCtrl(oto_panel, value="0,0,0,0,0", size=(120, -1))
-        oto_vc_offset_sizer.Add(oto_vc_offset_label, 0, wx.ALL, 2)
-        oto_vc_offset_sizer.Add(self.oto_vc_offset_text, 0, wx.ALL, 2)
+        # ── 共享 OTO 参数面板 ──
+        self.oto_params = OtoParamPanel(oto_panel)
+        oto_sizer.Add(self.oto_params, 0, wx.EXPAND | wx.ALL, 5)
 
-        params1_sizer.Add(oto_cv_offset_sizer, 0, wx.ALL, 5)
-        params1_sizer.Add(oto_vc_offset_sizer, 0, wx.ALL, 5)
-
-        oto_cv_repeat_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_cv_repeat_label = wx.StaticText(oto_panel, label=_('mark.oto.cv_repeat'))
-        register(oto_cv_repeat_label, 'mark.oto.cv_repeat')
-        self.oto_cv_repeat_text = wx.TextCtrl(oto_panel, value="1", size=(80, -1))
-        oto_cv_repeat_sizer.Add(oto_cv_repeat_label, 0, wx.ALL, 2)
-        oto_cv_repeat_sizer.Add(self.oto_cv_repeat_text, 0, wx.ALL, 2)
-        
-        oto_vc_repeat_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_vc_repeat_label = wx.StaticText(oto_panel, label=_('mark.oto.vc_repeat'))
-        register(oto_vc_repeat_label, 'mark.oto.vc_repeat')
-        self.oto_vc_repeat_text = wx.TextCtrl(oto_panel, value="1", size=(80, -1))
-        oto_vc_repeat_sizer.Add(oto_vc_repeat_label, 0, wx.ALL, 2)
-        oto_vc_repeat_sizer.Add(self.oto_vc_repeat_text, 0, wx.ALL, 2)
-        
-        oto_ignore_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_ignore_label = wx.StaticText(oto_panel, label=_('mark.oto.ignore'))
-        register(oto_ignore_label, 'mark.oto.ignore')
-        self.oto_ignore_text = wx.TextCtrl(oto_panel, value="AP,SP,EP,R", size=(130, -1))
-        oto_ignore_sizer.Add(oto_ignore_label, 0, wx.ALL, 2)
-        oto_ignore_sizer.Add(self.oto_ignore_text, 0, wx.ALL, 2)
-
-        params2_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        oto_pitch_sizer = wx.BoxSizer(wx.VERTICAL)
-        oto_pitch_label = wx.StaticText(oto_panel, label=_('mark.oto.pitch'))
-        register(oto_pitch_label, 'mark.oto.pitch')
-        self.oto_pitch_text = wx.TextCtrl(oto_panel, value="", size=(100, -1))
-        oto_pitch_sizer.Add(oto_pitch_label, 0, wx.ALL, 2)
-        oto_pitch_sizer.Add(self.oto_pitch_text, 0, wx.ALL, 2)
-
-        params2_sizer.Add(oto_cv_repeat_sizer, 0, wx.ALL, 5)
-        params2_sizer.Add(oto_vc_repeat_sizer, 0, wx.ALL, 5)
-        params2_sizer.Add(oto_ignore_sizer, 0, wx.ALL, 5)
-        params2_sizer.Add(oto_pitch_sizer, 0, wx.ALL, 5)
-        oto_sizer.Add(params2_sizer, 0, wx.ALL, 10)
-
-
-        
-
-        
         # 生成OTO按钮
         oto_generate_btn = wx.Button(oto_panel, label=_('mark.oto.generate'))
         register(oto_generate_btn, 'mark.oto.generate', 'button')
         oto_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_oto)
-        oto_sizer.Add(oto_generate_btn, 0, wx.ALL | wx.CENTER, 10)
+        oto_sizer.Add(oto_generate_btn, 0, wx.ALL | wx.CENTER, 5)
         
         # 结果显示文本框
         oto_result_label = wx.StaticText(oto_panel, label=_('mark.oto.result'))
@@ -603,11 +473,12 @@ class MainFrame(wx.Frame):
 
         svdb_panel = wx.Panel(mark_notebook)
         svdb_sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        svdb_title = wx.StaticText(svdb_panel, label=_('mark.svdb.title'))
-        register(svdb_title, 'mark.svdb.title')
-        svdb_sizer.Add(svdb_title, 0, wx.ALL | wx.CENTER, 10)
-        
+
+        # ── 声库设置 ──
+        svdb_box = wx.StaticBox(svdb_panel, label=_('mark.svdb.settings'))
+        svdb_box_sizer = wx.StaticBoxSizer(svdb_box, wx.VERTICAL)
+        register(svdb_box, 'mark.svdb.settings', 'label')
+
         svdb_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
         svdb_path_label = wx.StaticText(svdb_panel, label=_('mark.svdb.folder'))
         register(svdb_path_label, 'mark.svdb.folder')
@@ -615,41 +486,43 @@ class MainFrame(wx.Frame):
         svdb_browse_btn = wx.Button(svdb_panel, label=_('mark.svdb.browse_folder'))
         register(svdb_browse_btn, 'mark.svdb.browse_folder', 'button')
         svdb_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.svdb_path_text))
-        svdb_path_sizer.Add(svdb_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        svdb_path_sizer.Add(self.svdb_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        svdb_path_sizer.Add(svdb_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        svdb_sizer.Add(svdb_path_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+        svdb_path_sizer.Add(svdb_path_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        svdb_path_sizer.Add(self.svdb_path_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        svdb_path_sizer.Add(svdb_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        svdb_box_sizer.Add(svdb_path_sizer, 0, wx.EXPAND | wx.ALL, 3)
+
         svdb_dict_sizer = wx.BoxSizer(wx.HORIZONTAL)
         svdb_dict_label = wx.StaticText(svdb_panel, label=_('mark.svdb.dict'))
         register(svdb_dict_label, 'mark.svdb.dict')
         self.svdb_dict_choice = wx.Choice(svdb_panel, size=(300, -1))
-        svdb_dict_sizer.Add(svdb_dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        svdb_dict_sizer.Add(self.svdb_dict_choice, 1, wx.EXPAND | wx.ALL, 5)
-        svdb_sizer.Add(svdb_dict_sizer, 0, wx.ALL, 10)
+        svdb_dict_sizer.Add(svdb_dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        svdb_dict_sizer.Add(self.svdb_dict_choice, 1, wx.EXPAND | wx.ALL, 3)
+        svdb_box_sizer.Add(svdb_dict_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         svdb_tail_ratio_sizer = wx.BoxSizer(wx.HORIZONTAL)
         svdb_tail_ratio_label = wx.StaticText(svdb_panel, label=_('mark.svdb.tail_ratio'))
         register(svdb_tail_ratio_label, 'mark.svdb.tail_ratio')
         self.svdb_tail_ratio_text = wx.TextCtrl(svdb_panel, value="50", size=(40, -1))
         svdb_tail_ratio_percent = wx.StaticText(svdb_panel, label=_('mark.svdb.tail_percent'))
-        svdb_tail_ratio_sizer.Add(svdb_tail_ratio_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        svdb_tail_ratio_sizer.Add(self.svdb_tail_ratio_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        svdb_tail_ratio_sizer.Add(svdb_tail_ratio_percent, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        svdb_sizer.Add(svdb_tail_ratio_sizer, 0, wx.ALL, 10)
-        
+        svdb_tail_ratio_sizer.Add(svdb_tail_ratio_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        svdb_tail_ratio_sizer.Add(self.svdb_tail_ratio_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        svdb_tail_ratio_sizer.Add(svdb_tail_ratio_percent, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        svdb_box_sizer.Add(svdb_tail_ratio_sizer, 0, wx.ALL, 3)
+
         svdb_generate_btn = wx.Button(svdb_panel, label=_('mark.svdb.generate'))
         register(svdb_generate_btn, 'mark.svdb.generate', 'button')
         svdb_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_svdb)
-        svdb_sizer.Add(svdb_generate_btn, 0, wx.ALL | wx.CENTER, 10)
-        
+        svdb_box_sizer.Add(svdb_generate_btn, 0, wx.ALL | wx.CENTER, 5)
+
+        svdb_sizer.Add(svdb_box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
         svdb_result_label = wx.StaticText(svdb_panel, label=_('mark.svdb.result'))
         register(svdb_result_label, 'mark.svdb.result')
-        svdb_sizer.Add(svdb_result_label, 0, wx.ALL | wx.LEFT, 10)
-        
+        svdb_sizer.Add(svdb_result_label, 0, wx.ALL | wx.LEFT, 5)
+
         self.svdb_result_text = wx.TextCtrl(svdb_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
-        svdb_sizer.Add(self.svdb_result_text, 1, wx.EXPAND | wx.ALL, 10)
-        
+        svdb_sizer.Add(self.svdb_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
         svdb_panel.SetSizer(svdb_sizer)
 
         # ── 多音阶 OTO 面板 ──
@@ -658,159 +531,31 @@ class MainFrame(wx.Frame):
 
         multi_oto_title = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.title'))
         register(multi_oto_title, 'mark.multi_oto.title')
-        multi_oto_sizer.Add(multi_oto_title, 0, wx.ALL | wx.CENTER, 10)
+        multi_oto_sizer.Add(multi_oto_title, 0, wx.ALL | wx.CENTER, 5)
 
-        # 根文件夹（包含各音阶子文件夹）
-        multi_oto_root_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        multi_oto_root_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.root_folder'))
-        register(multi_oto_root_label, 'mark.multi_oto.root_folder')
+        # ── 根文件夹 ──
+        multi_oto_root_box = wx.StaticBox(multi_oto_panel, label=_('mark.multi_oto.root_folder'))
+        multi_oto_root_sizer = wx.StaticBoxSizer(multi_oto_root_box, wx.HORIZONTAL)
+        register(multi_oto_root_box, 'mark.multi_oto.root_folder', 'label')
         self.multi_oto_root_text = wx.TextCtrl(multi_oto_panel, size=(400, -1))
         self.multi_oto_root_text.SetToolTip(_('mark.multi_oto.root_folder.tooltip'))
         register(self.multi_oto_root_text, 'mark.multi_oto.root_folder.tooltip', 'tooltip')
         multi_oto_root_browse = wx.Button(multi_oto_panel, label=_('mark.multi_oto.browse_folder'))
         register(multi_oto_root_browse, 'mark.multi_oto.browse_folder', 'button')
         multi_oto_root_browse.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.multi_oto_root_text))
-        multi_oto_root_sizer.Add(multi_oto_root_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_root_sizer.Add(self.multi_oto_root_text, 1, wx.EXPAND | wx.ALL, 5)
-        multi_oto_root_sizer.Add(multi_oto_root_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_sizer.Add(multi_oto_root_sizer, 0, wx.EXPAND | wx.ALL, 10)
+        multi_oto_root_sizer.Add(self.multi_oto_root_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        multi_oto_root_sizer.Add(multi_oto_root_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        multi_oto_sizer.Add(multi_oto_root_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
-        # Presamp
-        multi_oto_presamp_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        multi_oto_presamp_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.presamp_path'))
-        register(multi_oto_presamp_label, 'mark.multi_oto.presamp_path')
-        self.multi_oto_presamp_text = wx.TextCtrl(multi_oto_panel, size=(300, -1))
-        multi_oto_presamp_browse = wx.Button(multi_oto_panel, label=_('mark.multi_oto.browse'))
-        register(multi_oto_presamp_browse, 'mark.multi_oto.browse', 'button')
-        multi_oto_presamp_browse.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.multi_oto_presamp_text))
-        multi_oto_presamp_preset_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.presamp_preset'))
-        register(multi_oto_presamp_preset_label, 'mark.multi_oto.presamp_preset')
-        self.multi_oto_presamp_choice = wx.Choice(multi_oto_panel, size=(150, -1))
-        self.multi_oto_presamp_choice.Bind(wx.EVT_CHOICE, self.on_multi_oto_presamp_selected)
-        multi_oto_presamp_sizer.Add(multi_oto_presamp_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_presamp_sizer.Add(self.multi_oto_presamp_text, 1, wx.EXPAND | wx.ALL, 5)
-        multi_oto_presamp_sizer.Add(multi_oto_presamp_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_presamp_sizer.Add(multi_oto_presamp_preset_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_presamp_sizer.Add(self.multi_oto_presamp_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_sizer.Add(multi_oto_presamp_sizer, 0, wx.EXPAND | wx.ALL, 10)
-
-        # oto 模板路径
-        multi_oto_preset_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        multi_oto_preset_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.template'))
-        register(multi_oto_preset_label, 'mark.multi_oto.template')
-        self.multi_oto_preset_text = wx.TextCtrl(multi_oto_panel, value="", size=(300, -1))
-        multi_oto_preset_browse = wx.Button(multi_oto_panel, label=_('mark.multi_oto.browse'))
-        register(multi_oto_preset_browse, 'mark.multi_oto.browse', 'button')
-        multi_oto_preset_browse.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.multi_oto_preset_text))
-        multi_oto_preset_sizer.Add(multi_oto_preset_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_preset_sizer.Add(self.multi_oto_preset_text, 1, wx.EXPAND | wx.ALL, 5)
-        multi_oto_preset_sizer.Add(multi_oto_preset_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_sizer.Add(multi_oto_preset_sizer, 0, wx.EXPAND | wx.ALL, 10)
-
-        # 模式和编码
-        multi_oto_mode_encoding_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        multi_oto_mode_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.mode'))
-        register(multi_oto_mode_label, 'mark.multi_oto.mode')
-        self.multi_oto_mode_choice = wx.Choice(multi_oto_panel, choices=["CVVC", "VCV", "CVV","ARPAsing", "Test"], size=(150, -1))
-        self.multi_oto_mode_choice.SetSelection(0)
-        self.multi_oto_mode_choice.Bind(wx.EVT_CHOICE, self.on_multi_oto_mode_changed)
-        multi_oto_encoding_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.encoding'))
-        register(multi_oto_encoding_label, 'mark.multi_oto.encoding')
-        self.multi_oto_encoding_choice = wx.Choice(multi_oto_panel, choices=["utf-8", "shift-jis", "gbk"], size=(150, -1))
-        self.multi_oto_encoding_choice.SetSelection(0)
-        self.multi_oto_cover_checkbox = wx.CheckBox(multi_oto_panel, label=_('mark.multi_oto.cover'))
-        register(self.multi_oto_cover_checkbox, 'mark.multi_oto.cover', 'checkbox')
-        self.multi_oto_cover_checkbox.SetValue(True)
-        multi_oto_mode_encoding_sizer.Add(multi_oto_mode_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_mode_encoding_sizer.Add(self.multi_oto_mode_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_mode_encoding_sizer.Add(multi_oto_encoding_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_mode_encoding_sizer.Add(self.multi_oto_encoding_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_mode_encoding_sizer.Add(self.multi_oto_cover_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        multi_oto_sizer.Add(multi_oto_mode_encoding_sizer, 0, wx.ALL, 10)
-
-        # 参数
-        multi_oto_params1_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        # CV参数
-        multi_oto_cv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
-        multi_oto_cv_sum_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.cv_params'))
-        register(multi_oto_cv_sum_label, 'mark.multi_oto.cv_params')
-        self.multi_oto_cv_sum_text = wx.TextCtrl(multi_oto_panel, value="1,3,1.5,1,2", size=(120, -1))
-        self.multi_oto_cv_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
-        register(self.multi_oto_cv_sum_text, 'mark.oto.params_tooltip', 'tooltip')
-        multi_oto_cv_sum_sizer.Add(multi_oto_cv_sum_label, 0, wx.ALL, 2)
-        multi_oto_cv_sum_sizer.Add(self.multi_oto_cv_sum_text, 0, wx.ALL, 2)
-        # VC参数
-        multi_oto_vc_sum_sizer = wx.BoxSizer(wx.VERTICAL)
-        multi_oto_vc_sum_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.vc_params'))
-        register(multi_oto_vc_sum_label, 'mark.multi_oto.vc_params')
-        self.multi_oto_vc_sum_text = wx.TextCtrl(multi_oto_panel, value="3,0,2,1,3", size=(120, -1))
-        self.multi_oto_vc_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
-        register(self.multi_oto_vc_sum_text, 'mark.oto.params_tooltip', 'tooltip')
-        multi_oto_vc_sum_sizer.Add(multi_oto_vc_sum_label, 0, wx.ALL, 2)
-        multi_oto_vc_sum_sizer.Add(self.multi_oto_vc_sum_text, 0, wx.ALL, 2)
-        # VV参数
-        multi_oto_vv_sum_sizer = wx.BoxSizer(wx.VERTICAL)
-        multi_oto_vv_sum_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.vv_params'))
-        register(multi_oto_vv_sum_label, 'mark.multi_oto.vv_params')
-        self.multi_oto_vv_sum_text = wx.TextCtrl(multi_oto_panel, value="3,3,1.5,1,3", size=(120, -1))
-        self.multi_oto_vv_sum_text.SetToolTip(_('mark.oto.params_tooltip'))
-        register(self.multi_oto_vv_sum_text, 'mark.oto.params_tooltip', 'tooltip')
-        multi_oto_vv_sum_sizer.Add(multi_oto_vv_sum_label, 0, wx.ALL, 2)
-        multi_oto_vv_sum_sizer.Add(self.multi_oto_vv_sum_text, 0, wx.ALL, 2)
-        multi_oto_params1_sizer.Add(multi_oto_cv_sum_sizer, 0, wx.ALL, 5)
-        multi_oto_params1_sizer.Add(multi_oto_vc_sum_sizer, 0, wx.ALL, 5)
-        multi_oto_params1_sizer.Add(multi_oto_vv_sum_sizer, 0, wx.ALL, 5)
-
-        # CV偏移
-        multi_oto_cv_offset_sizer = wx.BoxSizer(wx.VERTICAL)
-        multi_oto_cv_offset_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.cv_offset'))
-        register(multi_oto_cv_offset_label, 'mark.multi_oto.cv_offset')
-        self.multi_oto_cv_offset_text = wx.TextCtrl(multi_oto_panel, value="0,0,0,0,0", size=(120, -1))
-        multi_oto_cv_offset_sizer.Add(multi_oto_cv_offset_label, 0, wx.ALL, 2)
-        multi_oto_cv_offset_sizer.Add(self.multi_oto_cv_offset_text, 0, wx.ALL, 2)
-        multi_oto_params1_sizer.Add(multi_oto_cv_offset_sizer, 0, wx.ALL, 5)
-        # VC偏移
-        multi_oto_vc_offset_sizer = wx.BoxSizer(wx.VERTICAL)
-        multi_oto_vc_offset_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.vc_offset'))
-        register(multi_oto_vc_offset_label, 'mark.multi_oto.vc_offset')
-        self.multi_oto_vc_offset_text = wx.TextCtrl(multi_oto_panel, value="0,0,0,0,0", size=(120, -1))
-        multi_oto_vc_offset_sizer.Add(multi_oto_vc_offset_label, 0, wx.ALL, 2)
-        multi_oto_vc_offset_sizer.Add(self.multi_oto_vc_offset_text, 0, wx.ALL, 2)
-        multi_oto_params1_sizer.Add(multi_oto_vc_offset_sizer, 0, wx.ALL, 5)
-        multi_oto_sizer.Add(multi_oto_params1_sizer, 0, wx.ALL, 0)
-
-        # CV重复、VC重复、忽略音素
-        multi_oto_params2_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        multi_oto_cv_repeat_sizer = wx.BoxSizer(wx.VERTICAL)
-        multi_oto_cv_repeat_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.cv_repeat'))
-        register(multi_oto_cv_repeat_label, 'mark.multi_oto.cv_repeat')
-        self.multi_oto_cv_repeat_text = wx.TextCtrl(multi_oto_panel, value="1", size=(80, -1))
-        multi_oto_cv_repeat_sizer.Add(multi_oto_cv_repeat_label, 0, wx.ALL, 2)
-        multi_oto_cv_repeat_sizer.Add(self.multi_oto_cv_repeat_text, 0, wx.ALL, 2)
-        multi_oto_params2_sizer.Add(multi_oto_cv_repeat_sizer, 0, wx.ALL, 5)
-
-        multi_oto_vc_repeat_sizer = wx.BoxSizer(wx.VERTICAL)
-        multi_oto_vc_repeat_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.vc_repeat'))
-        register(multi_oto_vc_repeat_label, 'mark.multi_oto.vc_repeat')
-        self.multi_oto_vc_repeat_text = wx.TextCtrl(multi_oto_panel, value="1", size=(80, -1))
-        multi_oto_vc_repeat_sizer.Add(multi_oto_vc_repeat_label, 0, wx.ALL, 2)
-        multi_oto_vc_repeat_sizer.Add(self.multi_oto_vc_repeat_text, 0, wx.ALL, 2)
-        multi_oto_params2_sizer.Add(multi_oto_vc_repeat_sizer, 0, wx.ALL, 5)
-
-        multi_oto_ignore_sizer = wx.BoxSizer(wx.VERTICAL)
-        multi_oto_ignore_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.ignore'))
-        register(multi_oto_ignore_label, 'mark.multi_oto.ignore')
-        self.multi_oto_ignore_text = wx.TextCtrl(multi_oto_panel, value="AP,SP,EP,R", size=(130, -1))
-        multi_oto_ignore_sizer.Add(multi_oto_ignore_label, 0, wx.ALL, 2)
-        multi_oto_ignore_sizer.Add(self.multi_oto_ignore_text, 0, wx.ALL, 2)
-        multi_oto_params2_sizer.Add(multi_oto_ignore_sizer, 0, wx.ALL, 5)
-        multi_oto_sizer.Add(multi_oto_params2_sizer, 0, wx.ALL, 10)
+        # ── 共享 OTO 参数面板 ──
+        self.multi_oto_params = OtoParamPanel(multi_oto_panel, show_pitch=False)
+        multi_oto_sizer.Add(self.multi_oto_params, 0, wx.EXPAND | wx.ALL, 5)
 
         # 生成按钮
         multi_oto_generate_btn = wx.Button(multi_oto_panel, label=_('mark.multi_oto.generate'))
         register(multi_oto_generate_btn, 'mark.multi_oto.generate', 'button')
         multi_oto_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_multi_oto)
-        multi_oto_sizer.Add(multi_oto_generate_btn, 0, wx.ALL | wx.CENTER, 10)
+        multi_oto_sizer.Add(multi_oto_generate_btn, 0, wx.ALL | wx.CENTER, 5)
 
         # 结果文本框
         multi_oto_result_label = wx.StaticText(multi_oto_panel, label=_('mark.multi_oto.result'))
@@ -871,8 +616,7 @@ class MainFrame(wx.Frame):
         # 在所有控件创建完成后加载模型
         self.load_models()
         self.load_svdb_dicts()
-        self.load_presamp()
-        self.load_presamp()
+        # load_presamp 已由 OtoParamPanel 内部处理
 
     def load_models(self):
         hubert_path = str(ROOT / 'HubertFA_model')
@@ -1005,19 +749,6 @@ class MainFrame(wx.Frame):
         thread.start()
 
     
-    def load_presamp(self):
-        presamp_dir = str(ROOT / 'presamp')
-        if os.path.exists(presamp_dir):
-            presamp_files = [f for f in os.listdir(presamp_dir) if os.path.isfile(os.path.join(presamp_dir, f))]
-            self.oto_presamp_choice.Clear()
-            self.oto_presamp_choice.AppendItems(presamp_files)
-            if presamp_files:
-                self.oto_presamp_choice.SetSelection(0)
-            self.multi_oto_presamp_choice.Clear()
-            self.multi_oto_presamp_choice.AppendItems(presamp_files)
-            if presamp_files:
-                self.multi_oto_presamp_choice.SetSelection(0)
-    
     def on_language_switch(self, event):
         """切换语言（实时生效）"""
         lang_code = self.lang_choice.GetClientData(self.lang_choice.GetSelection())
@@ -1025,144 +756,48 @@ class MainFrame(wx.Frame):
         switch_lang(lang_code)
         update_all()
 
-    def on_oto_presamp_selected(self, event):
-        presamp_file = self.oto_presamp_choice.GetStringSelection()
-        if presamp_file:
-            presamp_dir = str(ROOT / 'presamp')
-            presamp_full_path = os.path.join(presamp_dir, presamp_file)
-            self.oto_presamp_path_text.SetValue(presamp_full_path)
-    
-    def on_oto_mode_changed(self, event):
-        mode = self.oto_mode_choice.GetSelection()
-        if mode == 0:  # CVVC
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("3,3,1.5,1,3")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 1:  # VCV
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
-            self.oto_vv_sum_text.SetValue("0,0,0,0,0")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 2:  # CVV
-            self.oto_cv_sum_text.SetValue("1,3,1.3,2,2")
-            self.oto_vc_sum_text.SetValue("5,1,2,1,3")
-            self.oto_vv_sum_text.SetValue("5,3,1,1,2")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 3:  # VCV
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
-            self.oto_vv_sum_text.SetValue("0,0,0,0,0")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 4:  # Test
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("3,3,1.5,1,2")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-
-    def on_multi_oto_presamp_selected(self, event):
-        presamp_file = self.multi_oto_presamp_choice.GetStringSelection()
-        if presamp_file:
-            presamp_dir = str(ROOT / 'presamp')
-            presamp_full_path = os.path.join(presamp_dir, presamp_file)
-            self.multi_oto_presamp_text.SetValue(presamp_full_path)
-
-    def on_multi_oto_mode_changed(self, event):
-        mode = self.multi_oto_mode_choice.GetSelection()
-        if mode == 0:  # CVVC
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("3,3,1.5,1,3")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 1:  # VCV
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
-            self.oto_vv_sum_text.SetValue("0,0,0,0,0")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 2:  # CVV
-            self.oto_cv_sum_text.SetValue("1,2.5,1.5,1.5,2")
-            self.oto_vc_sum_text.SetValue("5,1,2,1,3")
-            self.oto_vv_sum_text.SetValue("2,3,1,1,2")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 3:  # VCV
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("2.5,3,1.5,1,3")
-            self.oto_vv_sum_text.SetValue("0,0,0,0,0")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
-        elif mode == 4:  # Test
-            self.oto_cv_sum_text.SetValue("1,3,1.5,1,2")
-            self.oto_vc_sum_text.SetValue("3,0,2,1,3")
-            self.oto_vv_sum_text.SetValue("3,3,1.5,1,2")
-            self.oto_cv_offset_text.SetValue("0,0,0,0,0")
-            self.oto_vc_offset_text.SetValue("0,0,0,0,0")
+    # ── 模式/预设切换已由 OtoParamPanel 内部处理 ──
     
     def on_generate_oto(self, event):
         wav_path = self.oto_path_text.GetValue().strip()
-        presamp_path = self.oto_presamp_path_text.GetValue().strip()
-        vcv_mode = str(self.oto_mode_choice.GetSelection())
-        
+
         if not wav_path:
             wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
-        
         if not os.path.exists(wav_path):
             wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
-        
-        if not presamp_path:
-            wx.MessageBox(_('msg.err.select_presamp'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-        
-        if not os.path.exists(presamp_path):
-            wx.MessageBox(_('msg.err.presamp_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-        
+
+        # 从共享参数面板获取所有设置
         try:
-            cv_sum = [float(x) for x in self.oto_cv_sum_text.GetValue().split(',')]
-            vc_sum = [float(x) for x in self.oto_vc_sum_text.GetValue().split(',')]
-            vv_sum = [float(x) for x in self.oto_vv_sum_text.GetValue().split(',')]
-            cv_offset = [float(x) for x in self.oto_cv_offset_text.GetValue().split(',')]
-            vc_offset = [float(x) for x in self.oto_vc_offset_text.GetValue().split(',')]
+            p = self.oto_params.get_params()
         except ValueError:
             wx.MessageBox(_('msg.err.params_format'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
-        
-        pitch = self.oto_pitch_text.GetValue()
-        cv_repeat = self.oto_cv_repeat_text.GetValue().strip()
-        vc_repeat = self.oto_vc_repeat_text.GetValue().strip()
-        ignore = self.oto_ignore_text.GetValue().strip()
-        oto_preset = self.oto_preset_text.GetValue().strip()
-        oto_encoding = self.oto_encoding_choice.GetStringSelection()
-        cover_bool = self.oto_cover_checkbox.GetValue()
-        cover = 'y' if cover_bool else 'n'
-        
-        if not cv_repeat:
-            cv_repeat = "1"
-        if not vc_repeat:
-            vc_repeat = "1"
-        
-        textgrid_path = wav_path
-        
-        if not os.path.exists(textgrid_path):
-            wx.MessageBox(_('msg.err.textgrid_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+
+        presamp_path = p["presamp_path"]
+        if not presamp_path:
+            wx.MessageBox(_('msg.err.select_presamp'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.exists(presamp_path):
+            wx.MessageBox(_('msg.err.presamp_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
 
-        word_phone_path = os.path.join(textgrid_path, 'json', 'word_phone.json')
-        
+        vcv_mode = str(p["mode_index"])
+        cv_sum, vc_sum, vv_sum = p["cv_sum"], p["vc_sum"], p["vv_sum"]
+        cv_offset, vc_offset = p["cv_offset"], p["vc_offset"]
+        pitch, ignore = p["pitch"], p["ignore"]
+        cv_repeat, vc_repeat = p["cv_repeat"], p["vc_repeat"]
+        oto_preset = p["template_path"]
+        oto_encoding = p["encoding"]
+        cover = p["cover"]
+
+        word_phone_path = os.path.join(wav_path, 'json', 'word_phone.json')
         if not os.path.exists(word_phone_path):
             wx.MessageBox(_('msg.err.json_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
-        
-        if not os.path.exists(oto_preset) and oto_preset != "":
+
+        if oto_preset and not os.path.exists(oto_preset):
             wx.MessageBox(_('msg.err.template_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
         
@@ -1242,8 +877,6 @@ class MainFrame(wx.Frame):
     def on_generate_multi_oto(self, event):
         """多音阶 OTO 生成：遍历根目录下所有子文件夹，以文件夹名作为音阶后缀"""
         root_path = self.multi_oto_root_text.GetValue().strip()
-        presamp_path = self.multi_oto_presamp_text.GetValue().strip()
-        vcv_mode = str(self.multi_oto_mode_choice.GetSelection())
 
         if not root_path:
             wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
@@ -1251,6 +884,15 @@ class MainFrame(wx.Frame):
         if not os.path.exists(root_path):
             wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
+
+        # 从共享参数面板获取所有设置
+        try:
+            p = self.multi_oto_params.get_params()
+        except ValueError:
+            wx.MessageBox(_('msg.err.params_format'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        presamp_path = p["presamp_path"]
         if not presamp_path:
             wx.MessageBox(_('msg.err.select_presamp'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
@@ -1258,28 +900,14 @@ class MainFrame(wx.Frame):
             wx.MessageBox(_('msg.err.presamp_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
 
-        try:
-            cv_sum = [float(x) for x in self.multi_oto_cv_sum_text.GetValue().split(',')]
-            vc_sum = [float(x) for x in self.multi_oto_vc_sum_text.GetValue().split(',')]
-            vv_sum = [float(x) for x in self.multi_oto_vv_sum_text.GetValue().split(',')]
-            cv_offset = [float(x) for x in self.multi_oto_cv_offset_text.GetValue().split(',')]
-            vc_offset = [float(x) for x in self.multi_oto_vc_offset_text.GetValue().split(',')]
-        except ValueError:
-            wx.MessageBox(_('msg.err.params_format'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-
-        cv_repeat = self.multi_oto_cv_repeat_text.GetValue().strip()
-        vc_repeat = self.multi_oto_vc_repeat_text.GetValue().strip()
-        ignore = self.multi_oto_ignore_text.GetValue().strip()
-        oto_preset = self.multi_oto_preset_text.GetValue().strip()
-        oto_encoding = self.multi_oto_encoding_choice.GetStringSelection()
-        cover_bool = self.multi_oto_cover_checkbox.GetValue()
-        cover = 'y' if cover_bool else 'n'
-
-        if not cv_repeat:
-            cv_repeat = "1"
-        if not vc_repeat:
-            vc_repeat = "1"
+        vcv_mode = str(p["mode_index"])
+        cv_sum, vc_sum, vv_sum = p["cv_sum"], p["vc_sum"], p["vv_sum"]
+        cv_offset, vc_offset = p["cv_offset"], p["vc_offset"]
+        ignore = p["ignore"]
+        cv_repeat, vc_repeat = p["cv_repeat"], p["vc_repeat"]
+        oto_preset = p["template_path"]
+        oto_encoding = p["encoding"]
+        cover = p["cover"]
 
         # 获取所有子文件夹
         subfolders = sorted([d for d in os.listdir(root_path)
@@ -1373,22 +1001,6 @@ class MainFrame(wx.Frame):
 
     def on_browse_folder(self, event, text_ctrl):
         dialog = wx.DirDialog(None, _('msg.select_folder'), style=wx.DD_DEFAULT_STYLE)
-        if dialog.ShowModal() == wx.ID_CANCEL:
-            return
-        path = dialog.GetPath()
-        text_ctrl.SetValue(path)
-        dialog.Destroy()
-    
-    def on_browse_file(self, event, text_ctrl):
-        dialog = wx.FileDialog(None, _('msg.select_file'), style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
-        if dialog.ShowModal() == wx.ID_CANCEL:
-            return
-        path = dialog.GetPath()
-        text_ctrl.SetValue(path)
-        dialog.Destroy()
-    
-    def on_browse_file(self, event, text_ctrl):
-        dialog = wx.FileDialog(None, _('msg.select_file'), style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
         if dialog.ShowModal() == wx.ID_CANCEL:
             return
         path = dialog.GetPath()

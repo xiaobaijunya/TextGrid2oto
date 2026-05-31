@@ -8,6 +8,7 @@
 
     "lab.tab.wavname": "Generate LAB from WAV name",
     "lab.tab.index": "Generate LAB from index.csv",
+    "lab.wavname.settings": "Voice Settings",
     "lab.wavname.title": "Generate LAB from WAV name",
     "lab.wavname.folder": "Voice folder (multi-pitch):",
     "lab.wavname.browse_folder": "Browse Folder",
@@ -15,6 +16,7 @@
     "lab.wavname.generate": "Generate LAB",
     "lab.wavname.result": "Result:",
 
+    "lab.index.settings": "Voice Settings",
     "lab.index.title": "Generate LAB from index.csv",
     "lab.index.wav_path": "WAV path:",
     "lab.index.browse_wav": "Browse Folder",
@@ -25,6 +27,8 @@
     "lab.index.result": "Result:",
 
     "textgrid.title": "TextGrid Inference (Based on HubertFA)",
+    "textgrid.model_section": "Model Selection",
+    "textgrid.infer_section": "Inference Settings",
     "textgrid.folder": "Voice folder:",
     "textgrid.browse_folder": "Browse Folder",
     "textgrid.model_folder": "Model folder:",
@@ -56,6 +60,8 @@
     "textgrid.result": "Result:",
 
     "json.title": "JSON Generate",
+    "json.src_section": "Source Settings",
+    "json.model_section": "Model & Filter",
     "json.wav_folder": "WAV folder:",
     "json.browse_folder": "Browse Folder",
     "json.model_folder": "Model folder:",
@@ -84,11 +90,15 @@
     "mark.oto.vc_offset": "VC offset (ms):",
     "mark.oto.cv_repeat": "CV repeats:",
     "mark.oto.vc_repeat": "VC repeats:",
+    "mark.oto.preset": "Param Preset:",
+    "mark.oto.preset_group": "Param Preset",
+    "mark.oto.params_group": "Parameter Values",
     "mark.oto.ignore": "Ignore phonemes:",
     "mark.oto.pitch": "Pitch suffix:",
     "mark.oto.generate": "Generate OTO",
     "mark.oto.result": "Result:",
 
+    "mark.svdb.settings": "Voicebank Settings",
     "mark.svdb.title": "SVR1DB Generate",
     "mark.svdb.folder": "Voicebank folder:",
     "mark.svdb.browse_folder": "Browse Folder",

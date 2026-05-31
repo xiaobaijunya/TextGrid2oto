@@ -8,6 +8,7 @@
 
     "lab.tab.wavname": "WAV名からLAB生成（通常）",
     "lab.tab.index": "index.csvからLAB生成",
+    "lab.wavname.settings": "音源設定",
     "lab.wavname.title": "WAV名からLAB生成（通常）",
     "lab.wavname.folder": "音源フォルダ（複数音階対応）：",
     "lab.wavname.browse_folder": "フォルダ選択",
@@ -15,6 +16,7 @@
     "lab.wavname.generate": "LABファイル生成",
     "lab.wavname.result": "処理結果：",
 
+    "lab.index.settings": "音源設定",
     "lab.index.title": "index.csvからLAB生成",
     "lab.index.wav_path": "WAVパス：",
     "lab.index.browse_wav": "フォルダ選択",
@@ -25,6 +27,8 @@
     "lab.index.result": "処理結果：",
 
     "textgrid.title": "TextGrid推論（HubertFAベース）",
+    "textgrid.model_section": "モデル選択",
+    "textgrid.infer_section": "推論設定",
     "textgrid.folder": "音源フォルダ：",
     "textgrid.browse_folder": "フォルダ選択",
     "textgrid.model_folder": "モデルフォルダ：",
@@ -56,6 +60,8 @@
     "textgrid.result": "処理結果：",
 
     "json.title": "JSON生成",
+    "json.src_section": "音源設定",
+    "json.model_section": "モデルとフィルター",
     "json.wav_folder": "WAVフォルダ：",
     "json.browse_folder": "フォルダ選択",
     "json.model_folder": "モデルフォルダ：",
@@ -84,11 +90,15 @@
     "mark.oto.vc_offset": "VCオフセット(ms)：",
     "mark.oto.cv_repeat": "CV繰り返し：",
     "mark.oto.vc_repeat": "VC繰り返し：",
+    "mark.oto.preset": "パラメータプリセット：",
+    "mark.oto.preset_group": "パラメータプリセット",
+    "mark.oto.params_group": "パラメータ値",
     "mark.oto.ignore": "無視する音素：",
     "mark.oto.pitch": "音階接尾辞：",
     "mark.oto.generate": "OTO生成",
     "mark.oto.result": "処理結果：",
 
+    "mark.svdb.settings": "声庫設定",
     "mark.svdb.title": "SVR1DB生成",
     "mark.svdb.folder": "声庫フォルダ：",
     "mark.svdb.browse_folder": "フォルダ選択",

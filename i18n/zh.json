@@ -8,6 +8,7 @@
 
     "lab.tab.wavname": "根据wav名生成lab（常规）",
     "lab.tab.index": "根据index生成lab",
+    "lab.wavname.settings": "音源设置",
     "lab.wavname.title": "根据wav名生成lab（常规）",
     "lab.wavname.folder": "音源文件夹（支持多音阶）：",
     "lab.wavname.browse_folder": "选择文件夹",
@@ -15,6 +16,7 @@
     "lab.wavname.generate": "生成LAB文件",
     "lab.wavname.result": "处理结果：",
 
+    "lab.index.settings": "音源设置",
     "lab.index.title": "根据index.csv生成lab",
     "lab.index.wav_path": "WAV路径：",
     "lab.index.browse_wav": "选择文件夹",
@@ -25,6 +27,8 @@
     "lab.index.result": "处理结果：",
 
     "textgrid.title": "TextGrid推理(推理基于HubertFA)",
+    "textgrid.model_section": "模型选择",
+    "textgrid.infer_section": "推理设置",
     "textgrid.folder": "音源文件夹：",
     "textgrid.browse_folder": "选择文件夹",
     "textgrid.model_folder": "模型文件夹：",
@@ -56,6 +60,8 @@
     "textgrid.result": "处理结果：",
 
     "json.title": "JSON生成",
+    "json.src_section": "音源设置",
+    "json.model_section": "模型与过滤",
     "json.wav_folder": "WAV文件夹：",
     "json.browse_folder": "选择文件夹",
     "json.model_folder": "模型文件夹：",
@@ -84,11 +90,15 @@
     "mark.oto.vc_offset": "VC偏移(单位ms)：",
     "mark.oto.cv_repeat": "CV重复次数：",
     "mark.oto.vc_repeat": "VC重复次数：",
+    "mark.oto.preset": "参数预设：",
+    "mark.oto.preset_group": "参数预设",
+    "mark.oto.params_group": "参数数值",
     "mark.oto.ignore": "忽略音素：",
     "mark.oto.pitch": "音阶后缀：",
     "mark.oto.generate": "生成OTO",
     "mark.oto.result": "处理结果：",
 
+    "mark.svdb.settings": "声库设置",
     "mark.svdb.title": "SVR1DB生成",
     "mark.svdb.folder": "声库文件夹：",
     "mark.svdb.browse_folder": "选择文件夹",
