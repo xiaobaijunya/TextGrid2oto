@@ -250,12 +250,13 @@ def json2coto(cv_data,sum,ignore,CV_C):
                 phone_name = '- ' + CV_C[cont2['text']]
                 # autio_name=phone_name,left,fixed,right（负值）,Prevoice,cross
                 left = float(cont2['xmin']) * 1000
-                # 右线占比
-                right = (float(cont2['middle']) - float(cont2['xmin']))/1.5 * 1000
+
                 # 固定的占比
-                Prevoice = 0
+                Prevoice = (float(cont2['middle']) - float(cont2['xmin']))/3 * 1000
+                # 右线占比
+                right = Prevoice * 1.5
                 fixed = Prevoice
-                cross = 0
+                cross = Prevoice /2
                 i += 2
                 oto.append(f"{autio_name}.wav={phone_name},{left},{fixed},-{right},{Prevoice},{cross}\n")
                 continue
