@@ -2,12 +2,22 @@
 
 import wx
 import os
+import sys
 import json
 from pathlib import Path
 
 from i18n import _, register
 
-ROOT = Path(__file__).resolve().parent.parent
+
+def get_app_root() -> Path:
+    """获取程序根目录（开发/打包通用，与 GUI.py 一致）"""
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).parent
+    else:
+        return Path(__file__).resolve().parent.parent
+
+
+ROOT = get_app_root()
 PRESETS_FILE = ROOT / "config" / "oto_presets.json"
 PRESAMP_DIR = ROOT / "presamp"
 
