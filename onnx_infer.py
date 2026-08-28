@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -495,8 +496,9 @@ class AlignmentDecoder:
             if ph in self.vocab["vocab"]:
                 ph_seq_id_list.append(self.vocab["vocab"][ph])
             else:
+                # 用 SP(id=0) 占位推理，输出时仍保留原音素名
                 ph_seq_id_list.append(self.vocab["vocab"]["SP"])
-                warning_msg = f"音素 '{ph}' 不在模型词汇表中，已替换为 'SP'"
+                warning_msg = f"音素 '{ph}' 不在模型词汇表中，推理时用 'SP' 占位，输出仍保留原音素 '{ph}'"
                 warning_log.append(warning_msg)
                 warnings.warn(warning_msg)
         
@@ -738,6 +740,11 @@ class NonLexicalDecoder:
         return words
 
 
+class StopInference(Exception):
+    """推理被用户手动停止时抛出。"""
+    pass
+
+
 class InferenceOnnx:
     def __init__(self, onnx_path: Path):
         self.model = None
@@ -790,11 +797,10 @@ class InferenceOnnx:
     def get_dataset(self, wav_folder, language, g2p="dictionary", dictionary_path=None, in_format="lab"):
         if dictionary_path is None:
             dictionary_path = self.vocab_folder / self.vocab["dictionaries"].get(language, "")
-        language = language if self.vocab['language_prefix'] else None
 
         if g2p == "dictionary":
             assert os.path.exists(dictionary_path), f"{Path(dictionary_path).absolute()} does not exist."
-            g2p = DictionaryG2P(language, dictionary_path)
+            g2p = DictionaryG2P(language, dictionary_path, self.vocab.get("silent_phonemes", []))
         elif g2p == "phoneme":
             g2p = PhonemeG2P(language)
         else:
@@ -822,11 +828,10 @@ class InferenceOnnx:
         """从指定的 wav 文件列表加载数据集（用于并行推理时每个子进程加载自己的子集）"""
         if dictionary_path is None:
             dictionary_path = self.vocab_folder / self.vocab["dictionaries"].get(language, "")
-        language = language if self.vocab['language_prefix'] else None
 
         if g2p == "dictionary":
             assert os.path.exists(dictionary_path), f"{Path(dictionary_path).absolute()} does not exist."
-            g2p_obj = DictionaryG2P(language, dictionary_path)
+            g2p_obj = DictionaryG2P(language, dictionary_path, self.vocab.get("silent_phonemes", []))
         elif g2p == "phoneme":
             g2p_obj = PhonemeG2P(language)
         else:
@@ -881,11 +886,15 @@ class InferenceOnnx:
         elif device.lower() == 'cuda':
             providers = ['CUDAExecutionProvider','DmlExecutionProvider', 'CPUExecutionProvider']
             print("INFO: 用户选择 CUDA (GPU加速) 进行推理")
+        elif device.lower() == 'webgpu':
+            providers = ['WebGpuExecutionProvider', 'CPUExecutionProvider']
+            print("INFO: 用户选择 WebGPU 进行推理")
         else:
             providers = ['CPUExecutionProvider']
             print("INFO: 用户选择 CPU 进行推理")
         
         available_providers = ort.get_available_providers()
+        print(f"INFO: 可用推理架构: {available_providers}")
         
         # 检测可用的provider
         enabled_providers = [p for p in providers if p in available_providers]
@@ -901,6 +910,8 @@ class InferenceOnnx:
                 print("INFO: 实际使用 DirectML (GPU加速) 进行推理")
             elif primary_device == 'CUDAExecutionProvider':
                 print("INFO: 实际使用 CUDA (GPU加速) 进行推理")
+            elif primary_device == 'WebGpuExecutionProvider':
+                print("INFO: 实际使用 WebGPU 进行推理")
             else:
                 print("INFO: 实际使用 CPU 进行推理")
 
@@ -926,6 +937,13 @@ class InferenceOnnx:
             options.intra_op_num_threads = 0
             print("INFO: 已启用CUDA优化")
 
+        elif 'WebGpuExecutionProvider' in enabled_providers:
+            # WebGPU 使用 GPU 计算，采用 SEQUENTIAL 模式避免线程竞争
+            options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            options.inter_op_num_threads = 1
+            options.intra_op_num_threads = 0
+            print("INFO: 已启用WebGPU优化 (SEQUENTIAL模式)")
+
         else:
             # CPU 模式
             import multiprocessing
@@ -949,7 +967,7 @@ class InferenceOnnx:
             'primary_device': enabled[0] if enabled else 'CPUExecutionProvider'
         }
 
-    def infer(self, non_lexical_phonemes, pad_times=1, pad_length=5, merge_phonemes=True):
+    def infer(self, non_lexical_phonemes, pad_times=1, pad_length=5, merge_phonemes=True, stop_event=None):
         non_lexical_phonemes = [ph.strip() for ph in non_lexical_phonemes.split(",") if ph.strip()]
         assert set(non_lexical_phonemes).issubset(set(self.vocab['non_lexical_phonemes'])), \
             f"The non_lexical_phonemes contain elements that are not included in the vocab."
@@ -959,6 +977,7 @@ class InferenceOnnx:
         device_name_map = {
             'DmlExecutionProvider': 'DirectML (GPU加速)',
             'CUDAExecutionProvider': 'CUDA (NVIDIA GPU)',
+            'WebGpuExecutionProvider': 'WebGPU (GPU加速)',
             'CPUExecutionProvider': 'CPU',
         }
         device_display = device_name_map.get(primary_device, primary_device)
@@ -970,25 +989,10 @@ class InferenceOnnx:
         if self.progress_callback:
             self.progress_callback(device_msg)
 
+        _infer_start_time = time.time()
+
         pad_lengths = [round(pad_length / pad_times * i, 1) for i in range(0, pad_times)] if pad_times > 1 else [0]
         total = len(self.dataset)
-
-        # ── 预加载所有音频到内存，减少 I/O 阻塞 ──
-        msg = f"Preloading {total} audio files..."
-        print(msg)
-        if self.progress_callback:
-            self.progress_callback(msg)
-
-        preloaded = []  # [(wav_path, wav_numpy, wav_length, ph_seq, word_seq, ph_idx_to_word_idx)]
-        for i, (wav_path, ph_seq, word_seq, ph_idx_to_word_idx) in enumerate(self.dataset):
-            wav, sr = librosa.load(wav_path, sr=self.mel_cfg['sample_rate'], mono=True)
-            wav_length = len(wav) / self.mel_cfg['sample_rate']
-            preloaded.append((wav_path, wav, wav_length, ph_seq, word_seq, ph_idx_to_word_idx))
-            if (i + 1) % 20 == 0 or i == total - 1:
-                msg = f"Preloaded {i + 1}/{total} audio files"
-                print(msg)
-                if self.progress_callback:
-                    self.progress_callback(msg)
 
         # 预计算 pad 参数（所有 pad_length 共享同一组模板）
         pad_params = []
@@ -997,19 +1001,26 @@ class InferenceOnnx:
             padded_frames = int(padded_samples / self.mel_cfg['hop_size'])
             pad_params.append((pl, padded_samples, padded_frames))
 
-        # ── 批量推理 ──
-        for i, (wav_path, wav, wav_length, ph_seq, word_seq, ph_idx_to_word_idx) in enumerate(preloaded):
+        # ── 逐文件推理（按需加载音频） ──
+        for i, (wav_path, ph_seq, word_seq, ph_idx_to_word_idx) in enumerate(self.dataset):
+            # 检查用户是否请求强制停止
+            if stop_event is not None and stop_event.is_set():
+                raise StopInference()
+
             if (i + 1) % 10 == 0 or i == total - 1:
                 msg = f"Processing {i + 1}/{total}..."
                 print(msg)
                 if self.progress_callback:
                     self.progress_callback(msg)
 
+            # 按需加载当前音频
+            wav, sr = librosa.load(wav_path, sr=self.mel_cfg['sample_rate'], mono=True)
+            wav_length = len(wav) / self.mel_cfg['sample_rate']
+
             words_list: list[WordList] = []
             all_warning_logs = []
 
             for pl, padded_samples, padded_frames in pad_params:
-                # 复用预加载的 wav，只需 pad
                 padded_wav = np.pad(wav, (padded_samples, 0), mode='constant', constant_values=0)
 
                 words, non_lexical_words, warning_log = self._infer(
@@ -1077,6 +1088,13 @@ class InferenceOnnx:
                     self.progress_callback(warning_log)
 
             self.predictions.append((wav_path, wav_length, result_word))
+
+        # ── 输出推理总耗时 ──
+        elapsed = time.time() - _infer_start_time
+        time_msg = f"推理完成，总耗时: {elapsed:.1f}s  (共 {total} 个文件，平均 {elapsed / max(total, 1):.2f}s/个)"
+        print(time_msg)
+        if self.progress_callback:
+            self.progress_callback(time_msg)
 
     def export(self, output_folder, output_format=None):
         if output_format is None:
@@ -1149,9 +1167,10 @@ def find_all_duplicate_phonemes(ph_list):
 
 
 class DictionaryG2P:
-    def __init__(self, language, dictionary_path):
+    def __init__(self, language, dictionary_path, silent_phonemes=None):
         self.language = language
         self.dictionary_path = dictionary_path
+        self.silent_phonemes = set(silent_phonemes) if silent_phonemes else set()
         self.dictionary = self._load_dictionary()
 
     def _load_dictionary(self):
@@ -1173,9 +1192,8 @@ class DictionaryG2P:
 
         for word_idx, word in enumerate(words):
             if word in self.dictionary:
+                # 语言前缀已直接写在词典文件里(如 ja/j), 不再自动补充
                 phonemes = self.dictionary[word]
-                if self.language:
-                    phonemes = [f"{self.language}/{ph}" for ph in phonemes]
                 ph_seq.extend(phonemes)
                 word_seq.append(word)
                 for _ in phonemes:
@@ -1198,13 +1216,13 @@ class PhonemeG2P:
         return phonemes, phonemes, ph_idx_to_word_idx
 
 
-def dml_worker(worker_id, onnx_path_str, wav_folder_str, language, dict_path_str,
-               device, pad_times, pad_length, merge_phonemes, non_lexical_phonemes,
-               wav_files_list, msg_queue=None):
+def parallel_worker(worker_id, onnx_path_str, wav_folder_str, language, dict_path_str,
+                    device, pad_times, pad_length, merge_phonemes, non_lexical_phonemes,
+                    wav_files_list, msg_queue=None):
     """
-    DML 并行推理的工作进程函数。
+    并行推理的工作进程函数（支持 DML / WebGPU 等多设备）。
     每个子进程加载自己的模型实例，处理一半的 wav 文件，输出 TextGrid 到同一目录。
-    由于各进程独立，DML 不会冲突。
+    由于各进程独立，不会冲突。
 
     Args:
         msg_queue: multiprocessing.Queue，用于将进度消息传回主进程（GUI 显示）
@@ -1243,6 +1261,10 @@ def dml_worker(worker_id, onnx_path_str, wav_folder_str, language, dict_path_str
     )
     inference.export(str(wav_folder))
     _send(f"[Worker {worker_id}] ✅ 完成处理 {len(wav_files_list)} 个文件")
+
+
+# 兼容旧名称
+dml_worker = parallel_worker
 
 
 if __name__ == '__main__':

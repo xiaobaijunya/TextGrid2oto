@@ -9,7 +9,10 @@ def ds_dict_read(ds_dictpath):
         word_list = f.read().strip().split('\n')
         for word in word_list:
             word = word.split('\t')
-            ds_dict[word[0]] = word[1]
+            if len(word) >= 2:
+                # 去掉语言前缀(如 ja/j -> j), 与 lab/json 里的音素保持一致
+                phones = ' '.join(ph.split('/')[-1] for ph in word[1].split())
+                ds_dict[word[0]] = phones
     return ds_dict
 
 def create_transcriptions_csv(folder_path,ds_dictpath):

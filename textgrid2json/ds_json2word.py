@@ -36,7 +36,8 @@ def build_pinyin_map(ds_dictpath):
         for line in f:
             parts = line.strip().split()
             if len(parts) >= 2:
-                key = tuple(parts[1:])  # 音素组合作为元组
+                # 去掉语言前缀(如 ja/j -> j), 与 json 里的音素保持一致
+                key = tuple(ph.split('/')[-1] for ph in parts[1:])  # 音素组合作为元组
                 phone_map[key] = parts[0]
                 max_length = max(max_length, len(key))
     # print("当前字典内容:", phone_map)

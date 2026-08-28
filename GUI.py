@@ -1,6 +1,7 @@
 import wx
 import os
 import sys
+import time
 import traceback
 import threading
 from pathlib import Path
@@ -257,13 +258,14 @@ class MainFrame(wx.Frame):
         self.device_choice = wx.Choice(textgrid_panel, size=(400, -1))
         self.device_choice.Append(_('textgrid.device.cpu'), "cpu")
         self.device_choice.Append(_('textgrid.device.dml'), "dml")
+        self.device_choice.Append(_('textgrid.device.webgpu'), "webgpu")
         self.device_choice.SetSelection(0)
-        register(self.device_choice, '', 'choice', [('textgrid.device.cpu', 'cpu'), ('textgrid.device.dml', 'dml')])
+        register(self.device_choice, '', 'choice', [('textgrid.device.cpu', 'cpu'), ('textgrid.device.dml', 'dml'), ('textgrid.device.webgpu', 'webgpu')])
         device_sizer.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         device_sizer.Add(self.device_choice, 1, wx.EXPAND | wx.ALL, 3)
         right_sizer.Add(device_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
-        # DML并行工作进程数选择
+        # 并行工作进程数选择（DML / WebGPU）
         worker_sizer = wx.BoxSizer(wx.HORIZONTAL)
         worker_label = wx.StaticText(textgrid_panel, label=_('textgrid.workers'))
         register(worker_label, 'textgrid.workers')
@@ -327,10 +329,17 @@ class MainFrame(wx.Frame):
 
         textgrid_sizer.Add(main_content_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
+        infer_btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         infer_btn = wx.Button(textgrid_panel, label=_('textgrid.infer'))
         register(infer_btn, 'textgrid.infer', 'button')
         infer_btn.Bind(wx.EVT_BUTTON, self.on_infer)
-        textgrid_sizer.Add(infer_btn, 0, wx.ALL | wx.CENTER, 5)
+        infer_btn_sizer.Add(infer_btn, 0, wx.ALL | wx.CENTER, 5)
+        self.stop_infer_btn = wx.Button(textgrid_panel, label=_('textgrid.stop_infer'))
+        register(self.stop_infer_btn, 'textgrid.stop_infer', 'button')
+        self.stop_infer_btn.Bind(wx.EVT_BUTTON, self.on_stop_infer)
+        self.stop_infer_btn.Disable()
+        infer_btn_sizer.Add(self.stop_infer_btn, 0, wx.ALL | wx.CENTER, 5)
+        textgrid_sizer.Add(infer_btn_sizer, 0, wx.ALL | wx.CENTER, 5)
 
         # 结果显示文本框
         infer_result_label = wx.StaticText(textgrid_panel, label=_('textgrid.result'))
@@ -614,6 +623,10 @@ class MainFrame(wx.Frame):
         panel.SetSizer(main_sizer)
         
         # 在所有控件创建完成后加载模型
+        # 推理强制停止相关状态
+        self._infer_stop = threading.Event()
+        self._infer_processes = []
+        self._infer_stopped = False
         self.load_models()
         self.load_svdb_dicts()
         # load_presamp 已由 OtoParamPanel 内部处理
@@ -1124,6 +1137,11 @@ class MainFrame(wx.Frame):
         def infer_thread():
             try:
                 wx.CallAfter(self.infer_result_text.Clear)
+                # 重置停止状态并启用停止按钮
+                self._infer_stop.clear()
+                self._infer_processes = []
+                self._infer_stopped = False
+                wx.CallAfter(self.stop_infer_btn.Enable)
 
                 # 获取用户选择的设备
                 device_selection = self.device_choice.GetSelection()
@@ -1153,8 +1171,8 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.pad_length').format(len=pad_length))
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.merge_phonemes').format(merge=merge_phonemes))
 
-                # ── DML 模式：多进程并行推理 ──
-                if device == 'dml':
+                # ── DML / WebGPU 模式：多进程并行推理 ──
+                if device in ('dml', 'webgpu'):
                     import multiprocessing
                     from pathlib import Path as _Path
 
@@ -1169,7 +1187,7 @@ class MainFrame(wx.Frame):
                     if num_workers <= 1 or total_files < num_workers * 2:
                         # 线程数<=1或文件太少，退化为单进程推理
                         wx.CallAfter(self.infer_result_text.AppendText,
-                            _('log.parallel_dml_skip').format(count=total_files, workers=num_workers))
+                            _('log.parallel_dml_skip').format(count=total_files, workers=num_workers, device=device.upper()))
                         _run_single_inference(model_path, wav_folder, language, dict_path,
                                             device, pad_times, pad_length, merge_phonemes)
                     else:
@@ -1179,7 +1197,9 @@ class MainFrame(wx.Frame):
 
                         wx.CallAfter(self.infer_result_text.AppendText,
                             _('log.parallel_dml_start').format(total=total_files, workers=num_workers,
-                                                               sizes=", ".join(str(len(c)) for c in wav_chunks)))
+                                                               sizes=", ".join(str(len(c)) for c in wav_chunks), device=device.upper()))
+
+                        _parallel_start = time.time()
 
                         # 创建消息队列，让子进程回传进度信息
                         msg_queue = multiprocessing.Queue()
@@ -1193,6 +1213,7 @@ class MainFrame(wx.Frame):
                             )
                             processes.append(p)
                             p.start()
+                        self._infer_processes = processes  # 供停止按钮终止进程
 
                         # 监控队列：将子进程消息实时显示到 GUI
                         def monitor_queue():
@@ -1211,7 +1232,6 @@ class MainFrame(wx.Frame):
                                 for i, p in enumerate(processes):
                                     if alive[i] and not p.is_alive():
                                         alive[i] = False
-                                import time
                                 time.sleep(0.2)
                             # 最后再清一次队列
                             while not msg_queue.empty():
@@ -1226,21 +1246,29 @@ class MainFrame(wx.Frame):
                         for p in processes:
                             p.join()
 
-                        wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_complete'))
-                        wx.CallAfter(wx.MessageBox, _('msg.ok.infer_complete'), _('msg.success'),
-                                     wx.OK | wx.ICON_INFORMATION)
+                        if self._infer_stopped:
+                            wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_stopped'))
+                        else:
+                            _parallel_elapsed = time.time() - _parallel_start
+                            total_msg = f"并行推理总耗时: {_parallel_elapsed:.1f}s (共 {total_files} 个文件，{num_workers} 进程，平均 {_parallel_elapsed / max(total_files, 1):.2f}s/个)"
+                            wx.CallAfter(self.infer_result_text.AppendText, total_msg + "\n")
+                            wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_complete'))
+                            wx.CallAfter(wx.MessageBox, _('msg.ok.infer_complete'), _('msg.success'),
+                                         wx.OK | wx.ICON_INFORMATION)
                 else:
                     # ── CPU 模式：单进程推理 ──
                     _run_single_inference(model_path, wav_folder, language, dict_path,
-                                         device, pad_times, pad_length, merge_phonemes)
+                                         device, pad_times, pad_length, merge_phonemes, self._infer_stop)
 
+                wx.CallAfter(self.stop_infer_btn.Disable)
             except Exception:
                 tb = traceback.format_exc()
                 wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_failed').format(error=tb))
+                wx.CallAfter(self.stop_infer_btn.Disable)
                 wx.CallAfter(wx.MessageBox, _('log.infer_failed').format(error=tb), _('msg.error'), wx.OK | wx.ICON_ERROR)
 
         def _run_single_inference(model_path, wav_folder, language, dict_path,
-                                  device, pad_times, pad_length, merge_phonemes):
+                                  device, pad_times, pad_length, merge_phonemes, stop_event=None):
             """单进程推理（CPU 模式或 DML 文件太少时使用）"""
             inference = onnx_infer.InferenceOnnx(model_path)
             wx.CallAfter(self.infer_result_text.AppendText, _('log.loading_config'))
@@ -1260,8 +1288,14 @@ class MainFrame(wx.Frame):
             inference.get_dataset(wav_folder, language=language, g2p="dictionary",
                                   dictionary_path=str(dict_path), in_format="lab")
 
-            inference.infer(non_lexical_phonemes="AP", pad_times=pad_times,
-                           pad_length=pad_length, merge_phonemes=merge_phonemes)
+            try:
+                inference.infer(non_lexical_phonemes="AP", pad_times=pad_times,
+                               pad_length=pad_length, merge_phonemes=merge_phonemes,
+                               stop_event=stop_event)
+            except onnx_infer.StopInference:
+                wx.CallAfter(self.infer_result_text.AppendText, _('log.infer_stopped'))
+                return
+
             wx.CallAfter(self.infer_result_text.AppendText, _('log.exporting'))
             inference.export(wav_folder)
 
@@ -1272,7 +1306,19 @@ class MainFrame(wx.Frame):
         thread = threading.Thread(target=infer_thread)
         thread.start()
 
-
+    def on_stop_infer(self, event):
+        """强制停止当前 TextGrid 推理"""
+        self._infer_stop.set()
+        self._infer_stopped = True
+        # 终止多进程推理子进程
+        for p in self._infer_processes:
+            if p.is_alive():
+                try:
+                    p.terminate()
+                except Exception:
+                    pass
+        self.stop_infer_btn.Disable()
+        self.infer_result_text.AppendText(_('log.infer_stop_requested'))
 
     def on_generate_json(self, event):
         wav_folder = self.json_path_text.GetValue().strip()

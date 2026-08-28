@@ -5,8 +5,9 @@
 
 import json
 
-from sympy.strategies.core import switch
-
+#去掉语言前缀, 如 ja/j -> j, en/_r -> _r (无'/'则原样)
+def _strip(ph):
+    return ph.split('/')[-1]
 
 #音素获取
 def ds_dict_read(ds_dictpath,ignore):
@@ -17,19 +18,19 @@ def ds_dict_read(ds_dictpath,ignore):
             for line in f:
                 line = line.split()
                 if len(line) == 3:
-                    consonant.append(line[1])
-                    vowels.append(line[2])
+                    consonant.append(_strip(line[1]))
+                    vowels.append(_strip(line[2]))
                 elif len(line) == 4:
-                    consonant.append(line[1])
-                    vowels.append(line[2])
-                    vowels.append(line[3])
+                    consonant.append(_strip(line[1]))
+                    vowels.append(_strip(line[2]))
+                    vowels.append(_strip(line[3]))
                 elif len(line) == 5:
-                    consonant.append(line[1])
-                    vowels.append(line[2])
-                    vowels.append(line[3])
-                    vowels.append(line[4])
+                    consonant.append(_strip(line[1]))
+                    vowels.append(_strip(line[2]))
+                    vowels.append(_strip(line[3]))
+                    vowels.append(_strip(line[4]))
                 elif len(line) == 2:
-                    vowels.append(line[1])
+                    vowels.append(_strip(line[1]))
     except FileNotFoundError:
         print(f"错误：指定的文件 {ds_dictpath} 读取失败，请检查文件路径是否正确。")
         input('按任意键退出')
