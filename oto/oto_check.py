@@ -37,6 +37,8 @@ def cvvc_presamp_read(presamps_path):
 
     V = set(V)
     C = set(C)
+    # 硬编码注入 R 作为辅音，用于检测 VR 结尾音（如 "a R"）
+    C.add('R')
     for V1 in V:
         for C1 in C:
             VC.append(V1+' '+C1)
@@ -212,7 +214,7 @@ def run(oto_path,presamps_path,pitch,vcv_mode):
 
 if __name__ == '__main__':
     print('test')
-    run(r'G:\Coding\utau录音表生成器2\录音表制作\oto.ini',r'G:\Coding\utau录音表生成器2\录音表制作\risku简化版presamp.ini','','4')
+    run(r'E:\OpenUtau\Singers\huyinyan(CVVC\C3\oto.ini',r'E:\OpenUtau\Singers\huyinyan(CVVC\presamp.ini','','1')
     # print('CVVC')
     # run('E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\F3\oto.ini','E:\OpenUtau\Singers\XIABAI_new_CHN_CVVC_F3_autooto\presamp.ini',' F3','0')
     # print('VCV')
