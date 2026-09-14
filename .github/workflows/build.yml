@@ -65,6 +65,37 @@ jobs:
           git push origin "$TAG"
           echo "✅ 已创建并推送 tag：$TAG"
 
+      - name: 创建 Release（先建好，供各平台追加上传）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve.outputs.tag }}
+          name: TextGrid2oto ${{ steps.resolve.outputs.tag }}
+          draft: false
+          prerelease: false
+          body: |
+            ## TextGrid2oto ${{ steps.resolve.outputs.version }}
+
+            ### ⚠️ 使用前请先下载模型（安装包内不含模型）
+            由于 ONNX 模型体积过大（约 244 MB），**不随安装包一起分发**，请自行下载：
+
+            👉 **模型下载：** ${{ env.MODEL_RELEASE_URL }}
+
+            解压后把 `HubertFA_model` 文件夹放到程序根目录（与可执行文件同级），
+            目录层级需为 `HubertFA_model/<模型名>/model.onnx`。
+
+            ### 📥 下载说明
+
+            | 平台 | 文件 | 解压后运行 |
+            | --- | --- | --- |
+            | Windows | `TextGrid2oto-windows-${{ steps.resolve.outputs.version }}.zip` | `TextGrid2oto/TextGrid2oto.exe` |
+            | macOS | `TextGrid2oto-macos-${{ steps.resolve.outputs.version }}.zip` | `TextGrid2oto.app` |
+
+            > 请**整体解压**后使用，不要只单独拷贝可执行文件。
+
+            **构建环境：** Python ${{ env.PYTHON_VERSION }} · GitHub Actions 自动构建
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # ── 2. Windows 打包 ───────────────────────────────────────
   build-windows:
     name: Windows 打包
@@ -104,12 +135,14 @@ jobs:
           Compress-Archive -Path dist/TextGrid2oto/* -DestinationPath $zip -Force
           Get-Item $zip | Select-Object Name, Length
 
-      - name: 上传产物
-        uses: actions/upload-artifact@v4
+      - name: 上传到 Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: windows
-          path: TextGrid2oto-windows-*.zip
-          if-no-files-found: error
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: TextGrid2oto-windows-*.zip
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ── 3. macOS 打包 ─────────────────────────────────────────
   build-macos:
@@ -146,56 +179,11 @@ jobs:
             "TextGrid2oto-macos-${{ needs.prepare.outputs.version }}.zip"
           ls -lh TextGrid2oto-macos-*.zip
 
-      - name: 上传产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos
-          path: TextGrid2oto-macos-*.zip
-          if-no-files-found: error
-
-  # ── 4. 发布 Release ──────────────────────────────────────
-  release:
-    name: 发布 Release
-    needs: [prepare, build-windows, build-macos]
-    runs-on: ubuntu-latest
-    steps:
-      - name: 下载全部构建产物
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: 检查产物
-        run: ls -lh artifacts
-
-      - name: 发布到 GitHub Releases
+      - name: 上传到 Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          name: TextGrid2oto ${{ needs.prepare.outputs.tag }}
-          draft: false
-          prerelease: false
-          files: artifacts/*.zip
-          body: |
-            ## TextGrid2oto ${{ needs.prepare.outputs.version }}
-
-            ### ⚠️ 使用前请先下载模型（安装包内不含模型）
-            由于 ONNX 模型体积过大（约 244 MB），**不随安装包一起分发**，请自行下载：
-
-            👉 **模型下载：** ${{ env.MODEL_RELEASE_URL }}
-
-            解压后把 `HubertFA_model` 文件夹放到程序根目录（与可执行文件同级），
-            目录层级需为 `HubertFA_model/<模型名>/model.onnx`。
-
-            ### 📥 下载说明
-
-            | 平台 | 文件 | 解压后运行 |
-            | --- | --- | --- |
-            | Windows | `TextGrid2oto-windows-${{ needs.prepare.outputs.version }}.zip` | `TextGrid2oto/TextGrid2oto.exe` |
-            | macOS | `TextGrid2oto-macos-${{ needs.prepare.outputs.version }}.zip` | `TextGrid2oto.app` |
-
-            > 请**整体解压**后使用，不要只单独拷贝可执行文件。
-
-            **构建环境：** Python ${{ env.PYTHON_VERSION }} · GitHub Actions 自动构建
+          files: TextGrid2oto-macos-*.zip
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
