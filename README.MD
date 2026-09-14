@@ -25,9 +25,6 @@ flowchart LR
 >
 > `WEB-UI.py` 是基于 ONNX 模型的轻量 WebUI，属于另一套可选方案（见下文）。
 
-> [!NOTE]
-> 本 README 内容由 **DeepSeek V4.1 Flash** 生成，**xiaobaijun** 仅进行内容审查和修改，可能内容不完全正确，请以实际代码与程序行为为准。
-
 ## 功能特性
 
 - 根据 wav 文件名（拼音 / 假名）自动生成 `.lab`
@@ -170,3 +167,6 @@ QQ 群聊：**1036935644**
 ## License
 
 本项目采用 [GPL-3.0 license](https://github.com/xiaobaijunya/TextGrid2oto#GPL-3.0-1-ov-file) 开源协议。
+
+> [!NOTE]
+> 本 README 内容由 **DeepSeek V4.1 Flash** 生成，**xiaobaijun** 仅进行内容审查和修改，可能内容不完全正确，请以实际代码与程序行为为准。
