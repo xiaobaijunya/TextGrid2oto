@@ -1,11 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
 #pyinstaller GUI.spec
 
+# 需要随程序一起分发的资源（源路径, 打包后目录）
+# 注意：ONNX 模型（HubertFA_model，约 244MB）体积过大，不打包，
+#       由用户自行到 Release 下载后放到程序根目录。
+datas = [
+    ('img/TextGrid2oto.ico', 'img'),
+    ('i18n', 'i18n'),
+    ('config', 'config'),
+    ('presamp', 'presamp'),
+    ('tg2svdb/字典', 'tg2svdb/字典'),
+]
+
 a = Analysis(
     ['GUI.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

@@ -4,10 +4,14 @@ a = Analysis(
     ['GUI.py'],
     pathex=[],
     binaries=[],
+    # 需要随程序一起分发的资源（源路径, 打包后目录）
+    # 注意：ONNX 模型（HubertFA_model）体积过大，不打包，由用户自行下载。
     datas=[
+        ("img/TextGrid2oto.ico", "img"),
+        ("i18n", "i18n"),
+        ("config", "config"),
         ("presamp", "presamp"),
-        ("tg2svdb/字典", "tg2svdb/字典"),
-        ("img/TextGrid2oto.ico", "img")
+        ("tg2svdb/字典", "tg2svdb/字典")
     ],
     hiddenimports=[],
     hookspath=[],

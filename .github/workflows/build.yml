@@ -1,203 +1,201 @@
-name: 自动打包发布程序
+name: 打包并发布
 
+# 触发方式：仅手动触发（Actions → Run workflow），填写版本号（如 1.2.3）
+#   → 自动创建并推送 tag v1.2.3 → 双平台打包 → 发布 Release
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: '输入自定义版本号 (例如: 1.2.3)'
-        required: false
-        default: '0.1.2'
+        description: '版本号（例如 1.2.3，将自动创建 tag v1.2.3）'
+        required: true
+        type: string
+
+# 创建 tag 与发布 Release 需要写权限
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.12'
+  # 模型（约 244MB）不打包进安装包，由用户自行下载
+  MODEL_RELEASE_URL: https://github.com/xiaobaijunya/TextGrid2oto/releases/tag/v0.1.0
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: 设置 Python 环境
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: 安装依赖
-        shell: pwsh
-        run: |
-          pip install onnxruntime-directml
-          pip install numpy librosa textgrid wxpython
-          pip install pyinstaller
-
-      - name: 打包程序
-        shell: pwsh
-        run: |
-          pyinstaller GUI.spec
-          # 创建目标文件夹
-          mkdir -p dist/img
-          mkdir -p dist/presamp
-          mkdir -p dist/tg2svdb/字典
-          Copy-Item -Path img/TextGrid2oto.ico -Destination dist/img/ -Force
-          Copy-Item -Path presamp -Destination dist/ -Recurse -Force
-          Copy-Item -Path tg2svdb/字典 -Destination dist/tg2svdb/ -Recurse -Force
-
-
-      - name: 下载并解压模型文件
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip" -OutFile "HubertFA_model.zip"
-          $pythonCode = @'
-          import zipfile
-          import os
-          import shutil
-
-          target_dir = "dist"
-          os.makedirs(target_dir, exist_ok=True)
-
-          with zipfile.ZipFile("HubertFA_model.zip", 'r') as zip_ref:
-              for member in zip_ref.infolist():
-                  try:
-                      filename = member.filename
-                  except UnicodeDecodeError:
-                      filename = member.filename.encode('cp437').decode('utf-8')
-
-                  filepath = os.path.join(target_dir, filename)
-
-                  if member.is_dir():
-                      os.makedirs(filepath, exist_ok=True)
-                  else:
-                      os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                      with zip_ref.open(member) as source, open(filepath, 'wb') as target:
-                          shutil.copyfileobj(source, target)
-          '@
-          $pythonCode | python
-          Remove-Item -Path "HubertFA_model.zip"
-
-      - name: 提取版本号
-        id: get_version
-        shell: pwsh
-        run: |
-          if ("${{ github.event.inputs.version }}" -ne "") {
-            $version = "${{ github.event.inputs.version }}"
-          } elseif ("${{ github.ref_type }}" -eq "tag") {
-            $version = "${{ github.ref_name }}".Replace("v", "")
-          } else {
-            $version = "dev"
-          }
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "Version: $version"
-
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: TextGrid2oto-windows-${{ steps.get_version.outputs.version }}
-          path: dist
-
-  build-macos:
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: 设置 Python 环境
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: 安装依赖
-        shell: bash
-        run: |
-          pip install onnxruntime
-          pip install numpy librosa textgrid wxpython
-          pip install pyinstaller
-
-      - name: 打包程序
-        run: |
-          pyinstaller GUI-macos.spec
-          curl -L -o HubertFA_model.zip "https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v1.0.0/HubertFA_model.zip"
-          python3 << 'EOF'
-          import zipfile
-          import os
-          import shutil
-
-          # 创建目标目录
-          target_dir = "dist/TextGrid2oto.app/Contents/MacOS"
-          os.makedirs(target_dir, exist_ok=True)
-
-          # 解压 zip 文件，处理文件名编码
-          with zipfile.ZipFile("HubertFA_model.zip", 'r') as zip_ref:
-              for member in zip_ref.infolist():
-                  # 尝试解码文件名
-                  try:
-                      filename = member.filename
-                  except UnicodeDecodeError:
-                      # 如果 UTF-8 解码失败，尝试其他编码
-                      filename = member.filename.encode('cp437').decode('utf-8')
-
-                  # 构建完整路径
-                  filepath = os.path.join(target_dir, filename)
-
-                  # 创建目录
-                  if member.is_dir():
-                      os.makedirs(filepath, exist_ok=True)
-                  else:
-                      # 确保父目录存在
-                      os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                      # 提取文件
-                      with zip_ref.open(member) as source, open(filepath, 'wb') as target:
-                          shutil.copyfileobj(source, target)
-          EOF
-          rm HubertFA_model.zip
-
-      - name: 提取版本号
-        id: get_version
-        shell: bash
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            version="${{ github.event.inputs.version }}"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            version="${{ github.ref_name }}"
-            version=${version#v}
-          else
-            version="dev"
-          fi
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "Version: $version"
-
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: TextGrid2oto-macos-${{ steps.get_version.outputs.version }}
-          path: dist/TextGrid2oto.app
-
-  release:
-    needs: [build-windows, build-macos]
+  # ── 1. 解析版本号，必要时自动创建 tag ──────────────────────
+  prepare:
+    name: 准备版本与 tag
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
     steps:
-      - name: 下载所有构建产物
+      - name: 检出代码（需完整历史以便创建 tag）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 解析版本号
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION="$(printf '%s' "$VERSION" | tr -d '[:space:]')"
+          VERSION="${VERSION#v}"
+          if [ -z "$VERSION" ]; then
+            echo "::error::版本号不能为空"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "版本号：$VERSION  →  tag：v$VERSION"
+
+      - name: 自动创建并推送 tag
+        shell: bash
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+            echo "::error::tag $TAG 已存在，请更换版本号"
+            exit 1
+          fi
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "✅ 已创建并推送 tag：$TAG"
+
+  # ── 2. Windows 打包 ───────────────────────────────────────
+  build-windows:
+    name: Windows 打包
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: 安装依赖
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-wxui.txt
+          pip install pyinstaller
+
+      - name: 写入版本号到 i18n
+        shell: pwsh
+        run: python scripts/stamp_version.py "${{ needs.prepare.outputs.version }}"
+
+      - name: 打包（PyInstaller）
+        shell: pwsh
+        run: pyinstaller --clean --noconfirm GUI.spec
+
+      - name: 打包为 zip
+        shell: pwsh
+        run: |
+          $zip = "TextGrid2oto-windows-${{ needs.prepare.outputs.version }}.zip"
+          Compress-Archive -Path dist/TextGrid2oto/* -DestinationPath $zip -Force
+          Get-Item $zip | Select-Object Name, Length
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: TextGrid2oto-windows-*.zip
+          if-no-files-found: error
+
+  # ── 3. macOS 打包 ─────────────────────────────────────────
+  build-macos:
+    name: macOS 打包
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-wxui.txt
+          pip install pyinstaller
+
+      - name: 写入版本号到 i18n
+        run: python scripts/stamp_version.py "${{ needs.prepare.outputs.version }}"
+
+      - name: 打包（PyInstaller）
+        run: pyinstaller --clean --noconfirm GUI-macos.spec
+
+      - name: 打包为 zip
+        run: |
+          ditto -c -k --keepParent "dist/TextGrid2oto.app" \
+            "TextGrid2oto-macos-${{ needs.prepare.outputs.version }}.zip"
+          ls -lh TextGrid2oto-macos-*.zip
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: TextGrid2oto-macos-*.zip
+          if-no-files-found: error
+
+  # ── 4. 发布 Release ──────────────────────────────────────
+  release:
+    name: 发布 Release
+    needs: [prepare, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载全部构建产物
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
+
+      - name: 检查产物
+        run: ls -lh artifacts
 
       - name: 发布到 GitHub Releases
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: "Release ${{ github.ref_name }}"
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: TextGrid2oto ${{ needs.prepare.outputs.tag }}
           draft: false
           prerelease: false
-          files: |
-            artifacts/TextGrid2oto-windows-*/TextGrid2oto.exe
-            artifacts/TextGrid2oto-macos-*/TextGrid2oto.app
+          files: artifacts/*.zip
           body: |
-            ## 版本 ${{ github.ref_name }} 更新内容
+            ## TextGrid2oto ${{ needs.prepare.outputs.version }}
 
+            ### ⚠️ 使用前请先下载模型（安装包内不含模型）
+            由于 ONNX 模型体积过大（约 244 MB），**不随安装包一起分发**，请自行下载：
+
+            👉 **模型下载：** ${{ env.MODEL_RELEASE_URL }}
+
+            解压后把 `HubertFA_model` 文件夹放到程序根目录（与可执行文件同级），
+            目录层级需为 `HubertFA_model/<模型名>/model.onnx`。
+
+            ### 📥 下载说明
+
+            | 平台 | 文件 | 解压后运行 |
+            | --- | --- | --- |
+            | Windows | `TextGrid2oto-windows-${{ needs.prepare.outputs.version }}.zip` | `TextGrid2oto/TextGrid2oto.exe` |
+            | macOS | `TextGrid2oto-macos-${{ needs.prepare.outputs.version }}.zip` | `TextGrid2oto.app` |
+
+            > 请**整体解压**后使用，不要只单独拷贝可执行文件。
+
+            **构建环境：** Python ${{ env.PYTHON_VERSION }} · GitHub Actions 自动构建
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
