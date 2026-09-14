@@ -56,7 +56,7 @@ utau自动标注/
 ├── oto/                   # oto 读取/校验/参数面板
 ├── presamp/               # 各录音方案的 presamp.ini
 ├── tg2svdb/               # 转为 svdb 相关
-├── HubertFA_model/        # 内置 ONNX 模型（1201 / 1218）
+├── HubertFA_model/        # ONNX 模型（需自行下载，见「环境配置」）
 ├── HubertFA/ SOFA/        # 模型训练与导出源码
 └── requirements*.txt      # 依赖清单
 ```
@@ -84,10 +84,40 @@ pip install -r requirements-wxui.txt
 
 <sub>旧的已废弃方案对应的依赖（**无需安装**，仅存档参考）：`requirements-webui-onnx.txt`（ONNX 版 WebUI）、`requirements.txt`（完整依赖，含 torch、训练、Gradio 等，体积较大）。</sub>
 
-### 3. 配置模型与参数
+### 3. 下载并放置模型
 
-- 内置 ONNX 模型位于 `HubertFA_model/`（例如 `1218_hfa_model/`），其中包含 `model.onnx`、`vocab.json` 及各语言字典（`zh.txt`、`en-arpasing.txt`、`ja-*` 等）。
-- 运行参数可参考根目录的 `config.txt`（wav 路径、字典、presamp、忽略音素、录音方案等）。
+ONNX 模型体积较大，未直接包含在仓库中，请从 Releases 页面下载：
+
+- 📦 **[HubertFA_model 下载（Release v0.1.0）](https://github.com/xiaobaijunya/TextGrid2oto/releases/tag/v0.1.0)**
+- 资源文件：`HubertFA_model.zip`（约 244 MB）
+  - SHA256：`fde3cd59795754e7e1b2fa5495e40b43fe1efa28e3588765022542abe6ec8eb7`
+- 模型源自 [wolfgitpr/HubertFA v0.0.7](https://github.com/wolfgitpr/HubertFA/releases/tag/v0.0.7)，为适配本项目架构做了部分修改。
+
+**放置路径：** 将下载的 `HubertFA_model.zip` 解压，把解压出的 **`HubertFA_model` 整个文件夹放到项目根目录**（与 `GUI.py` 同级），最终结构如下：
+
+```
+TextGrid2oto/                    # 项目根目录
+├── GUI.py
+├── onnx_infer.py
+└── HubertFA_model/              # ← 解压到这里
+    ├── 1218_hfa_model/
+        ├── model.onnx
+        ├── vocab.json
+        ├── config.json
+        ├── zh.txt
+        ├── en-arpasing.txt
+        └── ja-*.txt
+```
+
+**注意事项：**
+
+1. 目录层级必须为 `HubertFA_model/<模型名>/model.onnx`。**不要把 `HubertFA_model` 解压进另一层同名文件夹**（例如出现 `HubertFA_model/HubertFA_model/...` 就是错的）。
+2. 每个模型文件夹内必须同时包含 `model.onnx`、`vocab.json` 以及对应语言的字典文件（如 `zh.txt`、`en-arpasing.txt`、`ja-hira-假名.txt` 等）。
+3. 在 GUI 中选择模型时，请选择到 **具体的模型文件夹**（例如 `HubertFA_model/1218_hfa_model`），而不是 `HubertFA_model` 这一层。
+
+### 4. 配置参数
+
+运行参数可参考根目录的 `config.txt`（wav 路径、字典、presamp、忽略音素、录音方案、oto 参数等）。
 
 ## 如何运行
 
