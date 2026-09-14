@@ -101,6 +101,11 @@ jobs:
     name: Windows 打包
     needs: prepare
     runs-on: windows-latest
+    env:
+      # Windows runner 默认 stdout 为 cp1252，打印中文路径会 UnicodeEncodeError。
+      # 开启 UTF-8 模式，保证 PyInstaller / 各脚本的中文输出正常。
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
