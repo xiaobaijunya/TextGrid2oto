@@ -1,22 +1,35 @@
 # -*- mode: python ; coding: utf-8 -*-
-#pyinstaller GUI.spec
+# 打包命令：pyinstaller GUI.spec
+#
+# ── 最终目录布局 ────────────────────────────────────────────
+#   dist/TextGrid2oto/
+#   ├── TextGrid2oto.exe
+#   ├── i18n/  config/  img/  presamp/  tg2svdb/字典/   ← 用户可见，与 exe 同级
+#   ├── HubertFA_model/                                  ← 用户自行下载放入
+#   └── _internal/                                       ← Python 依赖与 DLL，用户无需关心
+#
+# 程序通过 get_app_root()（sys.executable 的父目录）查找上述资源，
+# 因此它们必须与 exe 同级，不能待在 _internal 里。
+# 但 PyInstaller 6 会把 datas 统一放进 _internal，且禁止用 ../ 逃逸，
+# 所以这里改为「COLLECT 之后再手动复制」的方式（见文件末尾）。
 
-# 需要随程序一起分发的资源（源路径, 打包后目录）
-# 注意：ONNX 模型（HubertFA_model，约 244MB）体积过大，不打包，
-#       由用户自行到 Release 下载后放到程序根目录。
-datas = [
-    ('img/TextGrid2oto.ico', 'img'),
-    ('i18n', 'i18n'),
-    ('config', 'config'),
-    ('presamp', 'presamp'),
-    ('tg2svdb/字典', 'tg2svdb/字典'),
+import os
+import shutil
+
+# 需要暴露到 exe 同级的资源目录（相对项目根目录）
+VISIBLE_DIRS = [
+    'i18n',
+    'config',
+    'img',
+    'presamp',
+    'tg2svdb/字典',
 ]
 
 a = Analysis(
     ['GUI.py'],
     pathex=[],
     binaries=[],
-    datas=datas,
+    datas=[],          # 可见资源不在这里声明，见文件末尾的复制步骤
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -56,3 +69,23 @@ coll = COLLECT(
     upx_exclude=[],
     name='TextGrid2oto'
 )
+
+# ── 把「用户可见」的资源复制到 exe 同级 ──────────────────────
+# 执行到此处时 COLLECT 已完成 dist 目录构建（Target.__postinit__ 会立即
+# 调用 assemble()），所以可以直接写入 coll.name（即 dist/TextGrid2oto）。
+
+
+def _ignore_junk(_dir, names):
+    """复制时跳过 __pycache__ 等构建垃圾。"""
+    return [n for n in names if n == '__pycache__' or n.endswith(('.pyc', '.pyo'))]
+
+
+for _rel in VISIBLE_DIRS:
+    _src = os.path.join(SPECPATH, _rel)
+    _dst = os.path.join(coll.name, _rel)
+    if not os.path.isdir(_src):
+        print(f'[WARN] 资源目录不存在，已跳过: {_src}')
+        continue
+    shutil.rmtree(_dst, ignore_errors=True)
+    shutil.copytree(_src, _dst, ignore=_ignore_junk)
+    print(f'[OK] {_rel}  ->  {_dst}')
