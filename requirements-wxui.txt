@@ -1,6 +1,6 @@
 
 
-onnxruntime-directml
+onnxruntime-webgpu
 numpy
 librosa
 textgrid
