@@ -163,7 +163,7 @@ def json2vcoto(vc_data,C_V,vc_sum,vv_sum,ignore):
                 left = float(cont["middle"]) * 1000 + ((float(cont['xmax']) - float(cont['middle'])) * 1000 / vv_sum[0])
                 # 右线占比
                 right = (float(cont['xmax']) * 1000 - left)/vv_sum[2]
-                Prevoice = right / 4
+                Prevoice = right / vv_sum[3]
                 # 固定的占比
                 fixed = (right - Prevoice) /vv_sum[1] +Prevoice
                 cross = right / vv_sum[4]

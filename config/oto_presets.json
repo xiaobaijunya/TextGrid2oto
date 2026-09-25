@@ -47,9 +47,18 @@
       "默认": {
         "cv_params": "1,3,1.3,1.5,2",
         "vc_params": "3,1,2,1,3",
-        "vv_params": "2,3,1.05,1,2",
+        "vv_params": "2,3,1.05,4,2",
         "cv_offset": "0,0,0,0,0",
         "vc_offset": "0,0,0,0,0",
+        "cv_repeat": "1",
+        "vc_repeat": "1"
+      },
+      "类CVVC": {
+        "cv_params": "1,3,1.3,1.5,2",
+        "vc_params": "3,1,2,1,3",
+        "vv_params": "2,3,1,1.1,2",
+        "cv_offset": "0,0,0,0,0",
+        "vc_offset": "0,0,10,0,0",
         "cv_repeat": "1",
         "vc_repeat": "1"
       }
