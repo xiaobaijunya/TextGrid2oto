@@ -16,8 +16,9 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.12'
-  # 模型（约 244MB）不打包进安装包，由用户自行下载
+  # 模型不打包进安装包，由用户自行下载
   MODEL_RELEASE_URL: https://github.com/xiaobaijunya/TextGrid2oto/releases/tag/v0.1.0
+  TIFA_MODEL_RELEASE_URL: https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v0.1.1/TIFA_model.zip
 
 jobs:
   # ── 1. 解析版本号，必要时自动创建 tag ──────────────────────
@@ -76,12 +77,16 @@ jobs:
             ## TextGrid2oto ${{ steps.resolve.outputs.version }}
 
             ### ⚠️ 使用前请先下载模型（安装包内不含模型）
-            由于 ONNX 模型体积过大（约 244 MB），**不随安装包一起分发**，请自行下载：
 
-            👉 **模型下载：** ${{ env.MODEL_RELEASE_URL }}
+            ONNX 模型体积过大，**不随安装包一起分发**，请按需下载：
 
-            解压后把 `HubertFA_model` 文件夹放到程序根目录（与可执行文件同级），
-            目录层级需为 `HubertFA_model/<模型名>/model.onnx`。
+            | 模型 | 下载地址 | 解压后放置位置 |
+            | --- | --- | --- |
+            | HubertFA | 👉 ${{ env.MODEL_RELEASE_URL }} | `HubertFA_model/<模型名>/model.onnx` |
+            | TIFA | 👉 ${{ env.TIFA_MODEL_RELEASE_URL }} | `TIFA_model/TIFA-1.0-ST/`（含 `model.onnx`、`spectrogram.onnx`、`vocabulary.json`、`config.json` 及字典 `.txt`） |
+
+            > 两个模型文件夹都放到**程序根目录**（与可执行文件同级）。
+            > 不使用 TIFA 推理时，`TIFA_model` 可以不放。
 
             ### 📥 下载说明
 
@@ -214,12 +219,16 @@ jobs:
             ## TextGrid2oto ${{ needs.prepare.outputs.version }}
 
             ### ⚠️ 使用前请先下载模型（安装包内不含模型）
-            由于 ONNX 模型体积过大（约 244 MB），**不随安装包一起分发**，请自行下载：
 
-            👉 **模型下载：** ${{ env.MODEL_RELEASE_URL }}
+            ONNX 模型体积过大，**不随安装包一起分发**，请按需下载：
 
-            解压后把 `HubertFA_model` 文件夹放到程序根目录（与可执行文件同级），
-            目录层级需为 `HubertFA_model/<模型名>/model.onnx`。
+            | 模型 | 下载地址 | 解压后放置位置 |
+            | --- | --- | --- |
+            | HubertFA | 👉 ${{ env.MODEL_RELEASE_URL }} | `HubertFA_model/<模型名>/model.onnx` |
+            | TIFA | 👉 ${{ env.TIFA_MODEL_RELEASE_URL }} | `TIFA_model/TIFA-1.0-ST/`（含 `model.onnx`、`spectrogram.onnx`、`vocabulary.json`、`config.json` 及字典 `.txt`） |
+
+            > 两个模型文件夹都放到**程序根目录**（与可执行文件同级）。
+            > 不使用 TIFA 推理时，`TIFA_model` 可以不放。
 
             ### 📥 下载说明
 

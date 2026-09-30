@@ -1,6 +1,11 @@
 
 
-onnxruntime-webgpu
+# ONNX Runtime 执行后端（按平台自动选择，Python ≥ 3.11）
+#   Windows   → DirectML（GPU 加速，实测最快）
+#   非 Windows → WebGPU（DirectML 只提供 Windows 轮子）
+onnxruntime-directml; sys_platform == "win32"
+onnxruntime-webgpu; sys_platform != "win32"
+
 numpy
 librosa
 textgrid

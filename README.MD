@@ -80,7 +80,11 @@ conda activate textgrid2oto
 pip install -r requirements-wxui.txt
 ```
 
-> 说明：`onnxruntime-webgpu` 为 ONNX Runtime 的 WebGPU 执行后端（需 **Python ≥ 3.11**，推荐 **3.12**，可在 Windows / macOS / Linux 上通过 GPU 加速）；如需改用 CPU 版，请将其替换为 `onnxruntime`。
+> 说明：依赖已按平台自动选择 ONNX Runtime 执行后端（需 **Python ≥ 3.11**，推荐 **3.12**）：
+> - **Windows** → `onnxruntime-directml`（DirectML GPU 加速，实测比 WebGPU / CPU 更快）
+> - **macOS / Linux** → `onnxruntime-webgpu`（DirectML 仅提供 Windows 轮子）
+>
+> 如需改用 CPU 版，请将这两行替换为 `onnxruntime`。
 
 <sub>旧的已废弃方案对应的依赖（**无需安装**，仅存档参考）：`requirements-webui-onnx.txt`（ONNX 版 WebUI）、`requirements.txt`（完整依赖，含 torch、训练、Gradio 等，体积较大）。</sub>
 
