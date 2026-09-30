@@ -22,12 +22,13 @@ sys.path.append(str(ROOT))
 import lab_generate.wavname2lab as wavname2lab
 import lab_generate.index2lab as index2lab
 import onnx_infer
+import tifa_infer
 from textgrid2json import del_SP, TextGrid2ds_json, ds_json2filter, ds_json2word
 from textgrid2json import detect_short_phonemes
 from json2oto import json2CV_oto, json2oto, json2VCV_oto, json2test,json2arpasing_oto
 sys.path.append(str(ROOT / 'tg2svdb'))
 from tg2svdb import tg2sv_change
-from i18n import _
+from i18n import _, register
 from oto.oto_param_panel import OtoParamPanel
 
 class TextRedirector:
@@ -112,6 +113,16 @@ class MainFrame(wx.Frame):
         auto_sp_sizer.Add(self.auto_sp_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         wav_box_sizer.Add(auto_sp_sizer, 0, wx.ALL, 3)
 
+        # 不生成R开关
+        no_r_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.no_r_checkbox = wx.CheckBox(lab_wav_panel, label=_('lab.no_r'))
+        self.no_r_checkbox.SetToolTip(_('lab.no_r.tooltip'))
+        register(self.no_r_checkbox, 'lab.no_r.tooltip', 'tooltip')
+        register(self.no_r_checkbox, 'lab.no_r', 'checkbox')
+        self.no_r_checkbox.SetValue(False)
+        no_r_sizer.Add(self.no_r_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        wav_box_sizer.Add(no_r_sizer, 0, wx.ALL, 3)
+
         generate_btn = wx.Button(lab_wav_panel, label=_('lab.wavname.generate'))
         register(generate_btn, 'lab.wavname.generate', 'button')
         generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_lab)
@@ -173,6 +184,16 @@ class MainFrame(wx.Frame):
         lab_separator_sizer.Add(self.lab_separator_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         idx_box_sizer.Add(lab_separator_sizer, 0, wx.ALL, 3)
 
+        # 不生成R开关
+        lab_index_no_r_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.lab_index_no_r_checkbox = wx.CheckBox(lab_index_panel, label=_('lab.no_r'))
+        self.lab_index_no_r_checkbox.SetToolTip(_('lab.no_r.tooltip'))
+        register(self.lab_index_no_r_checkbox, 'lab.no_r.tooltip', 'tooltip')
+        register(self.lab_index_no_r_checkbox, 'lab.no_r', 'checkbox')
+        self.lab_index_no_r_checkbox.SetValue(False)
+        lab_index_no_r_sizer.Add(self.lab_index_no_r_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        idx_box_sizer.Add(lab_index_no_r_sizer, 0, wx.ALL, 3)
+
         lab_index_generate_btn = wx.Button(lab_index_panel, label=_('lab.index.generate'))
         register(lab_index_generate_btn, 'lab.index.generate', 'button')
         lab_index_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_lab_from_index)
@@ -199,7 +220,15 @@ class MainFrame(wx.Frame):
         lab_sizer.Add(lab_notebook, 1, wx.EXPAND | wx.ALL, 5)
         lab_panel.SetSizer(lab_sizer)
         
-        textgrid_panel = wx.Panel(notebook)
+        textgrid_outer_panel = wx.Panel(notebook)
+        textgrid_notebook = wx.Notebook(textgrid_outer_panel)
+
+        # 第一个标签页：TIFA 推理
+        tifa_panel = wx.Panel(textgrid_notebook)
+        self._build_tifa_panel(tifa_panel)
+
+        # 第二个标签页：HubertFA 推理（原逻辑保持不变）
+        textgrid_panel = wx.Panel(textgrid_notebook)
         textgrid_sizer = wx.BoxSizer(wx.VERTICAL)
 
         textgrid_title = wx.StaticText(textgrid_panel, label=_('textgrid.title'))
@@ -361,6 +390,14 @@ class MainFrame(wx.Frame):
         textgrid_sizer.Add(self.infer_result_text, 1, wx.EXPAND | wx.ALL, 5)
 
         textgrid_panel.SetSizer(textgrid_sizer)
+
+        textgrid_notebook.AddPage(tifa_panel, _('textgrid.tab.tifa'))
+        textgrid_notebook.AddPage(textgrid_panel, _('textgrid.tab.hfa'))
+        register(textgrid_notebook, 'textgrid.tab.tifa', 'notebook_tab', 0)
+        register(textgrid_notebook, 'textgrid.tab.hfa', 'notebook_tab', 1)
+        textgrid_outer_sizer = wx.BoxSizer(wx.VERTICAL)
+        textgrid_outer_sizer.Add(textgrid_notebook, 1, wx.EXPAND | wx.ALL, 5)
+        textgrid_outer_panel.SetSizer(textgrid_outer_sizer)
 
         # 音素检测面板
         detect_panel = wx.Panel(notebook)
@@ -654,7 +691,7 @@ class MainFrame(wx.Frame):
 
         notebook.AddPage(lab_panel, _('notebook.lab'))
         register(notebook, 'notebook.lab', 'notebook_tab', 0)
-        notebook.AddPage(textgrid_panel, _('notebook.textgrid'))
+        notebook.AddPage(textgrid_outer_panel, _('notebook.textgrid'))
         register(notebook, 'notebook.textgrid', 'notebook_tab', 1)
         notebook.AddPage(detect_panel, _('notebook.detect'))
         register(notebook, 'notebook.detect', 'notebook_tab', 2)
@@ -695,7 +732,10 @@ class MainFrame(wx.Frame):
         self._infer_stop = threading.Event()
         self._infer_processes = []
         self._infer_stopped = False
+        self._tifa_stop = threading.Event()
         self.load_models()
+        self.load_tifa_models()
+        self.load_json_model_folders()
         self.load_svdb_dicts()
         # load_presamp 已由 OtoParamPanel 内部处理
 
@@ -710,13 +750,6 @@ class MainFrame(wx.Frame):
             if model_folders:
                 self.model_folder_choice.SetSelection(0)
                 self.on_model_folder_selected(None)
-            
-            # 填充 JSON 生成面板的模型文件夹选择框
-            self.json_folder_choice.Clear()
-            self.json_folder_choice.AppendItems(model_folders)
-            if model_folders:
-                self.json_folder_choice.SetSelection(0)
-                self.on_json_folder_selected(None)
 
     def on_model_folder_selected(self, event):
         selected_folder = self.model_folder_choice.GetStringSelection()
@@ -734,22 +767,39 @@ class MainFrame(wx.Frame):
                 self.dict_choice.AppendItems(dict_files)
                 if dict_files:
                     self.dict_choice.SetSelection(0)
-                
-                self.json_dict_choice.Clear()
-                self.json_dict_choice.AppendItems(dict_files)
-                if dict_files:
-                    self.json_dict_choice.SetSelection(0)
+
+    def load_json_model_folders(self):
+        """JSON 生成面板：HubertFA_model 与 TIFA_model 的模型目录都可选。"""
+        self.json_folder_choice.Clear()
+        hfa = ROOT / 'HubertFA_model'
+        if os.path.exists(hfa):
+            for d in sorted([x for x in os.listdir(hfa) if os.path.isdir(os.path.join(hfa, x))]):
+                self.json_folder_choice.Append(d, ('HubertFA_model', d))
+        tifa = ROOT / 'TIFA_model'
+        if os.path.exists(tifa):
+            for label, data in self._tifa_model_dirs():
+                self.json_folder_choice.Append(f"[TIFA] {label}", ('TIFA_model', data))
+        if self.json_folder_choice.GetCount():
+            self.json_folder_choice.SetSelection(0)
+            self.on_json_folder_selected(None)
+
+    def _json_model_dir(self):
+        """返回 JSON 生成面板当前选中的模型目录。"""
+        data = self.json_folder_choice.GetClientData(self.json_folder_choice.GetSelection())
+        if data:
+            base, folder = data
+            return (ROOT / base / folder) if folder else (ROOT / base)
+        name = self.json_folder_choice.GetStringSelection()
+        return (ROOT / 'HubertFA_model' / name) if name else None
 
     def on_json_folder_selected(self, event):
-        selected_folder = self.json_folder_choice.GetStringSelection()
-        if selected_folder:
-            model_path = str(ROOT / 'HubertFA_model' / selected_folder)
-            if os.path.exists(model_path):
-                dict_files = [f for f in os.listdir(model_path) if f.endswith('.txt')]
-                self.json_dict_choice.Clear()
-                self.json_dict_choice.AppendItems(dict_files)
-                if dict_files:
-                    self.json_dict_choice.SetSelection(0)
+        model_dir = self._json_model_dir()
+        self.json_dict_choice.Clear()
+        if model_dir and os.path.exists(model_dir):
+            dict_files = sorted([f for f in os.listdir(model_dir) if f.endswith('.txt')])
+            self.json_dict_choice.AppendItems(dict_files)
+            if dict_files:
+                self.json_dict_choice.SetSelection(0)
 
     def on_json_dict_selected(self, event):
         pass
@@ -1080,6 +1130,295 @@ class MainFrame(wx.Frame):
         thread = threading.Thread(target=generate_multi_oto_thread)
         thread.start()
 
+    # ══════════════════════════════════════════════════════════════
+    # TIFA 推理（TextGrid 面板第一个标签页）
+    # ══════════════════════════════════════════════════════════════
+
+    def _build_tifa_panel(self, parent):
+        """构建 TIFA ONNX 推理标签页。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        title = wx.StaticText(parent, label=_('tifa.title'))
+        register(title, 'tifa.title')
+        sizer.Add(title, 0, wx.ALL | wx.CENTER, 5)
+
+        # ── 音源文件夹 ──
+        folder_box = wx.StaticBox(parent, label=_('textgrid.folder'))
+        register(folder_box, 'textgrid.folder', 'label')
+        folder_box_sizer = wx.StaticBoxSizer(folder_box, wx.HORIZONTAL)
+        self.tifa_folder_text = wx.TextCtrl(parent, size=(500, -1))
+        tifa_browse_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(tifa_browse_btn, 'textgrid.browse_folder', 'button')
+        tifa_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.tifa_folder_text))
+        folder_box_sizer.Add(self.tifa_folder_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        folder_box_sizer.Add(tifa_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        sizer.Add(folder_box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        content_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # ── 左：模型选择 ──
+        left_box = wx.StaticBox(parent, label=_('textgrid.model_section'))
+        register(left_box, 'textgrid.model_section', 'label')
+        left_sizer = wx.StaticBoxSizer(left_box, wx.VERTICAL)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        model_folder_label = wx.StaticText(parent, label=_('textgrid.model_folder'))
+        register(model_folder_label, 'textgrid.model_folder')
+        self.tifa_model_folder_choice = wx.Choice(parent, size=(250, -1))
+        self.tifa_model_folder_choice.Bind(wx.EVT_CHOICE, self.on_tifa_model_folder_selected)
+        tifa_model_browse_btn = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(tifa_model_browse_btn, 'json.browse', 'button')
+        tifa_model_browse_btn.Bind(wx.EVT_BUTTON, self.on_tifa_browse_model_dir)
+        row.Add(model_folder_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.tifa_model_folder_choice, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(tifa_model_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        left_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        dict_label = wx.StaticText(parent, label=_('textgrid.dict'))
+        register(dict_label, 'textgrid.dict')
+        self.tifa_dict_choice = wx.Choice(parent, size=(250, -1))
+        row.Add(dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.tifa_dict_choice, 1, wx.EXPAND | wx.ALL, 3)
+        left_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        content_sizer.Add(left_sizer, 1, wx.EXPAND | wx.ALL, 5)
+        content_sizer.Add(wx.StaticLine(parent, style=wx.LI_VERTICAL), 0,
+                          wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
+
+        # ── 右：推理设置 ──
+        right_box = wx.StaticBox(parent, label=_('textgrid.infer_section'))
+        register(right_box, 'textgrid.infer_section', 'label')
+        right_sizer = wx.StaticBoxSizer(right_box, wx.VERTICAL)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        device_label = wx.StaticText(parent, label=_('textgrid.device'))
+        register(device_label, 'textgrid.device')
+        self.tifa_device_choice = wx.Choice(parent, size=(400, -1))
+        self.tifa_device_choice.Append(_('textgrid.device.cpu'), "cpu")
+        self.tifa_device_choice.Append(_('textgrid.device.dml'), "dml")
+        self.tifa_device_choice.Append(_('textgrid.device.webgpu'), "webgpu")
+        self.tifa_device_choice.SetSelection(0)
+        register(self.tifa_device_choice, '', 'choice',
+                 [('textgrid.device.cpu', 'cpu'), ('textgrid.device.dml', 'dml'),
+                  ('textgrid.device.webgpu', 'webgpu')])
+        row.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.tifa_device_choice, 1, wx.EXPAND | wx.ALL, 3)
+        right_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        batch_label = wx.StaticText(parent, label=_('textgrid.batch'))
+        register(batch_label, 'textgrid.batch')
+        self.tifa_batch_choice = wx.Choice(parent, size=(400, -1))
+        self.tifa_batch_choice.SetToolTip(_('textgrid.batch.tooltip'))
+        register(self.tifa_batch_choice, 'textgrid.batch.tooltip', 'tooltip')
+        for value in (1, 2, 4, 8, 16, 32):
+            self.tifa_batch_choice.Append(str(value), value)
+        self.tifa_batch_choice.SetSelection(3)  # 8
+        row.Add(batch_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.tifa_batch_choice, 1, wx.EXPAND | wx.ALL, 3)
+        right_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        skip_label = wx.StaticText(parent, label=_('textgrid.skip_penalty'))
+        register(skip_label, 'textgrid.skip_penalty')
+        self.tifa_skip_penalty_text = wx.TextCtrl(parent, value="0.5", size=(80, -1))
+        self.tifa_skip_penalty_text.SetToolTip(_('textgrid.skip_penalty.tooltip'))
+        register(self.tifa_skip_penalty_text, 'textgrid.skip_penalty.tooltip', 'tooltip')
+        row.Add(skip_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.tifa_skip_penalty_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        right_sizer.Add(row, 0, wx.ALL, 3)
+
+        # 推理后删除多余SP
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.tifa_del_sp_checkbox = wx.CheckBox(parent, label=_('tifa.del_sp'))
+        self.tifa_del_sp_checkbox.SetToolTip(_('tifa.del_sp.tooltip'))
+        register(self.tifa_del_sp_checkbox, 'tifa.del_sp.tooltip', 'tooltip')
+        register(self.tifa_del_sp_checkbox, 'tifa.del_sp', 'checkbox')
+        self.tifa_del_sp_checkbox.SetValue(True)
+        row.Add(self.tifa_del_sp_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        right_sizer.Add(row, 0, wx.ALL, 3)
+
+        content_sizer.Add(right_sizer, 1, wx.EXPAND | wx.ALL, 5)
+        sizer.Add(content_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # ── 按钮 ──
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        infer_btn = wx.Button(parent, label=_('textgrid.infer'))
+        register(infer_btn, 'textgrid.infer', 'button')
+        infer_btn.Bind(wx.EVT_BUTTON, self.on_tifa_infer)
+        btn_sizer.Add(infer_btn, 0, wx.ALL | wx.CENTER, 5)
+        self.tifa_stop_btn = wx.Button(parent, label=_('textgrid.stop_infer'))
+        register(self.tifa_stop_btn, 'textgrid.stop_infer', 'button')
+        self.tifa_stop_btn.Bind(wx.EVT_BUTTON, self.on_tifa_stop)
+        self.tifa_stop_btn.Disable()
+        btn_sizer.Add(self.tifa_stop_btn, 0, wx.ALL | wx.CENTER, 5)
+        sizer.Add(btn_sizer, 0, wx.ALL | wx.CENTER, 5)
+
+        result_label = wx.StaticText(parent, label=_('textgrid.result'))
+        register(result_label, 'textgrid.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+
+        self.tifa_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        sizer.Add(self.tifa_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+
+    def _tifa_model_dirs(self):
+        """返回 [(显示标签, 客户端数据)]：TIFA_model 下的每个子目录。
+        若一个子目录都没有，则退回 TIFA_model 根目录本身，保证下拉里总有可用项。"""
+        base = ROOT / 'TIFA_model'
+        if not os.path.exists(base):
+            return []
+        subdirs = sorted([x for x in os.listdir(base) if os.path.isdir(os.path.join(base, x))])
+        if subdirs:
+            return [(d, d) for d in subdirs]
+        return [(_('tifa.model_default'), '')]
+
+    def load_tifa_models(self):
+        """扫描 ROOT/TIFA_model 下的模型目录与字典文件。"""
+        self.tifa_model_folder_choice.Clear()
+        for label, data in self._tifa_model_dirs():
+            self.tifa_model_folder_choice.Append(label, data)
+        if self.tifa_model_folder_choice.GetCount():
+            self.tifa_model_folder_choice.SetSelection(0)
+            self.on_tifa_model_folder_selected(None)
+
+    def _tifa_model_dir(self):
+        data = self.tifa_model_folder_choice.GetClientData(self.tifa_model_folder_choice.GetSelection())
+        if data:
+            p = Path(data)
+            return p if p.is_absolute() else (ROOT / 'TIFA_model' / p)
+        return ROOT / 'TIFA_model'
+
+    def on_tifa_browse_model_dir(self, event):
+        """手动选择一个模型目录（不限于 TIFA_model 之下）。"""
+        dialog = wx.DirDialog(None, _('msg.select_folder'), style=wx.DD_DEFAULT_STYLE)
+        if dialog.ShowModal() == wx.ID_OK:
+            path = dialog.GetPath()
+            label = os.path.basename(path.rstrip('\\/')) or path
+            idx = self.tifa_model_folder_choice.FindString(label)
+            if idx == wx.NOT_FOUND:
+                idx = self.tifa_model_folder_choice.Append(label, path)
+            self.tifa_model_folder_choice.SetSelection(idx)
+            self.on_tifa_model_folder_selected(None)
+        dialog.Destroy()
+
+    def on_tifa_model_folder_selected(self, event):
+        model_dir = self._tifa_model_dir()
+        self.tifa_dict_choice.Clear()
+        if os.path.exists(model_dir):
+            dict_files = sorted([f for f in os.listdir(model_dir) if f.endswith('.txt')])
+            self.tifa_dict_choice.AppendItems(dict_files)
+            if dict_files:
+                self.tifa_dict_choice.SetSelection(0)
+
+    def on_tifa_stop(self, event):
+        """强制停止 TIFA 推理。"""
+        self._tifa_stop.set()
+        self.tifa_stop_btn.Disable()
+        self.tifa_result_text.AppendText(_('log.infer_stop_requested'))
+
+    def on_tifa_infer(self, event):
+        wav_folder = self.tifa_folder_text.GetValue().strip()
+        dict_file = self.tifa_dict_choice.GetStringSelection()
+
+        if not wav_folder:
+            wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.exists(wav_folder):
+            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not dict_file:
+            wx.MessageBox(_('msg.err.select_dict'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        model_dir = self._tifa_model_dir()
+        dict_path = model_dir / dict_file
+        if not os.path.exists(dict_path):
+            wx.MessageBox(_('msg.err.dict_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not (model_dir / 'model.onnx').exists():
+            wx.MessageBox(_('msg.err.tifa_model_missing').format(path=str(model_dir)),
+                          _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        device = self.tifa_device_choice.GetClientData(self.tifa_device_choice.GetSelection()) or 'cpu'
+        batch_size = self.tifa_batch_choice.GetClientData(self.tifa_batch_choice.GetSelection()) or 8
+        del_sp_enabled = self.tifa_del_sp_checkbox.GetValue()
+        try:
+            skip_penalty = float(self.tifa_skip_penalty_text.GetValue().strip())
+        except ValueError:
+            wx.MessageBox(_('msg.err.params_format'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        # 语言前缀：TIFA 词表自带语言前缀，解析时会自动回退，这里传 None 即可
+        language = None
+
+        def tifa_infer_thread():
+            try:
+                wx.CallAfter(self.tifa_result_text.Clear)
+                self._tifa_stop.clear()
+                self._tifa_stopped = False
+                wx.CallAfter(self.tifa_stop_btn.Enable)
+
+                def progress_callback(msg):
+                    wx.CallAfter(self.tifa_result_text.AppendText, msg + "\n")
+                    wx.CallAfter(self.tifa_result_text.ShowPosition, self.tifa_result_text.GetLastPosition())
+
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.model_info').format(model=model_dir.name))
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.dict_info').format(dict=dict_file))
+                wx.CallAfter(self.tifa_result_text.AppendText,
+                             _('log.tifa_batch').format(batch=batch_size, penalty=skip_penalty))
+
+                inference = tifa_infer.TifaInference(model_dir)
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.loading_config'))
+                inference.load_config()
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.loading_model_weights'))
+                inference.load_model(device=device)
+                inference.set_progress_callback(progress_callback)
+
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.loading_dataset'))
+                inference.get_dataset(wav_folder, language=language, g2p="dictionary",
+                                      dictionary_path=str(dict_path), in_format="lab")
+
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.start_infer'))
+                try:
+                    inference.infer(batch_size=batch_size, skip_penalty=skip_penalty,
+                                    stop_event=self._tifa_stop)
+                except tifa_infer.StopInference:
+                    wx.CallAfter(self.tifa_result_text.AppendText, _('log.infer_stopped'))
+                    wx.CallAfter(self.tifa_stop_btn.Disable)
+                    return
+
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.exporting'))
+                inference.export(wav_folder)
+
+                # ── 推理完成后可自动删除多余的 SP 音素 ──
+                if del_sp_enabled:
+                    wx.CallAfter(self.tifa_result_text.AppendText, _('log.del_sp_start'))
+                    try:
+                        with TextRedirector(self.tifa_result_text):
+                            del_SP.process_all_textgrid_files(wav_folder, "AP,SP,EP", True)
+                        wx.CallAfter(self.tifa_result_text.AppendText, _('log.del_sp_done'))
+                    except Exception:
+                        wx.CallAfter(self.tifa_result_text.AppendText,
+                                     _('log.del_sp_failed').format(error=traceback.format_exc()))
+
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.infer_complete'))
+                wx.CallAfter(self.tifa_stop_btn.Disable)
+                wx.CallAfter(wx.MessageBox, _('msg.ok.infer_complete'), _('msg.success'),
+                             wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.tifa_result_text.AppendText, _('log.infer_failed').format(error=tb))
+                wx.CallAfter(self.tifa_stop_btn.Disable)
+                wx.CallAfter(wx.MessageBox, _('log.infer_failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+
+        thread = threading.Thread(target=tifa_infer_thread)
+        thread.start()
+
     def on_browse_folder(self, event, text_ctrl):
         dialog = wx.DirDialog(None, _('msg.select_folder'), style=wx.DD_DEFAULT_STYLE)
         if dialog.ShowModal() == wx.ID_CANCEL:
@@ -1123,11 +1462,14 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.lab_result_text.AppendText, _('log.start_generate_lab'))
 
                 auto_sp = self.auto_sp_checkbox.GetValue()
+                drop_r = self.no_r_checkbox.GetValue()
                 wx.CallAfter(self.lab_result_text.AppendText,
                              _('log.auto_sp_state').format(state=_('msg.on') if auto_sp else _('msg.off')))
+                wx.CallAfter(self.lab_result_text.AppendText,
+                             _('log.no_r_state').format(state=_('msg.on') if drop_r else _('msg.off')))
 
                 with TextRedirector(self.lab_result_text):
-                    wavname2lab.run(path, cuts, auto_sp)
+                    wavname2lab.run(path, cuts, auto_sp, drop_r)
 
                 wx.CallAfter(self.lab_result_text.AppendText, _('log.lab_complete'))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.generate_complete'), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
@@ -1167,8 +1509,12 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.lab_index_result_text.Clear)
                 wx.CallAfter(self.lab_index_result_text.AppendText, _('log.start_generate_lab_index'))
 
+                drop_r = self.lab_index_no_r_checkbox.GetValue()
+                wx.CallAfter(self.lab_index_result_text.AppendText,
+                             _('log.no_r_state').format(state=_('msg.on') if drop_r else _('msg.off')))
+
                 with TextRedirector(self.lab_index_result_text):
-                    index2lab.run(wav_path, index_path, cuts)
+                    index2lab.run(wav_path, index_path, cuts, drop_r)
 
                 wx.CallAfter(self.lab_index_result_text.AppendText, _('log.lab_index_complete'))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.generate_complete'), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
@@ -1471,9 +1817,12 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.json_result_text.Clear)
                 wx.CallAfter(self.json_result_text.AppendText, _('log.start_generate_json'))
 
-                # 获取字典路径
-                selected_folder = self.json_folder_choice.GetStringSelection()
-                dict_full_path = str(ROOT / 'HubertFA_model' / selected_folder / dict_file)
+                # 获取字典路径（HubertFA_model 或 TIFA_model 的模型目录）
+                model_dir = self._json_model_dir()
+                if model_dir is None:
+                    wx.CallAfter(wx.MessageBox, _('msg.err.select_model'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                    return
+                dict_full_path = str(model_dir / dict_file)
 
                 if not os.path.exists(dict_full_path):
                     wx.CallAfter(wx.MessageBox, _('msg.err.dict_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)

@@ -1,7 +1,7 @@
 import os
 import re
 # 定义函数来处理文件名
-def process_wav_name(wav_name,cuts,auto_sp=True):
+def process_wav_name(wav_name,cuts,auto_sp=True,drop_r=False):
     # 移除文件扩展名
     cleaned_name = os.path.splitext(wav_name)[0]
     # 剔除下划线
@@ -12,29 +12,30 @@ def process_wav_name(wav_name,cuts,auto_sp=True):
     pattern = re.compile(r'(?<=[ぁ-ゖァ-ヺ])(?![ぁぃぅぇぉゃゅょっゎァィゥェォャュョッヮ])')
     cleaned_name = pattern.sub(' ', cleaned_name)
 
-    # 自动生成 SP：首尾补 SP，并把文件名里的 R（呼吸）也当作 SP
-    # 关闭时完全不动 SP，只保留文件名中已写的音素
+    # 不生成 R：直接把 R 记号从 lab 里删掉。
+    if drop_r:
+        cleaned_name = ' '.join(t for t in cleaned_name.split() if t != 'R')
+
+    # 自动生成 SP：只在首尾补 SP，不动文件名里的 R（R 原样保留）
     if auto_sp:
         cleaned_name = 'SP ' + cleaned_name + ' SP'
 
     cleaned_name=cleaned_name.replace('  ',' ')
-
-    if auto_sp:
-        cleaned_name=cleaned_name.replace('R','SP')
-        cleaned_name=cleaned_name.replace('SP SP','SP')
+    cleaned_name=cleaned_name.replace('SP SP','SP')
 
     cleaned_name=cleaned_name.strip()
     return cleaned_name
 
 #传入wav路径（可选加入自定义分隔符号）
-#auto_sp: 是否自动生成SP标签（默认开启）
-def run(path,cuts,auto_sp=True):
+#auto_sp: 是否自动生成SP标签（默认开启，仅在首尾补 SP，R 保持原样）
+#drop_r: 是否在生成的 lab 中删除 R 记号（默认关闭，即保留 R）
+def run(path,cuts,auto_sp=True,drop_r=False):
     # 递归查找所有 WAV 文件
     for root, dirs, files in os.walk(path):
         for wav_file in files:
             if wav_file.endswith('.wav'):
                 # 处理文件名
-                lab_content = process_wav_name(wav_file,cuts,auto_sp)
+                lab_content = process_wav_name(wav_file,cuts,auto_sp,drop_r)
                 # 生成.lab文件的文件名
                 lab_file_name = os.path.splitext(wav_file)[0] + '.lab'
                 # 写入.lab文件（保存在与 WAV 文件相同的目录）

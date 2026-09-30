@@ -2,13 +2,13 @@ from lab_generate import wavname2lab
 import os
 
 
-def run(wav_path,index_path,cuts):
+def run(wav_path,index_path,cuts,drop_r=False):
     dic = {}
     with open(index_path,'r',encoding='utf-8') as f:
         lines = f.readlines()
     for line in lines:
         line = line.strip().split(',')
-        dic[line[0].split('.')[0]] = wavname2lab.process_wav_name(line[1],cuts)
+        dic[line[0].split('.')[0]] = wavname2lab.process_wav_name(line[1],cuts,drop_r=drop_r)
     print(dic)
     
     for root, dirs, files in os.walk(wav_path):
@@ -18,7 +18,7 @@ def run(wav_path,index_path,cuts):
                 if wav_name in dic:
                     lab_content = dic[wav_name]
                 else:
-                    lab_content = wavname2lab.process_wav_name(wav_file, cuts)
+                    lab_content = wavname2lab.process_wav_name(wav_file, cuts, drop_r=drop_r)
                 
                 lab_file_name = wav_name + '.lab'
                 lab_file_path = os.path.join(root, lab_file_name)
