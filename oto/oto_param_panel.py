@@ -24,6 +24,13 @@ PRESAMP_DIR = ROOT / "presamp"
 # ── 模式名列表（与 json 中的 key 一致） ────────
 MODE_NAMES = ["CVVC", "VCV", "CVV", "ARPAsing", "Test"]
 
+# ── oto 写入方式：(i18n key, 传给 oto_write 的 cover 值) ──
+COVER_MODES = [
+    ("mark.oto.cover.overwrite", "y"),
+    ("mark.oto.cover.newfile", "n"),
+    ("mark.oto.cover.merge", "m"),
+]
+
 # ── 加载预设 ─────────────────────────────────────
 def _load_all_presets() -> dict:
     """从 oto_presets.json 加载所有预设"""
@@ -108,13 +115,19 @@ class OtoParamPanel(wx.Panel):
         register(self.encoding_label, "mark.oto.encoding")
         self.encoding_choice = wx.Choice(self, choices=["utf-8", "shift-jis", "gbk"], size=(100, -1))
         self.encoding_choice.SetSelection(0)
-        self.cover_checkbox = wx.CheckBox(self, label=_("mark.oto.cover"))
-        register(self.cover_checkbox, "mark.oto.cover", "checkbox")
-        self.cover_checkbox.SetValue(True)
+        self.cover_label = wx.StaticText(self, label=_("mark.oto.cover"))
+        register(self.cover_label, "mark.oto.cover")
+        self.cover_choice = wx.Choice(self, size=(180, -1))
+        for item_key, cover_value in COVER_MODES:
+            self.cover_choice.Append(_(item_key), cover_value)
+        self.cover_choice.SetSelection(0)
+        register(self.cover_choice, "mark.oto.cover", "choice", COVER_MODES)
+        register(self.cover_choice, "mark.oto.cover_tooltip", "choice_tooltip")
         mode_sizer.Add(self.mode_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
         mode_sizer.Add(self.encoding_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
         mode_sizer.Add(self.encoding_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
-        mode_sizer.Add(self.cover_checkbox, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        mode_sizer.Add(self.cover_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
+        mode_sizer.Add(self.cover_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 2)
         mode_sizer.AddStretchSpacer()
         sizer.Add(mode_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
@@ -293,6 +306,8 @@ class OtoParamPanel(wx.Panel):
 
     def get_params(self) -> dict:
         """返回当前所有参数 (含验证)"""
+        cover_sel = self.cover_choice.GetSelection()
+        cover = self.cover_choice.GetClientData(cover_sel) if cover_sel != -1 else "y"
         try:
             cv_sum = [float(x) for x in self.cv_sum_text.GetValue().split(",")]
             vc_sum = [float(x) for x in self.vc_sum_text.GetValue().split(",")]
@@ -308,7 +323,7 @@ class OtoParamPanel(wx.Panel):
             "mode_index": self.get_mode_index(),
             "mode_name": self.get_mode_name(),
             "encoding": self.encoding_choice.GetStringSelection(),
-            "cover": "y" if self.cover_checkbox.GetValue() else "n",
+            "cover": cover,
             "pitch": self.pitch_text.GetValue().strip(),
             "ignore": self.ignore_text.GetValue().strip(),
             "cv_sum": cv_sum,

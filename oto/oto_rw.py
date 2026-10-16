@@ -33,6 +33,17 @@ def oto_path(file_path):
         file_path = f"{new_file_path}_{i:02d}.ini"
         # print(file_path)
 
+# 原样读取文件全部文本，依次尝试 oto 支持的编码
+def oto_read_text(file_path):
+    for encoding in ['utf-8','shift-jis','gbk']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.read()
+        except UnicodeDecodeError:
+            continue
+    print(f'{RED}无法使用尝试的编码读取文件，请检查文件编码：{file_path}{RESET}')
+    return ''
+
 #预发声转为负数
 def oto_check(file_path,oto_data):
     file_path=file_path.strip("oto.ini")
@@ -204,12 +215,25 @@ def oto_apply_template(oto_origin, template_path,pitch):
 
 def oto_write(file_path,oto_data,pitch,cover,oto_encoding):
     #写入 oto 文件
+    #cover: y/Y 覆盖原文件；m/M 追加到原文件尾部（已有内容原样保留）；其他 不覆盖，另存为新文件
+    #返回值：实际写入的路径（不覆盖时可能带数字后缀）；全部编码写入失败时返回 None
+    merge = cover=='m' or cover=='M'
     if cover=='y' or cover=='Y':
         print(f'{GREEN}覆盖原文件：{file_path}{RESET}')
+        new_file_path = file_path
+    elif merge:
+        print(f'{GREEN}合并到原文件尾部：{file_path}{RESET}')
         new_file_path = file_path
     else:
         print(f'{GREEN}不覆盖原文件：{file_path}{RESET}')
         new_file_path=oto_path(file_path)
+
+    # 合并写入：先原样读回已有内容（不重新拼接音阶后缀），新数据追加在其后
+    merged_text=''
+    if merge and os.path.exists(new_file_path):
+        merged_text = oto_read_text(new_file_path)
+        if merged_text and not merged_text.endswith('\n'):
+            merged_text += '\n'
 
     if oto_encoding =='shift-jis':
         encodings = ['shift-jis','utf-8']
@@ -221,6 +245,8 @@ def oto_write(file_path,oto_data,pitch,cover,oto_encoding):
     for encoding in encodings:
         try:
             with open(new_file_path, 'w', encoding=encoding) as f:
+                if merged_text:
+                    f.write(merged_text)
                 for oto in oto_data:
                     f.write(f'{oto[0]}={oto[1]}{pitch},{oto[2]},{oto[3]},{oto[4]},{oto[5]},{oto[6]}\n')
             print(f'{GREEN}新oto以 {encoding} 编码写入成功：{new_file_path}{RESET}')
@@ -232,6 +258,8 @@ def oto_write(file_path,oto_data,pitch,cover,oto_encoding):
                 print(f'{RED}无法使用 utf-8 编码写入，请检查数据。{RESET}')
     else:
         print(f'{RED}所有尝试的编码都失败，无法写入文件。{RESET}')
+        return None
+    return new_file_path
 
 def run(oto_path):
     oto=oto_read(oto_path)

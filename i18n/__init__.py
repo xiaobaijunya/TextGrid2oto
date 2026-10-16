@@ -150,11 +150,19 @@ def update_all():
             elif kind == "notebook_tab":
                 widget.SetPageText(extra, text)
             elif kind == "choice":
+                # 重建列表时保留原有选择（按 clientData 匹配）
+                prev = widget.GetClientData(widget.GetSelection()) if widget.GetSelection() != -1 else None
                 widget.Clear()
                 for item_key, client_data in extra:
                     widget.Append(_(item_key), client_data)
                 if extra:
-                    widget.SetSelection(0)
+                    index = 0
+                    if prev is not None:
+                        for i, (_, client_data) in enumerate(extra):
+                            if client_data == prev:
+                                index = i
+                                break
+                    widget.SetSelection(index)
             elif kind == "choice_tooltip":
                 widget.SetToolTip(text)
         except Exception:

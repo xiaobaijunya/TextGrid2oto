@@ -982,18 +982,23 @@ class MainFrame(wx.Frame):
                         wx.CallAfter(self.oto_result_text.AppendText, _('log.offset_vc'))
                     
                     wx.CallAfter(self.oto_result_text.AppendText, _('log.merge_auto_oto'))
-                    oto_rw.oto_write(os.path.join(wav_path, 'auto_oto.ini'), cv + vc, '', cover, oto_encoding)
+                    # auto_oto.ini 是中间文件，始终覆盖写入，否则“不覆盖”时会另存为 auto_oto_01.ini，
+                    # 下面读回的仍是不含本次结果的旧 auto_oto.ini
+                    oto_rw.oto_write(os.path.join(wav_path, 'auto_oto.ini'), cv + vc, '', 'y', oto_encoding)
                     
                     oto_data = oto_rw.oto_read(os.path.join(wav_path, 'auto_oto.ini'))
                     if os.path.exists(oto_preset):
                         wx.CallAfter(self.oto_result_text.AppendText, _('log.apply_template').format(path=oto_preset))
                         oto_data = oto_rw.oto_apply_template(oto_data, oto_preset,pitch)
-                    oto_rw.oto_write(os.path.join(wav_path, 'oto.ini'), oto_data, pitch, cover, oto_encoding)
+                    # “不覆盖”时实际写入的可能是 oto_01.ini，后续检测必须用实际路径
+                    oto_path_written = oto_rw.oto_write(os.path.join(wav_path, 'oto.ini'), oto_data, pitch, cover, oto_encoding)
+                    if not oto_path_written:
+                        oto_path_written = os.path.join(wav_path, 'oto.ini')
                     
                     
                     
                     wx.CallAfter(self.oto_result_text.AppendText, _('log.check_missing'))
-                    oto_check.run(os.path.join(wav_path, 'oto.ini'), presamp_path, pitch, vcv_mode)
+                    oto_check.run(oto_path_written, presamp_path, pitch, vcv_mode)
                 
                 wx.CallAfter(self.oto_result_text.AppendText, _('log.oto_complete'))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.oto_complete'), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
@@ -1103,14 +1108,18 @@ class MainFrame(wx.Frame):
                         if vc_offset != [0.0, 0.0, 0.0, 0.0, 0.0]:
                             vc = oto_rw.oto_offset(vc, vc_offset)
 
-                        oto_rw.oto_write(os.path.join(sub_path, 'auto_oto.ini'), cv + vc, '', cover, oto_encoding)
+                        # auto_oto.ini 是中间文件，始终覆盖写入（原因同单音阶生成）
+                        oto_rw.oto_write(os.path.join(sub_path, 'auto_oto.ini'), cv + vc, '', 'y', oto_encoding)
 
                         oto_data = oto_rw.oto_read(os.path.join(sub_path, 'auto_oto.ini'))
                         if os.path.exists(oto_preset):
                             oto_data = oto_rw.oto_apply_template(oto_data, oto_preset)
-                        oto_rw.oto_write(os.path.join(sub_path, 'oto.ini'), oto_data, pitch, cover, oto_encoding)
+                        # “不覆盖”时实际写入的可能是 oto_01.ini，后续检测必须用实际路径
+                        oto_path_written = oto_rw.oto_write(os.path.join(sub_path, 'oto.ini'), oto_data, pitch, cover, oto_encoding)
+                        if not oto_path_written:
+                            oto_path_written = os.path.join(sub_path, 'oto.ini')
 
-                        oto_check.run(os.path.join(sub_path, 'oto.ini'), presamp_path, pitch, vcv_mode)
+                        oto_check.run(oto_path_written, presamp_path, pitch, vcv_mode)
 
                     success_count += 1
                     wx.CallAfter(self.multi_oto_result_text.AppendText,
