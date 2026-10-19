@@ -36,7 +36,9 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
-    optimize=0,
+    # 等价于 python -OO：级别 2 会去掉 assert 语句和文档字符串，
+    # 减小体积、略微加快启动。可用环境变量 PYI_OPTIMIZE 覆盖。
+    optimize=int(os.environ.get('PYI_OPTIMIZE', '2')),
 )
 
 pyz = PYZ(a.pure)

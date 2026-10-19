@@ -16,6 +16,8 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.12'
+  # PyInstaller 字节码优化级别 2（等价 python -OO），由 GUI.spec / GUI-macos.spec 读取
+  PYI_OPTIMIZE: '2'
   # 模型不打包进安装包，由用户自行下载
   MODEL_RELEASE_URL: https://github.com/xiaobaijunya/TextGrid2oto/releases/tag/v0.1.0
   TIFA_MODEL_RELEASE_URL: https://github.com/xiaobaijunya/TextGrid2oto/releases/download/v0.1.1/TIFA_model.zip
