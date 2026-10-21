@@ -5,7 +5,7 @@ def auto(dic_path,json_path,wav_path,num):
     tg2sv_change.run(dic_path,json_path,wav_path,num)
 
 if __name__ == "__main__":
-    dic_path = r'字典/mandarin-xsampa-dict.txt'
+    dic_path = r'dicts/mandarin-xsampa-dict.txt'
     db_path = r'F:\Download\SVDBCreator_Release_1.0.0\baini_zh\wav'
     folders = [f for f in os.listdir(db_path) if os.path.isdir(os.path.join(db_path, f))]
     num = 50

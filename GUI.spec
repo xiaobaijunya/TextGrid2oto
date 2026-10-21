@@ -4,7 +4,7 @@
 # ── 最终目录布局 ────────────────────────────────────────────
 #   dist/TextGrid2oto/
 #   ├── TextGrid2oto.exe
-#   ├── i18n/  config/  img/  presamp/  tg2svdb/字典/   ← 用户可见，与 exe 同级
+#   ├── i18n/  config/  img/  presamp/  tg2svdb/dicts/   ← 用户可见，与 exe 同级
 #   ├── HubertFA_model/                                  ← 用户自行下载放入
 #   └── _internal/                                       ← Python 依赖与 DLL，用户无需关心
 #
@@ -22,7 +22,7 @@ VISIBLE_DIRS = [
     'config',
     'img',
     'presamp',
-    'tg2svdb/字典',
+    'tg2svdb/dicts',
 ]
 
 a = Analysis(

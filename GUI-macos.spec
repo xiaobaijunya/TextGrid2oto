@@ -12,7 +12,7 @@ VISIBLE_DIRS = [
     'config',
     'img',
     'presamp',
-    'tg2svdb/字典',
+    'tg2svdb/dicts',
 ]
 
 a = Analysis(

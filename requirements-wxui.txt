@@ -8,5 +8,6 @@ onnxruntime-webgpu; sys_platform != "win32"
 
 numpy
 librosa
+soundfile
 textgrid
 wxpython

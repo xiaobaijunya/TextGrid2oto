@@ -1,6 +1,7 @@
 import wx
 import os
 import sys
+import json
 import time
 import traceback
 import threading
@@ -21,10 +22,16 @@ ROOT = get_app_root()
 sys.path.append(str(ROOT))
 import lab_generate.wavname2lab as wavname2lab
 import lab_generate.index2lab as index2lab
-import onnx_infer
-import tifa_infer
+from inference import onnx_infer
+from inference import tifa_infer
+from inference import game_infer
 from textgrid2json import del_SP, TextGrid2ds_json, ds_json2filter, ds_json2word
 from textgrid2json import detect_short_phonemes
+from textgrid2json import json2tg
+from build_diffdataset import words_from_phones
+from build_diffdataset import add_ph_num as phnum_builder
+from build_diffdataset import csv2tg
+from build_diffdataset.build_dataset import build_dataset as build_diff_dataset
 from json2oto import json2CV_oto, json2oto, json2VCV_oto, json2test,json2arpasing_oto
 sys.path.append(str(ROOT / 'tg2svdb'))
 from tg2svdb import tg2sv_change
@@ -506,10 +513,18 @@ class MainFrame(wx.Frame):
         json_dict_sizer = wx.BoxSizer(wx.HORIZONTAL)
         json_dict_label = wx.StaticText(json_panel, label=_('json.model_dict'))
         register(json_dict_label, 'json.model_dict')
-        self.json_dict_choice = wx.Choice(json_panel, size=(300, -1))
+        self.json_dict_choice = wx.Choice(json_panel, size=(170, -1))
         self.json_dict_choice.Bind(wx.EVT_CHOICE, self.on_json_dict_selected)
+        self.json_dict_text = wx.TextCtrl(json_panel)
+        self.json_dict_text.SetToolTip(_('json.dict.tooltip'))
+        register(self.json_dict_text, 'json.dict.tooltip', 'tooltip')
+        json_dict_browse_btn = wx.Button(json_panel, label=_('json.browse'), size=(60, -1))
+        register(json_dict_browse_btn, 'json.browse', 'button')
+        json_dict_browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.json_dict_text))
         json_dict_sizer.Add(json_dict_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        json_dict_sizer.Add(self.json_dict_choice, 1, wx.EXPAND | wx.ALL, 3)
+        json_dict_sizer.Add(self.json_dict_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        json_dict_sizer.Add(self.json_dict_text, 1, wx.EXPAND | wx.ALL, 3)
+        json_dict_sizer.Add(json_dict_browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         json_model_sizer.Add(json_dict_sizer, 0, wx.EXPAND | wx.ALL, 3)
 
         # 忽略音素
@@ -621,10 +636,18 @@ class MainFrame(wx.Frame):
         svdb_tail_ratio_sizer.Add(svdb_tail_ratio_percent, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         svdb_box_sizer.Add(svdb_tail_ratio_sizer, 0, wx.ALL, 3)
 
+        svdb_btn_row = wx.BoxSizer(wx.HORIZONTAL)
         svdb_generate_btn = wx.Button(svdb_panel, label=_('mark.svdb.generate'))
         register(svdb_generate_btn, 'mark.svdb.generate', 'button')
         svdb_generate_btn.Bind(wx.EVT_BUTTON, self.on_generate_svdb)
-        svdb_box_sizer.Add(svdb_generate_btn, 0, wx.ALL | wx.CENTER, 5)
+        svdb_tg_btn = wx.Button(svdb_panel, label=_('mark.svdb.generate_tg'))
+        register(svdb_tg_btn, 'mark.svdb.generate_tg', 'button')
+        svdb_tg_btn.SetToolTip(_('mark.svdb.generate_tg.tooltip'))
+        register(svdb_tg_btn, 'mark.svdb.generate_tg.tooltip', 'tooltip')
+        svdb_tg_btn.Bind(wx.EVT_BUTTON, self.on_generate_textgrid_from_json)
+        svdb_btn_row.Add(svdb_generate_btn, 0, wx.ALL, 5)
+        svdb_btn_row.Add(svdb_tg_btn, 0, wx.ALL, 5)
+        svdb_box_sizer.Add(svdb_btn_row, 0, wx.CENTER)
 
         svdb_sizer.Add(svdb_box_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
@@ -686,6 +709,12 @@ class MainFrame(wx.Frame):
         mark_notebook.AddPage(multi_oto_panel, _('mark.multi_oto.title'))
         register(mark_notebook, 'mark.multi_oto.title', 'notebook_tab', 2)
 
+        # ── transcriptions.csv 制作 ──
+        trans_panel = wx.Panel(mark_notebook)
+        self._build_transcriptions_panel(trans_panel)
+        mark_notebook.AddPage(trans_panel, _('mark.transcriptions.title'))
+        register(mark_notebook, 'mark.transcriptions.title', 'notebook_tab', 3)
+
         mark_sizer.Add(mark_notebook, 1, wx.EXPAND | wx.ALL, 5)
         mark_panel.SetSizer(mark_sizer)
 
@@ -733,10 +762,15 @@ class MainFrame(wx.Frame):
         self._infer_processes = []
         self._infer_stopped = False
         self._tifa_stop = threading.Event()
+        self._words_stop = threading.Event()
+        self._csv_stop = threading.Event()
+        self._game_stop = threading.Event()
         self.load_models()
         self.load_tifa_models()
         self.load_json_model_folders()
         self.load_svdb_dicts()
+        self.load_phnum_presets()
+        self.load_game_models()
         # load_presamp 已由 OtoParamPanel 内部处理
 
     def load_models(self):
@@ -793,25 +827,52 @@ class MainFrame(wx.Frame):
         return (ROOT / 'HubertFA_model' / name) if name else None
 
     def on_json_folder_selected(self, event):
+        """选模型文件夹时，把其中的字典列进下拉框，并默认写入第一个字典的完整路径。"""
         model_dir = self._json_model_dir()
         self.json_dict_choice.Clear()
         if model_dir and os.path.exists(model_dir):
             dict_files = sorted([f for f in os.listdir(model_dir) if f.endswith('.txt')])
-            self.json_dict_choice.AppendItems(dict_files)
             if dict_files:
+                self.json_dict_choice.AppendItems(dict_files)
                 self.json_dict_choice.SetSelection(0)
+                self.on_json_dict_selected(None)
 
     def on_json_dict_selected(self, event):
-        pass
+        """从下拉框选字典时，把完整路径写入输入框（也可直接在输入框里改）。"""
+        name = self.json_dict_choice.GetStringSelection()
+        model_dir = self._json_model_dir()
+        if name and model_dir:
+            self.json_dict_text.SetValue(str(model_dir / name))
     
     def load_svdb_dicts(self):
-        dict_dir = str(ROOT / 'tg2svdb' / '字典')
+        dict_dir = str(ROOT / 'tg2svdb' / 'dicts')
         if os.path.exists(dict_dir):
             dict_files = [f for f in os.listdir(dict_dir) if f.endswith('.txt')]
             self.svdb_dict_choice.Clear()
             self.svdb_dict_choice.AppendItems(dict_files)
             if dict_files:
                 self.svdb_dict_choice.SetSelection(0)
+
+    def load_phnum_presets(self):
+        """把 tg2svdb/cv_dicts 下带 vowels/consonants 的语言目录列进下拉框。"""
+        self.phnum_preset_choice.Clear()
+        self.phnum_preset_choice.Append(_('mark.phnum.preset.custom'), '')
+        base = ROOT / 'tg2svdb' / 'cv_dicts'
+        if base.is_dir():
+            for folder in sorted(p for p in base.iterdir() if p.is_dir()):
+                if (folder / 'vowels.txt').is_file() and (folder / 'consonants.txt').is_file():
+                    self.phnum_preset_choice.Append(folder.name, str(folder))
+        self.phnum_preset_choice.SetSelection(0)
+
+    def on_phnum_preset_selected(self, event):
+        """选择预设后自动切到「元音 + 辅音文件」并填好路径。"""
+        folder = self.phnum_preset_choice.GetClientData(self.phnum_preset_choice.GetSelection())
+        if not folder:
+            return
+        self.phnum_mode_choice.SetSelection(1)  # 元音 + 辅音文件
+        self.phnum_vowels_text.SetValue(os.path.join(folder, 'vowels.txt'))
+        self.phnum_consonants_text.SetValue(os.path.join(folder, 'consonants.txt'))
+        self.on_phnum_mode_changed(None)
     
     def on_generate_svdb(self, event):
         svdb_path = self.svdb_path_text.GetValue().strip()
@@ -844,7 +905,7 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.svdb_result_text.Clear)
                 wx.CallAfter(self.svdb_result_text.AppendText, _('log.start_generate_svdb'))
                 
-                dict_path = str(ROOT / 'tg2svdb' / '字典' / dict_file)
+                dict_path = str(ROOT / 'tg2svdb' / 'dicts' / dict_file)
                 
                 def process_folder(folder_path, folder_name=""):
                     json_path = os.path.join(folder_path, 'json', 'word_phone.json')
@@ -878,6 +939,62 @@ class MainFrame(wx.Frame):
         
         thread = threading.Thread(target=generate_svdb_thread)
         thread.start()
+
+    def on_generate_textgrid_from_json(self, event):
+        """由 json 生成 TextGrid（与「生成 json」相反的流程）。"""
+        folder = self.svdb_path_text.GetValue().strip()
+        dict_file = self.svdb_dict_choice.GetStringSelection()
+        tail_ratio_str = self.svdb_tail_ratio_text.GetValue().strip()
+
+        if not folder:
+            wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isdir(folder):
+            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        dict_path = None
+        tail_ratio = 50.0
+        if dict_file:
+            dict_path = os.path.join(str(ROOT), 'tg2svdb', 'dicts', dict_file)
+            if not os.path.isfile(dict_path):
+                wx.MessageBox(_('msg.err.dict_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                return
+            try:
+                tail_ratio = float(tail_ratio_str)
+                if tail_ratio <= 0 or tail_ratio >= 100:
+                    wx.MessageBox(_('msg.err.tail_ratio_range'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                    return
+            except ValueError:
+                wx.MessageBox(_('msg.err.tail_ratio_invalid'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                return
+
+        def worker():
+            try:
+                wx.CallAfter(self.svdb_result_text.Clear)
+                wx.CallAfter(self.svdb_result_text.AppendText, _('log.json2tg.start'))
+
+                def progress(message):
+                    wx.CallAfter(self.svdb_result_text.AppendText, message + "\n")
+                    wx.CallAfter(self.svdb_result_text.ShowPosition,
+                                 self.svdb_result_text.GetLastPosition())
+
+                stats = json2tg.run(folder, dictionary=dict_path, tail_ratio=tail_ratio,
+                                    progress_callback=progress)
+
+                wx.CallAfter(self.svdb_result_text.AppendText,
+                             _('log.json2tg.complete').format(
+                                 written=stats['written'], failed=stats['failed']))
+                wx.CallAfter(wx.MessageBox,
+                             _('msg.ok.json2tg_complete').format(count=stats['written']),
+                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.svdb_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     
     def on_language_switch(self, event):
@@ -1138,6 +1255,1023 @@ class MainFrame(wx.Frame):
 
         thread = threading.Thread(target=generate_multi_oto_thread)
         thread.start()
+
+    # ══════════════════════════════════════════════════════════════
+    # transcriptions.csv 制作（标记生成 → 新标签页）
+    # ══════════════════════════════════════════════════════════════
+
+    def _build_transcriptions_panel(self, parent):
+        """构建「transcriptions.csv 制作」标签页（内含五个子标签页）。"""
+        outer = wx.BoxSizer(wx.VERTICAL)
+        nb = wx.Notebook(parent)
+
+        words_panel = wx.Panel(nb)
+        self._build_words_page(words_panel)
+
+        csv_panel = wx.Panel(nb)
+        self._build_transcriptions_csv_page(csv_panel)
+
+        phnum_panel = wx.Panel(nb)
+        self._build_phnum_page(phnum_panel)
+
+        game_panel = wx.ScrolledWindow(nb, style=wx.VSCROLL)
+        game_panel.SetScrollRate(0, 10)
+        self._build_game_page(game_panel)
+
+        csv2tg_panel = wx.Panel(nb)
+        self._build_csv2tg_page(csv2tg_panel)
+
+        nb.AddPage(words_panel, _('mark.words.title'))
+        register(nb, 'mark.words.title', 'notebook_tab', 0)
+        nb.AddPage(csv_panel, _('mark.csv.title'))
+        register(nb, 'mark.csv.title', 'notebook_tab', 1)
+        nb.AddPage(phnum_panel, _('mark.phnum.title'))
+        register(nb, 'mark.phnum.title', 'notebook_tab', 2)
+        nb.AddPage(game_panel, _('mark.game.title'))
+        register(nb, 'mark.game.title', 'notebook_tab', 3)
+        nb.AddPage(csv2tg_panel, _('mark.csv2tg.title'))
+        register(nb, 'mark.csv2tg.title', 'notebook_tab', 4)
+
+        outer.Add(nb, 1, wx.EXPAND | wx.ALL, 5)
+        parent.SetSizer(outer)
+
+    def _build_words_page(self, parent):
+        """子标签页一：从 phones 层复原 words 层。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        box = wx.StaticBox(parent, label=_('mark.words.settings'))
+        register(box, 'mark.words.settings', 'label')
+        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        # TextGrid 文件夹
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.words.tg_folder'))
+        register(label, 'mark.words.tg_folder')
+        self.words_tg_text = wx.TextCtrl(parent, size=(420, -1))
+        browse_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(browse_btn, 'textgrid.browse_folder', 'button')
+        browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.words_tg_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.words_tg_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 字典文件
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.words.dict'))
+        register(label, 'mark.words.dict')
+        self.words_dict_text = wx.TextCtrl(parent, size=(420, -1))
+        dict_btn = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(dict_btn, 'json.browse', 'button')
+        dict_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.words_dict_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.words_dict_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(dict_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 输出文件夹（可选）
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.words.out_folder'))
+        register(label, 'mark.words.out_folder')
+        self.words_out_text = wx.TextCtrl(parent, size=(420, -1))
+        out_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(out_btn, 'textgrid.browse_folder', 'button')
+        out_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.words_out_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.words_out_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(out_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        hint = wx.StaticText(parent, label=_('mark.words.out_hint'))
+        register(hint, 'mark.words.out_hint')
+        box_sizer.Add(hint, 0, wx.LEFT | wx.BOTTOM, 8)
+
+        # 覆盖选项
+        self.words_overwrite_check = wx.CheckBox(parent, label=_('mark.words.overwrite'))
+        register(self.words_overwrite_check, 'mark.words.overwrite', 'checkbox')
+        self.words_overwrite_check.SetValue(True)
+        box_sizer.Add(self.words_overwrite_check, 0, wx.ALL, 3)
+
+        # 按钮
+        btn_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.words_run_btn = wx.Button(parent, label=_('mark.words.run'))
+        register(self.words_run_btn, 'mark.words.run', 'button')
+        self.words_run_btn.Bind(wx.EVT_BUTTON, self.on_words_from_phones)
+        self.words_stop_btn = wx.Button(parent, label=_('textgrid.stop_infer'))
+        register(self.words_stop_btn, 'textgrid.stop_infer', 'button')
+        self.words_stop_btn.Bind(wx.EVT_BUTTON, self.on_words_stop)
+        self.words_stop_btn.Disable()
+        btn_row.Add(self.words_run_btn, 0, wx.ALL, 5)
+        btn_row.Add(self.words_stop_btn, 0, wx.ALL, 5)
+        box_sizer.Add(btn_row, 0, wx.CENTER)
+
+        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        result_label = wx.StaticText(parent, label=_('mark.words.result'))
+        register(result_label, 'mark.words.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+
+        self.words_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        sizer.Add(self.words_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+
+    def _build_transcriptions_csv_page(self, parent):
+        """子标签页二：由 wav + TextGrid 生成 transcriptions.csv。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        box = wx.StaticBox(parent, label=_('mark.csv.settings'))
+        register(box, 'mark.csv.settings', 'label')
+        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        # wav 文件夹
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.csv.wav_folder'))
+        register(label, 'mark.csv.wav_folder')
+        self.csv_wav_text = wx.TextCtrl(parent, size=(420, -1))
+        wav_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(wav_btn, 'textgrid.browse_folder', 'button')
+        wav_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.csv_wav_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.csv_wav_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(wav_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # TextGrid 文件夹
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.csv.tg_folder'))
+        register(label, 'mark.csv.tg_folder')
+        self.csv_tg_text = wx.TextCtrl(parent, size=(420, -1))
+        tg_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(tg_btn, 'textgrid.browse_folder', 'button')
+        tg_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.csv_tg_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.csv_tg_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(tg_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 数据集输出文件夹
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.csv.dataset_folder'))
+        register(label, 'mark.csv.dataset_folder')
+        self.csv_dataset_text = wx.TextCtrl(parent, size=(420, -1))
+        dataset_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(dataset_btn, 'textgrid.browse_folder', 'button')
+        dataset_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.csv_dataset_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.csv_dataset_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(dataset_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 音频处理方式：保持原始 / 量化到 16bit 44.1kHz
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.csv.audio_mode'))
+        register(label, 'mark.csv.audio_mode')
+        self.csv_audio_mode_choice = wx.Choice(parent, size=(420, -1))
+        self.csv_audio_mode_choice.Append(_('mark.csv.audio.keep'), 'keep')
+        self.csv_audio_mode_choice.Append(_('mark.csv.audio.convert16'), 'convert16')
+        self.csv_audio_mode_choice.SetSelection(1)  # 默认量化
+        register(self.csv_audio_mode_choice, '', 'choice',
+                 [('mark.csv.audio.keep', 'keep'),
+                  ('mark.csv.audio.convert16', 'convert16')])
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.csv_audio_mode_choice, 1, wx.EXPAND | wx.ALL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 读取 TextGrid 的 words / notes / note_slur 层
+        self.csv_read_tiers_check = wx.CheckBox(parent, label=_('mark.csv.read_tiers'))
+        self.csv_read_tiers_check.SetToolTip(_('mark.csv.read_tiers.tooltip'))
+        register(self.csv_read_tiers_check, 'mark.csv.read_tiers.tooltip', 'tooltip')
+        register(self.csv_read_tiers_check, 'mark.csv.read_tiers', 'checkbox')
+        self.csv_read_tiers_check.SetValue(True)
+        box_sizer.Add(self.csv_read_tiers_check, 0, wx.ALL, 3)
+
+        # 递归子文件夹
+        self.csv_recursive_check = wx.CheckBox(parent, label=_('mark.csv.recursive'))
+        self.csv_recursive_check.SetToolTip(_('mark.csv.recursive.tooltip'))
+        register(self.csv_recursive_check, 'mark.csv.recursive.tooltip', 'tooltip')
+        register(self.csv_recursive_check, 'mark.csv.recursive', 'checkbox')
+        self.csv_recursive_check.SetValue(False)
+        box_sizer.Add(self.csv_recursive_check, 0, wx.ALL, 3)
+
+        # 按钮
+        btn_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.csv_run_btn = wx.Button(parent, label=_('mark.csv.run'))
+        register(self.csv_run_btn, 'mark.csv.run', 'button')
+        self.csv_run_btn.Bind(wx.EVT_BUTTON, self.on_build_transcriptions_csv)
+        self.csv_stop_btn = wx.Button(parent, label=_('textgrid.stop_infer'))
+        register(self.csv_stop_btn, 'textgrid.stop_infer', 'button')
+        self.csv_stop_btn.Bind(wx.EVT_BUTTON, self.on_csv_stop)
+        self.csv_stop_btn.Disable()
+        btn_row.Add(self.csv_run_btn, 0, wx.ALL, 5)
+        btn_row.Add(self.csv_stop_btn, 0, wx.ALL, 5)
+        box_sizer.Add(btn_row, 0, wx.CENTER)
+
+        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        result_label = wx.StaticText(parent, label=_('mark.csv.result'))
+        register(result_label, 'mark.csv.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+
+        self.csv_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        sizer.Add(self.csv_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+
+    def _build_phnum_page(self, parent):
+        """子标签页三：为 transcriptions.csv 添加 ph_num。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        box = wx.StaticBox(parent, label=_('mark.phnum.settings'))
+        register(box, 'mark.phnum.settings', 'label')
+        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        # transcriptions.csv
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.phnum.csv'))
+        register(label, 'mark.phnum.csv')
+        self.phnum_csv_text = wx.TextCtrl(parent, size=(420, -1))
+        csv_btn = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(csv_btn, 'json.browse', 'button')
+        csv_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.phnum_csv_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_csv_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(csv_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 预设 C+V 字典（tg2svdb/cv_dicts）
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.phnum.preset'))
+        register(label, 'mark.phnum.preset')
+        self.phnum_preset_choice = wx.Choice(parent, size=(420, -1))
+        self.phnum_preset_choice.SetToolTip(_('mark.phnum.preset.tooltip'))
+        register(self.phnum_preset_choice, 'mark.phnum.preset.tooltip', 'tooltip')
+        self.phnum_preset_choice.Bind(wx.EVT_CHOICE, self.on_phnum_preset_selected)
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_preset_choice, 1, wx.EXPAND | wx.ALL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 规则来源
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.phnum.mode'))
+        register(label, 'mark.phnum.mode')
+        self.phnum_mode_choice = wx.Choice(parent, size=(420, -1))
+        self.phnum_mode_choice.Append(_('mark.phnum.mode.dict'), 'dict')
+        self.phnum_mode_choice.Append(_('mark.phnum.mode.files'), 'files')
+        self.phnum_mode_choice.SetSelection(0)
+        register(self.phnum_mode_choice, '', 'choice',
+                 [('mark.phnum.mode.dict', 'dict'), ('mark.phnum.mode.files', 'files')])
+        self.phnum_mode_choice.Bind(wx.EVT_CHOICE, self.on_phnum_mode_changed)
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_mode_choice, 1, wx.EXPAND | wx.ALL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 字典文件
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.phnum.dict'))
+        register(label, 'mark.phnum.dict')
+        self.phnum_dict_text = wx.TextCtrl(parent, size=(420, -1))
+        self.phnum_dict_browse = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(self.phnum_dict_browse, 'json.browse', 'button')
+        self.phnum_dict_browse.Bind(wx.EVT_BUTTON,
+                                    lambda event: self.on_browse_file(event, self.phnum_dict_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_dict_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_dict_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 元音文件
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.phnum.vowels'))
+        register(label, 'mark.phnum.vowels')
+        self.phnum_vowels_text = wx.TextCtrl(parent, size=(420, -1))
+        self.phnum_vowels_browse = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(self.phnum_vowels_browse, 'json.browse', 'button')
+        self.phnum_vowels_browse.Bind(wx.EVT_BUTTON,
+                                      lambda event: self.on_browse_file(event, self.phnum_vowels_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_vowels_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_vowels_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 辅音文件
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.phnum.consonants'))
+        register(label, 'mark.phnum.consonants')
+        self.phnum_consonants_text = wx.TextCtrl(parent, size=(420, -1))
+        self.phnum_consonants_browse = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(self.phnum_consonants_browse, 'json.browse', 'button')
+        self.phnum_consonants_browse.Bind(wx.EVT_BUTTON,
+                                          lambda event: self.on_browse_file(event, self.phnum_consonants_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_consonants_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.phnum_consonants_browse, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        hint = wx.StaticText(parent, label=_('mark.phnum.hint'))
+        register(hint, 'mark.phnum.hint')
+        box_sizer.Add(hint, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+        phnum_btn = wx.Button(parent, label=_('mark.phnum.run'))
+        register(phnum_btn, 'mark.phnum.run', 'button')
+        phnum_btn.Bind(wx.EVT_BUTTON, self.on_add_ph_num)
+        self.phnum_run_btn = phnum_btn
+        box_sizer.Add(phnum_btn, 0, wx.ALL | wx.CENTER, 5)
+
+        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        result_label = wx.StaticText(parent, label=_('mark.phnum.result'))
+        register(result_label, 'mark.phnum.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+
+        self.phnum_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        sizer.Add(self.phnum_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+        self.on_phnum_mode_changed(None)
+
+    def on_phnum_mode_changed(self, event):
+        """切换规则来源时启用/禁用对应输入框。"""
+        mode = self.phnum_mode_choice.GetClientData(self.phnum_mode_choice.GetSelection())
+        use_dict = mode != 'files'
+
+        self.phnum_dict_text.Enable(use_dict)
+        self.phnum_dict_browse.Enable(use_dict)
+        self.phnum_vowels_text.Enable(not use_dict)
+        self.phnum_vowels_browse.Enable(not use_dict)
+        self.phnum_consonants_text.Enable(not use_dict)
+        self.phnum_consonants_browse.Enable(not use_dict)
+
+    def on_add_ph_num(self, event):
+        """为 transcriptions.csv 添加/更新 ph_num 列。"""
+        csv_path = self.phnum_csv_text.GetValue().strip()
+        mode = self.phnum_mode_choice.GetClientData(self.phnum_mode_choice.GetSelection())
+        use_dict = mode != 'files'
+        dict_path = self.phnum_dict_text.GetValue().strip()
+        vowels_path = self.phnum_vowels_text.GetValue().strip()
+        consonants_path = self.phnum_consonants_text.GetValue().strip()
+
+        if not csv_path:
+            wx.MessageBox(_('msg.err.select_csv'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isfile(csv_path):
+            wx.MessageBox(_('msg.err.csv_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        if use_dict:
+            if not dict_path:
+                wx.MessageBox(_('msg.err.select_dictionary'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                return
+            if not os.path.isfile(dict_path):
+                wx.MessageBox(_('msg.err.dict_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                return
+            vowels_path = consonants_path = None
+        else:
+            if not vowels_path or not consonants_path:
+                wx.MessageBox(_('msg.err.phnum_need_source'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                return
+            if not os.path.isfile(vowels_path) or not os.path.isfile(consonants_path):
+                wx.MessageBox(_('msg.err.file_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                return
+            dict_path = None
+
+        def worker():
+            try:
+                wx.CallAfter(self.phnum_result_text.Clear)
+                wx.CallAfter(self.phnum_run_btn.Disable)
+                wx.CallAfter(self.phnum_result_text.AppendText, _('log.phnum.start'))
+
+                def progress(message):
+                    wx.CallAfter(self.phnum_result_text.AppendText, message + "\n")
+                    wx.CallAfter(self.phnum_result_text.ShowPosition,
+                                 self.phnum_result_text.GetLastPosition())
+
+                stats = phnum_builder.run(
+                    csv_path,
+                    dictionary=dict_path,
+                    vowels=vowels_path,
+                    consonants=consonants_path,
+                    progress_callback=progress,
+                )
+
+                wx.CallAfter(self.phnum_result_text.AppendText,
+                             _('log.phnum.complete').format(count=stats['total']))
+                wx.CallAfter(wx.MessageBox,
+                             _('msg.ok.phnum_complete').format(count=stats['total']),
+                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.phnum_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.phnum_run_btn.Enable)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _build_game_page(self, parent):
+        """子标签页四：GAME ONNX 推理，为 transcriptions.csv 添加 MIDI 标注。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        box = wx.StaticBox(parent, label=_('mark.game.settings'))
+        register(box, 'mark.game.settings', 'label')
+        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        # GAME 模型目录
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.game.model_dir'))
+        register(label, 'mark.game.model_dir')
+        self.game_model_choice = wx.Choice(parent, size=(360, -1))
+        self.game_model_choice.Bind(wx.EVT_CHOICE, self.on_game_model_selected)
+        model_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(model_btn, 'textgrid.browse_folder', 'button')
+        model_btn.Bind(wx.EVT_BUTTON, self.on_game_browse_model_dir)
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_model_choice, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(model_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # transcriptions.csv
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.game.csv'))
+        register(label, 'mark.game.csv')
+        self.game_csv_text = wx.TextCtrl(parent, size=(360, -1))
+        csv_btn = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(csv_btn, 'json.browse', 'button')
+        csv_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.game_csv_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_csv_text, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(csv_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 语言 + 设备
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        lang_label = wx.StaticText(parent, label=_('mark.game.language'))
+        register(lang_label, 'mark.game.language')
+        self.game_language_choice = wx.Choice(parent, size=(150, -1))
+        device_label = wx.StaticText(parent, label=_('mark.game.device'))
+        register(device_label, 'mark.game.device')
+        self.game_device_choice = wx.Choice(parent, size=(180, -1))
+        self.game_device_choice.Append(_('textgrid.device.cpu'), 'cpu')
+        self.game_device_choice.Append(_('textgrid.device.dml'), 'dml')
+        self.game_device_choice.SetSelection(0)
+        register(self.game_device_choice, '', 'choice',
+                 [('textgrid.device.cpu', 'cpu'), ('textgrid.device.dml', 'dml')])
+        row.Add(lang_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_language_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_device_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        # 输出文件名 + 覆盖
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.game.output_name'))
+        register(label, 'mark.game.output_name')
+        self.game_output_name_text = wx.TextCtrl(parent, value="transcriptions-midi.csv", size=(220, -1))
+        self.game_overwrite_check = wx.CheckBox(parent, label=_('mark.game.overwrite'))
+        register(self.game_overwrite_check, 'mark.game.overwrite', 'checkbox')
+        self.game_overwrite_check.SetValue(False)
+        self.game_overwrite_check.Bind(wx.EVT_CHECKBOX, self.on_game_overwrite_changed)
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_output_name_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_overwrite_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        # 无声音素
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.game.uv_vocab'))
+        register(label, 'mark.game.uv_vocab')
+        self.game_uv_text = wx.TextCtrl(parent, value="EP,AP,SP,br,sil", size=(360, -1))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_uv_text, 1, wx.EXPAND | wx.ALL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # UV 判定规则
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        word_label = wx.StaticText(parent, label=_('mark.game.uv_word_cond'))
+        register(word_label, 'mark.game.uv_word_cond')
+        self.game_uv_word_choice = wx.Choice(parent, size=(160, -1))
+        self.game_uv_word_choice.Append(_('mark.game.uv.word.lead'), 'lead')
+        self.game_uv_word_choice.Append(_('mark.game.uv.word.all'), 'all')
+        self.game_uv_word_choice.SetSelection(0)
+        register(self.game_uv_word_choice, '', 'choice',
+                 [('mark.game.uv.word.lead', 'lead'), ('mark.game.uv.word.all', 'all')])
+        note_label = wx.StaticText(parent, label=_('mark.game.uv_note_cond'))
+        register(note_label, 'mark.game.uv_note_cond')
+        self.game_uv_note_choice = wx.Choice(parent, size=(160, -1))
+        self.game_uv_note_choice.Append(_('mark.game.uv.note.predict'), 'predict')
+        self.game_uv_note_choice.Append(_('mark.game.uv.note.follow'), 'follow')
+        self.game_uv_note_choice.SetSelection(0)
+        register(self.game_uv_note_choice, '', 'choice',
+                 [('mark.game.uv.note.predict', 'predict'), ('mark.game.uv.note.follow', 'follow')])
+        row.Add(word_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_uv_word_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(note_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.game_uv_note_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        self.game_use_wb_check = wx.CheckBox(parent, label=_('mark.game.use_wb'))
+        register(self.game_use_wb_check, 'mark.game.use_wb', 'checkbox')
+        self.game_use_wb_check.SetValue(True)
+        box_sizer.Add(self.game_use_wb_check, 0, wx.ALL, 3)
+
+        # 推理参数
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        for key, attr, value in (
+            ('mark.game.seg_threshold', 'game_seg_threshold_text', '0.2'),
+            ('mark.game.seg_radius', 'game_seg_radius_text', '0.02'),
+            ('mark.game.t0', 'game_t0_text', '0.0'),
+        ):
+            label = wx.StaticText(parent, label=_(key))
+            register(label, key)
+            text = wx.TextCtrl(parent, value=value, size=(55, -1))
+            setattr(self, attr, text)
+            row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+            row.Add(text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        for key, attr, value in (
+            ('mark.game.nsteps', 'game_nsteps_text', '8'),
+            ('mark.game.est_threshold', 'game_est_threshold_text', '0.2'),
+            ('mark.game.max_chunk', 'game_max_chunk_text', '30'),
+        ):
+            label = wx.StaticText(parent, label=_(key))
+            register(label, key)
+            text = wx.TextCtrl(parent, value=value, size=(55, -1))
+            setattr(self, attr, text)
+            row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+            row.Add(text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        self.game_max_chunk_text.SetToolTip(_('mark.game.max_chunk.tooltip'))
+        register(self.game_max_chunk_text, 'mark.game.max_chunk.tooltip', 'tooltip')
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        # 按钮
+        btn_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.game_run_btn = wx.Button(parent, label=_('mark.game.run'))
+        register(self.game_run_btn, 'mark.game.run', 'button')
+        self.game_run_btn.Bind(wx.EVT_BUTTON, self.on_game_align)
+        self.game_stop_btn = wx.Button(parent, label=_('textgrid.stop_infer'))
+        register(self.game_stop_btn, 'textgrid.stop_infer', 'button')
+        self.game_stop_btn.Bind(wx.EVT_BUTTON, self.on_game_stop)
+        self.game_stop_btn.Disable()
+        btn_row.Add(self.game_run_btn, 0, wx.ALL, 5)
+        btn_row.Add(self.game_stop_btn, 0, wx.ALL, 5)
+        box_sizer.Add(btn_row, 0, wx.CENTER)
+
+        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        result_label = wx.StaticText(parent, label=_('mark.game.result'))
+        register(result_label, 'mark.game.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+
+        self.game_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 260))
+        sizer.Add(self.game_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+        parent.FitInside()
+
+    def load_game_models(self):
+        """扫描 ROOT/GAME_model 下带 config.json 的 ONNX 模型目录。"""
+        self.game_model_choice.Clear()
+        base = ROOT / 'GAME_model'
+        if base.exists():
+            for folder in sorted(base.iterdir()):
+                if folder.is_dir() and (folder / 'config.json').is_file():
+                    self.game_model_choice.Append(folder.name, str(folder))
+        if self.game_model_choice.GetCount():
+            self.game_model_choice.SetSelection(0)
+            self.on_game_model_selected(None)
+
+    def _game_model_dir(self) -> str:
+        if self.game_model_choice.GetSelection() == wx.NOT_FOUND:
+            return ''
+        return self.game_model_choice.GetClientData(self.game_model_choice.GetSelection()) or ''
+
+    def on_game_browse_model_dir(self, event):
+        dialog = wx.DirDialog(None, _('msg.select_folder'), style=wx.DD_DEFAULT_STYLE)
+        if dialog.ShowModal() == wx.ID_OK:
+            path = dialog.GetPath()
+            label = os.path.basename(path.rstrip('\\/')) or path
+            index = self.game_model_choice.FindString(label)
+            if index == wx.NOT_FOUND:
+                index = self.game_model_choice.Append(label, path)
+            self.game_model_choice.SetSelection(index)
+            self.on_game_model_selected(None)
+        dialog.Destroy()
+
+    def on_game_model_selected(self, event):
+        """根据 config.json 动态填充语言列表。"""
+        model_dir = self._game_model_dir()
+        self.game_language_choice.Clear()
+        self.game_language_choice.Append(_('mark.game.language.auto'), '')
+        if model_dir:
+            try:
+                with open(os.path.join(model_dir, 'config.json'), 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                for lang in (config.get('languages') or {}).keys():
+                    self.game_language_choice.Append(lang, lang)
+            except Exception:
+                pass
+        self.game_language_choice.SetSelection(0)
+
+    def on_game_overwrite_changed(self, event):
+        self.game_output_name_text.Enable(not self.game_overwrite_check.GetValue())
+
+    def on_game_stop(self, event):
+        self._game_stop.set()
+        self.game_stop_btn.Disable()
+        self.game_result_text.AppendText(_('log.infer_stop_requested'))
+
+    def on_game_align(self, event):
+        """运行 GAME ONNX 推理，为 CSV 添加 note_seq / note_dur / note_slur。"""
+        model_dir = self._game_model_dir()
+        csv_path = self.game_csv_text.GetValue().strip()
+        language = self.game_language_choice.GetClientData(self.game_language_choice.GetSelection()) or None
+        device = self.game_device_choice.GetClientData(self.game_device_choice.GetSelection()) or 'cpu'
+        overwrite = self.game_overwrite_check.GetValue()
+        output_name = self.game_output_name_text.GetValue().strip()
+        uv_vocab = self.game_uv_text.GetValue().strip()
+        uv_word_cond = self.game_uv_word_choice.GetClientData(self.game_uv_word_choice.GetSelection()) or 'lead'
+        uv_note_cond = self.game_uv_note_choice.GetClientData(self.game_uv_note_choice.GetSelection()) or 'predict'
+        use_wb = self.game_use_wb_check.GetValue()
+
+        if not model_dir:
+            wx.MessageBox(_('msg.err.select_game_model'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        required_files = ('encoder.onnx', 'segmenter.onnx', 'estimator.onnx', 'dur2bd.onnx', 'bd2dur.onnx', 'config.json')
+        missing = [name for name in required_files if not os.path.isfile(os.path.join(model_dir, name))]
+        if missing:
+            wx.MessageBox(_('msg.err.game_model_invalid').format(files=", ".join(missing)),
+                          _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not csv_path:
+            wx.MessageBox(_('msg.err.select_csv'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isfile(csv_path):
+            wx.MessageBox(_('msg.err.csv_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not overwrite and not output_name:
+            wx.MessageBox(_('msg.err.game_output_name'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        try:
+            seg_threshold = float(self.game_seg_threshold_text.GetValue().strip())
+            seg_radius = float(self.game_seg_radius_text.GetValue().strip())
+            t0 = float(self.game_t0_text.GetValue().strip())
+            nsteps = int(self.game_nsteps_text.GetValue().strip())
+            est_threshold = float(self.game_est_threshold_text.GetValue().strip())
+            max_chunk_sec = float(self.game_max_chunk_text.GetValue().strip())
+            if not (0 < seg_threshold < 1 and 0 < est_threshold < 1 and 0 <= t0 < 1
+                    and nsteps > 0 and seg_radius > 0 and max_chunk_sec >= 0):
+                raise ValueError
+        except ValueError:
+            wx.MessageBox(_('msg.err.game_params'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        output_path = None
+        if not overwrite:
+            output_path = os.path.join(os.path.dirname(os.path.abspath(csv_path)), output_name)
+        output_display = csv_path if overwrite else output_path
+
+        def worker():
+            try:
+                wx.CallAfter(self.game_result_text.Clear)
+                self._game_stop.clear()
+                wx.CallAfter(self.game_run_btn.Disable)
+                wx.CallAfter(self.game_stop_btn.Enable)
+                wx.CallAfter(self.game_result_text.AppendText, _('log.game.start'))
+                wx.CallAfter(self.game_result_text.AppendText,
+                             _('log.game.options').format(
+                                 lang=language or _('mark.game.language.auto'),
+                                 device=str(device).upper(),
+                                 chunk=f"{max_chunk_sec:g}",
+                                 output=output_display))
+
+                def progress(message):
+                    wx.CallAfter(self.game_result_text.AppendText, message + "\n")
+                    wx.CallAfter(self.game_result_text.ShowPosition,
+                                 self.game_result_text.GetLastPosition())
+
+                stats = game_infer.align_transcriptions(
+                    csv_path, model_dir,
+                    language=language,
+                    device=device,
+                    output_path=output_path,
+                    overwrite=overwrite,
+                    use_wb=use_wb,
+                    uv_vocab=uv_vocab,
+                    uv_word_cond=uv_word_cond,
+                    uv_note_cond=uv_note_cond,
+                    seg_threshold=seg_threshold,
+                    seg_radius=seg_radius,
+                    t0=t0,
+                    nsteps=nsteps,
+                    est_threshold=est_threshold,
+                    max_chunk_sec=max_chunk_sec,
+                    progress_callback=progress,
+                    stop_event=self._game_stop,
+                )
+
+                if stats['stopped']:
+                    wx.CallAfter(self.game_result_text.AppendText, _('log.game.stopped'))
+                else:
+                    wx.CallAfter(self.game_result_text.AppendText,
+                                 _('log.game.complete').format(count=stats['updated']))
+                    wx.CallAfter(wx.MessageBox,
+                                 _('msg.ok.game_complete').format(count=stats['updated']),
+                                 _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.game_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.game_stop_btn.Disable)
+                wx.CallAfter(self.game_run_btn.Enable)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _build_csv2tg_page(self, parent):
+        """子标签页五：把 transcriptions.csv 反推为 TextGrid。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        box = wx.StaticBox(parent, label=_('mark.csv2tg.settings'))
+        register(box, 'mark.csv2tg.settings', 'label')
+        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        # transcriptions.csv
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.csv2tg.csv'))
+        register(label, 'mark.csv2tg.csv')
+        self.csv2tg_csv_text = wx.TextCtrl(parent, size=(420, -1))
+        csv_btn = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(csv_btn, 'json.browse', 'button')
+        csv_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.csv2tg_csv_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.csv2tg_csv_text, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(csv_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # 输出目录
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.csv2tg.out_dir'))
+        register(label, 'mark.csv2tg.out_dir')
+        self.csv2tg_out_text = wx.TextCtrl(parent, size=(420, -1))
+        out_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(out_btn, 'textgrid.browse_folder', 'button')
+        out_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.csv2tg_out_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.csv2tg_out_text, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(out_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        hint = wx.StaticText(parent, label=_('mark.csv2tg.out_hint'))
+        register(hint, 'mark.csv2tg.out_hint')
+        box_sizer.Add(hint, 0, wx.LEFT | wx.BOTTOM, 8)
+
+        # 字典（可选）
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('mark.csv2tg.dictionary'))
+        register(label, 'mark.csv2tg.dictionary')
+        self.csv2tg_dict_text = wx.TextCtrl(parent, size=(420, -1))
+        dict_btn = wx.Button(parent, label=_('json.browse'), size=(60, -1))
+        register(dict_btn, 'json.browse', 'button')
+        dict_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_file(event, self.csv2tg_dict_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.csv2tg_dict_text, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(dict_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        self.csv2tg_overwrite_check = wx.CheckBox(parent, label=_('mark.csv2tg.overwrite'))
+        register(self.csv2tg_overwrite_check, 'mark.csv2tg.overwrite', 'checkbox')
+        self.csv2tg_overwrite_check.SetValue(True)
+        box_sizer.Add(self.csv2tg_overwrite_check, 0, wx.ALL, 3)
+
+        hint2 = wx.StaticText(parent, label=_('mark.csv2tg.hint'))
+        register(hint2, 'mark.csv2tg.hint')
+        box_sizer.Add(hint2, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+        self.csv2tg_run_btn = wx.Button(parent, label=_('mark.csv2tg.run'))
+        register(self.csv2tg_run_btn, 'mark.csv2tg.run', 'button')
+        self.csv2tg_run_btn.Bind(wx.EVT_BUTTON, self.on_csv_to_tg)
+        box_sizer.Add(self.csv2tg_run_btn, 0, wx.ALL | wx.CENTER, 5)
+
+        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        result_label = wx.StaticText(parent, label=_('mark.csv2tg.result'))
+        register(result_label, 'mark.csv2tg.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+
+        self.csv2tg_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        sizer.Add(self.csv2tg_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+
+    def on_csv_to_tg(self, event):
+        """把 transcriptions.csv 反推为 TextGrid。"""
+        csv_path = self.csv2tg_csv_text.GetValue().strip()
+        out_dir = self.csv2tg_out_text.GetValue().strip()
+        dictionary = self.csv2tg_dict_text.GetValue().strip()
+        overwrite = self.csv2tg_overwrite_check.GetValue()
+
+        if not csv_path:
+            wx.MessageBox(_('msg.err.select_csv'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isfile(csv_path):
+            wx.MessageBox(_('msg.err.csv_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if out_dir and not os.path.isdir(out_dir):
+            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if dictionary and not os.path.isfile(dictionary):
+            wx.MessageBox(_('msg.err.dict_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        def worker():
+            try:
+                wx.CallAfter(self.csv2tg_result_text.Clear)
+                wx.CallAfter(self.csv2tg_run_btn.Disable)
+                wx.CallAfter(self.csv2tg_result_text.AppendText, _('log.csv2tg.start'))
+
+                def progress(message):
+                    wx.CallAfter(self.csv2tg_result_text.AppendText, message + "\n")
+                    wx.CallAfter(self.csv2tg_result_text.ShowPosition,
+                                 self.csv2tg_result_text.GetLastPosition())
+
+                stats = csv2tg.run(
+                    csv_path,
+                    out_dir=out_dir or None,
+                    dictionary=dictionary or None,
+                    overwrite=overwrite,
+                    progress_callback=progress,
+                )
+
+                wx.CallAfter(self.csv2tg_result_text.AppendText,
+                             _('log.csv2tg.complete').format(count=stats['written']))
+                wx.CallAfter(wx.MessageBox,
+                             _('msg.ok.csv2tg_complete').format(count=stats['written']),
+                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.csv2tg_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.csv2tg_run_btn.Enable)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def on_words_stop(self, event):
+        """停止 words 层复原。"""
+        self._words_stop.set()
+        self.words_stop_btn.Disable()
+        self.words_result_text.AppendText(_('log.infer_stop_requested'))
+
+    def on_csv_stop(self, event):
+        """停止 transcriptions.csv 生成。"""
+        self._csv_stop.set()
+        self.csv_stop_btn.Disable()
+        self.csv_result_text.AppendText(_('log.infer_stop_requested'))
+
+    def on_words_from_phones(self, event):
+        """从 phones 层复原 words 层。"""
+        tg_dir = self.words_tg_text.GetValue().strip()
+        dict_path = self.words_dict_text.GetValue().strip()
+        out_dir = self.words_out_text.GetValue().strip()
+        overwrite = self.words_overwrite_check.GetValue()
+
+        if not tg_dir:
+            wx.MessageBox(_('msg.err.select_tg_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isdir(tg_dir):
+            wx.MessageBox(_('msg.err.textgrid_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not dict_path:
+            wx.MessageBox(_('msg.err.select_dictionary'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isfile(dict_path):
+            wx.MessageBox(_('msg.err.dict_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        def worker():
+            try:
+                wx.CallAfter(self.words_result_text.Clear)
+                self._words_stop.clear()
+                wx.CallAfter(self.words_run_btn.Disable)
+                wx.CallAfter(self.words_stop_btn.Enable)
+                wx.CallAfter(self.words_result_text.AppendText, _('log.words.start'))
+                wx.CallAfter(self.words_result_text.AppendText,
+                             _('log.words.dict_info').format(path=dict_path))
+
+                def progress(message):
+                    wx.CallAfter(self.words_result_text.AppendText, message + "\n")
+                    wx.CallAfter(self.words_result_text.ShowPosition,
+                                 self.words_result_text.GetLastPosition())
+
+                stats = words_from_phones.run(
+                    tg_dir, dict_path,
+                    out_dir=out_dir or None,
+                    overwrite=overwrite,
+                    recursive=True,
+                    progress_callback=progress,
+                    stop_event=self._words_stop,
+                )
+
+                if stats["total"] == 0:
+                    wx.CallAfter(self.words_result_text.AppendText, _('log.words.no_files'))
+                    return
+                if stats["stopped"]:
+                    wx.CallAfter(self.words_result_text.AppendText, _('log.words.stopped'))
+                    return
+                wx.CallAfter(self.words_result_text.AppendText, _('log.words.complete'))
+                wx.CallAfter(wx.MessageBox,
+                             _('msg.ok.words_complete').format(count=stats["processed"]),
+                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.words_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.words_stop_btn.Disable)
+                wx.CallAfter(self.words_run_btn.Enable)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def on_build_transcriptions_csv(self, event):
+        """由 wav + TextGrid 生成 transcriptions.csv。"""
+        wav_folder = self.csv_wav_text.GetValue().strip()
+        tg_folder = self.csv_tg_text.GetValue().strip()
+        dataset_folder = self.csv_dataset_text.GetValue().strip()
+        recursive = self.csv_recursive_check.GetValue()
+        read_extra_tiers = self.csv_read_tiers_check.GetValue()
+        audio_mode = self.csv_audio_mode_choice.GetClientData(self.csv_audio_mode_choice.GetSelection()) or 'convert16'
+        convert_audio = audio_mode == 'convert16'
+
+        if not wav_folder:
+            wx.MessageBox(_('msg.err.select_wav_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isdir(wav_folder):
+            wx.MessageBox(_('msg.err.wav_folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not tg_folder:
+            wx.MessageBox(_('msg.err.select_tg_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isdir(tg_folder):
+            wx.MessageBox(_('msg.err.textgrid_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not dataset_folder:
+            wx.MessageBox(_('msg.err.select_dataset_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        def worker():
+            try:
+                wx.CallAfter(self.csv_result_text.Clear)
+                self._csv_stop.clear()
+                wx.CallAfter(self.csv_run_btn.Disable)
+                wx.CallAfter(self.csv_stop_btn.Enable)
+                wx.CallAfter(self.csv_result_text.AppendText, _('log.csv.start'))
+                wx.CallAfter(self.csv_result_text.AppendText,
+                             _('log.csv.options').format(
+                                 recursive=_('msg.on') if recursive else _('msg.off'),
+                                 audio=self.csv_audio_mode_choice.GetStringSelection()))
+
+                def progress(message):
+                    wx.CallAfter(self.csv_result_text.AppendText, message + "\n")
+                    wx.CallAfter(self.csv_result_text.ShowPosition,
+                                 self.csv_result_text.GetLastPosition())
+
+                stats = build_diff_dataset(
+                    wav_folder, tg_folder, dataset_folder,
+                    wav_subtype="PCM_16",
+                    progress_callback=progress,
+                    stop_event=self._csv_stop,
+                    recursive=recursive,
+                    convert_audio=convert_audio,
+                    read_extra_tiers=read_extra_tiers,
+                )
+
+                if stats["total"] == 0:
+                    wx.CallAfter(self.csv_result_text.AppendText, _('log.csv.no_wav'))
+                    return
+                if stats["stopped"]:
+                    wx.CallAfter(self.csv_result_text.AppendText, _('log.csv.stopped'))
+                    return
+                wx.CallAfter(self.csv_result_text.AppendText, _('log.csv.complete'))
+                wx.CallAfter(wx.MessageBox,
+                             _('msg.ok.csv_complete').format(count=stats["processed"]),
+                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.csv_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.csv_stop_btn.Disable)
+                wx.CallAfter(self.csv_run_btn.Enable)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     # ══════════════════════════════════════════════════════════════
     # TIFA 推理（TextGrid 面板第一个标签页）
@@ -1801,7 +2935,7 @@ class MainFrame(wx.Frame):
 
     def on_generate_json(self, event):
         wav_folder = self.json_path_text.GetValue().strip()
-        dict_file = self.json_dict_choice.GetStringSelection()
+        dict_full_path = self.json_dict_text.GetValue().strip()
         ignore = self.json_ignore_text.GetValue().strip()
         recording_list_path = self.json_recording_text.GetValue().strip()
 
@@ -1813,8 +2947,12 @@ class MainFrame(wx.Frame):
             wx.MessageBox(_('msg.err.wav_folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
 
-        if not dict_file:
+        if not dict_full_path:
             wx.MessageBox(_('msg.err.select_dict'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        if not os.path.isfile(dict_full_path):
+            wx.MessageBox(_('msg.err.dict_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
 
         if recording_list_path and not os.path.exists(recording_list_path):
@@ -1825,17 +2963,6 @@ class MainFrame(wx.Frame):
             try:
                 wx.CallAfter(self.json_result_text.Clear)
                 wx.CallAfter(self.json_result_text.AppendText, _('log.start_generate_json'))
-
-                # 获取字典路径（HubertFA_model 或 TIFA_model 的模型目录）
-                model_dir = self._json_model_dir()
-                if model_dir is None:
-                    wx.CallAfter(wx.MessageBox, _('msg.err.select_model'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-                    return
-                dict_full_path = str(model_dir / dict_file)
-
-                if not os.path.exists(dict_full_path):
-                    wx.CallAfter(wx.MessageBox, _('msg.err.dict_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-                    return
 
                 def process_folder(folder_path, folder_name=""):
                     textgrid_files = [f for f in os.listdir(folder_path) if f.endswith('.TextGrid')]

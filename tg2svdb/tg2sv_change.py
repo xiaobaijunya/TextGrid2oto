@@ -1,16 +1,24 @@
 import json
 
 def dic_read(dic_path):
+    """读取 SV 字典：``词<TAB>音素 音素 ...``（DiffSinger 规范）。
+
+    为兼容旧文件，若一行里没有制表符，则退回「第一个空白分隔」的写法。
+    """
     dic = {}
-    with open(dic_path) as f:
-        list = f.readlines()
-    for i in list:
-        text = i.split('\n')[0].split(' ')
-        dic[text[0]]=text[1:]
-        # if len(text) == 3:
-        #     print(text)
-    dic['R']=['sil']
-    dic['SP']=['sil']
+    with open(dic_path, encoding='utf-8-sig') as f:
+        for raw in f:
+            line = raw.strip('\r\n')
+            if not line.strip():
+                continue
+            parts = line.split('\t', 1)
+            if len(parts) < 2:
+                parts = line.split(None, 1)
+            if len(parts) < 2:
+                continue
+            dic[parts[0].strip()] = parts[1].split()
+    dic['R'] = ['sil']
+    dic['SP'] = ['sil']
     return dic
 
 def word_phone_json_read(json_path):
@@ -24,7 +32,7 @@ def word2phone(text,dic,num):
     middle = float(text['middle'])
     xmax = float(text['xmax'])
     try:
-        """
+        r"""
         ai	a	:\i
         ei	e	:\i
         an	a	:n
@@ -88,8 +96,8 @@ def run(dic_path,json_path,wav_path,num):
 
 
 if __name__ == "__main__":
-    dic_path = r'字典/mandarin-xsampa-dict.txt'
-    json_path = r'F:\Download\SVDBCreator_Release_1.0.0\baini_zh\wav\E3\json'+'\word_phone.json'
+    dic_path = r'dicts/mandarin-xsampa-dict.txt'
+    json_path = r'F:\Download\SVDBCreator_Release_1.0.0\baini_zh\wav\E3\json' + r'\word_phone.json'
     wav_path = r'F:\Download\SVDBCreator_Release_1.0.0\baini_zh\wav\E3'
     num = 50
 
