@@ -19,11 +19,25 @@
 import json
 import os
 import time
+import traceback
 import warnings
 from pathlib import Path
 
 import numpy as np
 import onnxruntime as ort
+
+try:
+    from .ort_utils import (
+        run_session as _ort_run_session,
+        create_session as _ort_create_session,
+        is_device_lost as _ort_is_device_lost,
+    )
+except ImportError:  # 作为脚本直接运行时
+    from ort_utils import (
+        run_session as _ort_run_session,
+        create_session as _ort_create_session,
+        is_device_lost as _ort_is_device_lost,
+    )
 
 # ── 与 TIFA lib/vocabulary.py 保持一致 ──
 MASK_TOKEN = 1
@@ -236,6 +250,8 @@ class TifaInference:
         self.dataset = []          # [(wav_path, tokens, words, groups, phonemes, word_texts)]
         self.predictions = []      # [(wav_path, wav_length, intervals)]
         self.progress_callback = None
+        self._cpu_fallback = False        # 是否已因设备丢失而永久回退 CPU
+        self._device_recover_count = 0    # 设备丢失后已尝试恢复的次数
         self._lang = None
         self._timings = None
         self._substitutions = {}   # {虚拟音素: 出现次数}
@@ -320,7 +336,7 @@ class TifaInference:
             providers = available
         opts = ort.SessionOptions()
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        return ort.InferenceSession(str(onnx_path), sess_options=opts, providers=providers)
+        return _ort_create_session(str(onnx_path), sess_options=opts, providers=providers)
 
     def load_model(self, device: str = "cpu"):
         self.device = (device or "cpu").lower()
@@ -337,6 +353,34 @@ class TifaInference:
         available = ort.get_available_providers()
         primary = self.session_providers.get("model", ["CPUExecutionProvider"])[0]
         self.device_info = {"primary_device": primary, "enabled_providers": available}
+
+    def _recover_from_device_lost(self) -> bool:
+        """GPU 设备被驱动重置（DXGI_ERROR_DEVICE_REMOVED / TDR）后恢复推理。
+
+        第一次重建同设备 session，再次丢失则永久回退 CPU。
+        返回 True 表示可以重试当前批次。
+        """
+        if self._cpu_fallback:
+            return False
+
+        current = (self.device or "cpu").lower()
+        targets = []
+        if current != "cpu" and self._device_recover_count == 0:
+            targets.append(current)
+        targets.append("cpu")
+        self._device_recover_count += 1
+
+        for target in targets:
+            try:
+                self.load_model(device=target)
+                if target == "cpu":
+                    self._cpu_fallback = True
+                action = "回退 CPU" if target == "cpu" else f"重建 {target.upper()} session"
+                self._emit(f"⚠ GPU 设备已被驱动重置（设备丢失），已{action}，重试当前批次")
+                return True
+            except Exception as exc:
+                self._emit(f"⚠ 重建 {target.upper()} session 失败：{exc}")
+        return False
 
     # ── 数据集 ──
     @staticmethod
@@ -355,8 +399,11 @@ class TifaInference:
 
     def get_dataset(self, wav_folder, language, g2p: str = "dictionary",
                     dictionary_path=None, in_format: str = "lab",
-                    skip_symbols=None):
-        """扫描 wav，读取同名 ``.lab`` 并转换为音素/词/组序列。"""
+                    skip_symbols=None, wav_paths=None):
+        """扫描 wav，读取同名 ``.lab`` 并转换为音素/词/组序列。
+
+        wav_paths: 指定要推理的 wav 列表（可选）。传入时忽略 wav_folder 的递归扫描。
+        """
         if g2p != "dictionary":
             raise ValueError(f"TIFA 推理当前仅支持 dictionary G2P，收到: {g2p}")
         if dictionary_path is None or not os.path.exists(dictionary_path):
@@ -370,7 +417,11 @@ class TifaInference:
 
         self.dataset = []
         skipped = 0
-        for wav_path in sorted(Path(wav_folder).rglob("*.wav")):
+        if wav_paths:
+            sources = [Path(p) for p in wav_paths]
+        else:
+            sources = sorted(Path(wav_folder).rglob("*.wav"))
+        for wav_path in sources:
             lab_path = wav_path.with_suffix("." + in_format)
             if not lab_path.exists():
                 skipped += 1
@@ -525,9 +576,27 @@ class TifaInference:
             chunk = self.dataset[begin:begin + batch_size]
             batch_index += 1
 
-            t_batch = time.perf_counter()
-            results = self._infer_batch(chunk, skip_penalty, boundary_label, fill_gaps)
-            batch_seconds = time.perf_counter() - t_batch
+            # 设备丢失（TDR）时重建 session 后重试本批；仍失败则跳过本批并报告具体音频
+            attempt = 0
+            while True:
+                try:
+                    t_batch = time.perf_counter()
+                    results = self._infer_batch(chunk, skip_penalty, boundary_label, fill_gaps)
+                    batch_seconds = time.perf_counter() - t_batch
+                    break
+                except StopInference:
+                    raise
+                except Exception as e:
+                    if attempt < 2 and _ort_is_device_lost(e) and self._recover_from_device_lost():
+                        attempt += 1
+                        continue
+                    failed = "\n".join(f"  {Path(item[0]).absolute()}" for item in chunk)
+                    self._emit(
+                        f"❌ 推理失败（{len(chunk)} 个音频已跳过）:\n{failed}\n{traceback.format_exc()}"
+                    )
+                    results = []
+                    batch_seconds = time.perf_counter() - t_batch
+                    break
 
             self.predictions.extend(results)
             processed += len(chunk)
@@ -592,8 +661,9 @@ class TifaInference:
 
         # ── spectrogram.onnx ──
         t_stage = time.perf_counter()
-        spectrogram, mask_t = self.sessions["spectrogram"].run(
-            None, {"waveform": wave_batch, "duration": dur_batch},
+        spectrogram, mask_t = _ort_run_session(
+            self.sessions["spectrogram"], None,
+            {"waveform": wave_batch, "duration": dur_batch},
         )
         spectrogram = np.asarray(spectrogram, dtype=np.float32)
         mask_t = np.asarray(mask_t).astype(bool)
@@ -601,8 +671,8 @@ class TifaInference:
 
         # ── model.onnx ──
         t_stage = time.perf_counter()
-        similarities, _logits = self.sessions["model"].run(
-            None,
+        similarities, _logits = _ort_run_session(
+            self.sessions["model"], None,
             {
                 "spectrogram": spectrogram,
                 "tokens": token_batch,

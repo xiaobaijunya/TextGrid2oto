@@ -36,11 +36,25 @@ import csv
 import json
 import math
 import pathlib
+import traceback
 from typing import Callable, Iterable, Optional
 
 import librosa
 import numpy as np
 import onnxruntime as ort
+
+try:
+    from .ort_utils import (
+        run_session as _ort_run_session,
+        create_session as _ort_create_session,
+        is_device_lost as _ort_is_device_lost,
+    )
+except ImportError:  # 作为脚本直接运行时
+    from ort_utils import (
+        run_session as _ort_run_session,
+        create_session as _ort_create_session,
+        is_device_lost as _ort_is_device_lost,
+    )
 
 DEFAULT_UV_VOCAB = "EP,AP,SP,br,sil"
 
@@ -73,7 +87,7 @@ def _create_session(path: pathlib.Path, device: str) -> ort.InferenceSession:
     options.enable_mem_pattern = False
     options.enable_cpu_mem_arena = False
     options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-    return ort.InferenceSession(str(path), sess_options=options, providers=_providers(device))
+    return _ort_create_session(str(path), sess_options=options, providers=_providers(device))
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +242,13 @@ class GameOnnxAligner:
         self.languages: dict[str, int] = config.get("languages") or {}
         self.loop: bool = bool(config.get("loop", True))
 
+        self.device = device or "cpu"
+        self._cpu_fallback = False        # 是否已因设备丢失而永久回退 CPU
+        self._device_recover_count = 0    # 设备丢失后已尝试恢复的次数
+        self._load_sessions(self.device)
+
+    def _load_sessions(self, device: str):
+        """（重新）创建全部 ONNX session。"""
         self.encoder = _create_session(self.model_dir / "encoder.onnx", device)
         self.segmenter = _create_session(self.model_dir / "segmenter.onnx", device)
         self.estimator = _create_session(self.model_dir / "estimator.onnx", device)
@@ -239,6 +260,32 @@ class GameOnnxAligner:
 
         self.segmenter_inputs = {i.name for i in self.segmenter.get_inputs()}
         self.estimator_inputs = {i.name for i in self.estimator.get_inputs()}
+
+    def recover_from_device_lost(self) -> bool:
+        """GPU 设备被驱动重置（DXGI_ERROR_DEVICE_REMOVED / TDR）后重建 session。
+
+        第一次重建同设备 session，再次丢失则永久回退 CPU。返回 True 表示可以重试。
+        """
+        if self._cpu_fallback:
+            return False
+
+        current = (self.device or "cpu").lower()
+        targets = []
+        if current != "cpu" and self._device_recover_count == 0:
+            targets.append(current)
+        targets.append("cpu")
+        self._device_recover_count += 1
+
+        for target in targets:
+            try:
+                self._load_sessions(target)
+                self.device = target
+                if target == "cpu":
+                    self._cpu_fallback = True
+                return True
+            except Exception:
+                traceback.print_exc()
+        return False
 
     def language_id(self, language: Optional[str]) -> int:
         if not language:
@@ -271,13 +318,13 @@ class GameOnnxAligner:
 
         wav_batch = waveform[None, :]
         dur_batch = np.asarray([duration], dtype=np.float32)
-        x_seg, x_est, mask_t = self.encoder.run(
-            None, {"waveform": wav_batch, "duration": dur_batch}
+        x_seg, x_est, mask_t = _ort_run_session(
+            self.encoder, None, {"waveform": wav_batch, "duration": dur_batch}
         )
 
         durations_batch = np.asarray([known_durations], dtype=np.float32)
-        known_boundaries = self.dur2bd.run(
-            None, {"durations": durations_batch, "maskT": mask_t}
+        known_boundaries = _ort_run_session(
+            self.dur2bd, None, {"durations": durations_batch, "maskT": mask_t}
         )[0]
 
         radius_frames = max(1, int(round(float(seg_radius) / self.timestep)))
@@ -309,10 +356,10 @@ class GameOnnxAligner:
             if "t" in self.segmenter_inputs:
                 t_value = steps[min(loop_idx, len(steps) - 1)] if steps else 0.0
                 inputs["t"] = np.asarray([t_value], dtype=np.float32)
-            boundaries = self.segmenter.run(None, inputs)[0]
+            boundaries = _ort_run_session(self.segmenter, None, inputs)[0]
 
-        note_durations, mask_n = self.bd2dur.run(
-            None, {"boundaries": boundaries, "maskT": mask_t}
+        note_durations, mask_n = _ort_run_session(
+            self.bd2dur, None, {"boundaries": boundaries, "maskT": mask_t}
         )
 
         estimator_inputs = {
@@ -322,7 +369,7 @@ class GameOnnxAligner:
             "maskN": mask_n,
             "threshold": np.asarray(float(est_threshold), dtype=np.float32),
         }
-        presence, scores = self.estimator.run(None, estimator_inputs)
+        presence, scores = _ort_run_session(self.estimator, None, estimator_inputs)
 
         return note_durations[0], presence[0], scores[0]
 
@@ -522,6 +569,7 @@ def align_transcriptions(
         all_note_seq: list[str] = []
         all_note_dur: list[float] = []
         all_note_slur: list[int] = []
+        item_failed = False
 
         for chunk_indices in chunks:
             if stop_event is not None and stop_event.is_set():
@@ -546,17 +594,33 @@ def align_transcriptions(
             else:
                 chunk_known_dur = [float(sum(chunk_ph_dur))]
 
-            note_dur_arr, presence_arr, scores_arr = aligner.predict(
-                chunk_waveform,
-                chunk_known_dur,
-                language_id=language_id,
-                seg_threshold=seg_threshold,
-                seg_radius=seg_radius,
-                t0=t0,
-                nsteps=nsteps,
-                ts=ts,
-                est_threshold=est_threshold,
-            )
+            attempt = 0
+            while True:
+                try:
+                    note_dur_arr, presence_arr, scores_arr = aligner.predict(
+                        chunk_waveform,
+                        chunk_known_dur,
+                        language_id=language_id,
+                        seg_threshold=seg_threshold,
+                        seg_radius=seg_radius,
+                        t0=t0,
+                        nsteps=nsteps,
+                        ts=ts,
+                        est_threshold=est_threshold,
+                    )
+                    break
+                except Exception as e:
+                    if attempt < 2 and _ort_is_device_lost(e) and aligner.recover_from_device_lost():
+                        attempt += 1
+                        log(f"⚠ GPU 设备已被驱动重置（设备丢失），已切换到 {aligner.device.upper()}，重试 {name}")
+                        continue
+                    log(f"❌ {name} 对齐失败（已跳过）：\n{traceback.format_exc()}")
+                    note_dur_arr = None
+                    break
+
+            if note_dur_arr is None:
+                item_failed = True
+                break
 
             valid = note_dur_arr > 0
             note_dur = note_dur_arr[valid].astype(float).tolist()
@@ -589,6 +653,8 @@ def align_transcriptions(
 
         if stopped:
             break
+        if item_failed:
+            continue
 
         item["note_seq"] = " ".join(all_note_seq)
         # 保留 6 位小数（原来是 3 位，逐个四舍五入会让总时长与音素差几毫秒）

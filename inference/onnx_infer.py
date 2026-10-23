@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import traceback
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -10,6 +11,19 @@ from typing import List
 import librosa
 import numpy as np
 import onnxruntime as ort
+
+try:
+    from .ort_utils import (
+        run_session as _ort_run_session,
+        create_session as _ort_create_session,
+        is_device_lost as _ort_is_device_lost,
+    )
+except ImportError:  # 作为脚本直接运行时（python onnx_infer.py ...）
+    from ort_utils import (
+        run_session as _ort_run_session,
+        create_session as _ort_create_session,
+        is_device_lost as _ort_is_device_lost,
+    )
 
 
 def sigmoid(x):
@@ -116,6 +130,11 @@ class Phoneme:
         if not (self.start < self.end):
             raise ValueError(f"Phoneme Invalid: text={self.text} start={self.start}, end={self.end}")
 
+    @property
+    def dur(self) -> float:
+        """音素时长（秒）"""
+        return self.end - self.start
+
 
 @dataclass
 class Word:
@@ -135,6 +154,11 @@ class Word:
         self.phonemes: List[Phoneme] = []
         if init_phoneme:
             self.phonemes.append(Phoneme(self.start, self.end, self.text))
+
+    @property
+    def dur(self) -> float:
+        """词时长（秒）"""
+        return self.end - self.start
 
     def add_phoneme(self, phoneme, log_list: list = None):
         if phoneme.start == phoneme.end:
@@ -310,6 +334,9 @@ class WordList(list):
             if self[0].start < 0:
                 self[0].start = 0
 
+            if 0 < self[0].start < gap_length < self[0].dur:
+                self[0].move_start(0, self._log)
+
             if self[-1].end >= wav_length - gap_length:
                 self[-1].move_end(wav_length, self._log)
 
@@ -370,12 +397,12 @@ class WordList(list):
         except Exception as e:
             self._add_log(f"ERROR in merge_duplicate_phonemes: {e}")
 
-    def add_SP(self, wav_length, add_phone="SP"):
+    def add_SP(self, wav_length, add_phone="SP", min_dur=1e-3):
         try:
             words_res = WordList()
             words_res._log = self._log
 
-            if self[0].start > 0:
+            if self[0].start > min_dur:
                 try:
                     words_res.append(Word(0, self[0].start, add_phone, init_phoneme=True))
                 except ValueError as e:
@@ -384,14 +411,14 @@ class WordList(list):
             words_res.append(self[0])
             for i in range(1, len(self)):
                 word = self[i]
-                if word.start > words_res[-1].end:
+                if word.start - words_res[-1].end > min_dur:
                     try:
                         words_res.append(Word(words_res[-1].end, word.start, add_phone, init_phoneme=True))
                     except ValueError as e:
                         self._add_log(f"ERROR: {e}")
                 words_res.append(word)
 
-            if self[-1].end < wav_length:
+            if wav_length - self[-1].end > min_dur:
                 try:
                     words_res.append(Word(self[-1].end, wav_length, add_phone, init_phoneme=True))
                 except ValueError as e:
@@ -485,7 +512,7 @@ class AlignmentDecoder:
                ph_seq: list[str],
                word_seq: list[str] = None,
                ph_idx_to_word_idx: list[int] = None,
-               ignore_sp: bool = False,
+               ignore_sp: bool = True,
                ):
         ph_frame_logits = ph_frame_logits[0]
         ph_edge_logits = ph_edge_logits[0]
@@ -745,6 +772,24 @@ class StopInference(Exception):
     pass
 
 
+def resolve_non_lexical(requested, supported):
+    """解析「自动添加非语言音素」设置。
+
+    Args:
+        requested: 逗号分隔的音素名，如 ``"AP,SP"``；空字符串表示不添加。
+        supported: 模型 vocab 中的 non_lexical_phonemes（如 ``['AP','EP']``）。
+
+    Returns:
+        ``(走 NLL 检测的音素, 是否用 SP 补全空白, 不被支持的音素)``。
+    """
+    names = [item.strip() for item in str(requested or "").split(",") if item.strip()]
+    supported = {str(item) for item in (supported or [])}
+    nll_names = [name for name in names if name in supported]
+    unsupported = [name for name in names if name not in supported]
+    add_sp = "SP" in unsupported
+    return nll_names, add_sp, unsupported
+
+
 class InferenceOnnx:
     def __init__(self, onnx_path: Path):
         self.model = None
@@ -757,6 +802,10 @@ class InferenceOnnx:
         self.fa_decoder = None
         self.dataset = []
         self.predictions = []
+        self.failed_files = []  # [(wav_path, error_traceback)] 推理失败的音频
+        self.device = 'cpu'     # 当前使用的推理设备（load_model 时写入）
+        self._cpu_fallback = False  # 是否已因设备丢失而永久回退 CPU
+        self._device_recover_count = 0  # 设备丢失后已尝试恢复的次数
         self.progress_callback = None
 
     def load_config(self):
@@ -778,11 +827,54 @@ class InferenceOnnx:
         self.mel_cfg = config['mel_spec_config']
         self.vocab_folder = self.model_folder
 
+    # 实际用到的输出。ctc_logits 没有任何解码器使用，不请求它可以让 ORT
+    # 直接剪掉这条分支，省一次 144 类头的前向计算和对应的输出张量。
+    _USED_OUTPUTS = ('ph_frame_logits', 'ph_edge_logits', 'cvnt_logits')
+
     def load_model(self, device='cpu'):
+        self.device = (device or 'cpu').lower()
         self.model = self.create_session(self.model_folder / 'model.onnx', device=device)
-        # 缓存输出名称，避免每次 run_onnx 都查询
-        self._output_names = [output.name for output in self.model.get_outputs()]
+        # 缓存输出名称，避免每次 run_onnx 都查询；且只保留解码器真正消费的几路
+        available = [output.name for output in self.model.get_outputs()]
+        wanted = [name for name in self._USED_OUTPUTS if name in available]
+        self._output_names = wanted or available
         self.device_info = self._get_device_info()
+
+    def _recover_from_device_lost(self) -> bool:
+        """GPU 设备被驱动重置（DXGI_ERROR_DEVICE_REMOVED / TDR）后恢复推理。
+
+        先用同一设备重建 session（D3D 设备会被重新创建）；若仍失败，
+        则永久回退到 CPU，保证整批任务能跑完。返回 True 表示可以重试。
+        """
+        if self._cpu_fallback:
+            return False
+
+        current = (self.device or 'cpu').lower()
+        targets = []
+        # 第一次恢复重建同设备 session；若再次丢失则直接回退 CPU
+        if current != 'cpu' and self._device_recover_count == 0:
+            targets.append((current, False))
+        targets.append(('cpu', True))
+        self._device_recover_count += 1
+
+        for target, is_fallback in targets:
+            try:
+                self.load_model(device=target)
+                self.init_decoder()
+                if is_fallback:
+                    self._cpu_fallback = True
+                action = '回退 CPU' if is_fallback else f'重建 {target.upper()} session'
+                msg = f"⚠ GPU 设备已被驱动重置（设备丢失），已{action}，重试当前音频"
+                print(msg)
+                if self.progress_callback:
+                    self.progress_callback(msg)
+                return True
+            except Exception as exc:
+                msg = f"⚠ 重建 {target.upper()} session 失败：{exc}"
+                print(msg)
+                if self.progress_callback:
+                    self.progress_callback(msg)
+        return False
 
     def init_decoder(self):
         self.nll_decoder = NonLexicalDecoder(vocab=self.vocab,
@@ -794,13 +886,15 @@ class InferenceOnnx:
     def set_progress_callback(self, callback):
         self.progress_callback = callback
 
-    def get_dataset(self, wav_folder, language, g2p="dictionary", dictionary_path=None, in_format="lab"):
+    def get_dataset(self, wav_folder, language, g2p="dictionary", dictionary_path=None, in_format="lab",
+                    insert_sp=True):
         if dictionary_path is None:
             dictionary_path = self.vocab_folder / self.vocab["dictionaries"].get(language, "")
 
         if g2p == "dictionary":
             assert os.path.exists(dictionary_path), f"{Path(dictionary_path).absolute()} does not exist."
-            g2p = DictionaryG2P(language, dictionary_path, self.vocab.get("silent_phonemes", []))
+            g2p = DictionaryG2P(language, dictionary_path, self.vocab.get("silent_phonemes", []),
+                                insert_sp=insert_sp)
         elif g2p == "phoneme":
             g2p = PhonemeG2P(language)
         else:
@@ -824,14 +918,16 @@ class InferenceOnnx:
         if self.progress_callback:
             self.progress_callback(msg)
 
-    def get_dataset_from_list(self, wav_paths, language, g2p="dictionary", dictionary_path=None, in_format="lab"):
+    def get_dataset_from_list(self, wav_paths, language, g2p="dictionary", dictionary_path=None, in_format="lab",
+                              insert_sp=True):
         """从指定的 wav 文件列表加载数据集（用于并行推理时每个子进程加载自己的子集）"""
         if dictionary_path is None:
             dictionary_path = self.vocab_folder / self.vocab["dictionaries"].get(language, "")
 
         if g2p == "dictionary":
             assert os.path.exists(dictionary_path), f"{Path(dictionary_path).absolute()} does not exist."
-            g2p_obj = DictionaryG2P(language, dictionary_path, self.vocab.get("silent_phonemes", []))
+            g2p_obj = DictionaryG2P(language, dictionary_path, self.vocab.get("silent_phonemes", []),
+                                    insert_sp=insert_sp)
         elif g2p == "phoneme":
             g2p_obj = PhonemeG2P(language)
         else:
@@ -855,11 +951,15 @@ class InferenceOnnx:
         if self.progress_callback:
             self.progress_callback(msg)
 
+    def _run_model(self, input_feed):
+        """运行 ONNX 模型（原生错误信息无法解码时由 ort_utils 还原后抛出）。"""
+        return _ort_run_session(self.model, self._output_names, input_feed)
+
     def _infer(self, padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx, wav_length, non_lexical_phonemes):
         # 使用缓存的输出名称，避免每次查询
         results = dict(zip(
             self._output_names,
-            self.model.run(self._output_names, {'waveform': [padded_wav]})
+            self._run_model({'waveform': [padded_wav]})
         ))
 
         words, _, warning_log = self.fa_decoder.decode(
@@ -875,7 +975,7 @@ class InferenceOnnx:
     @staticmethod
     def run_onnx(session, input_dict):
         output_names = [output.name for output in session.get_outputs()]
-        return dict(zip(output_names, session.run(output_names, input_dict)))
+        return dict(zip(output_names, _ort_run_session(session, output_names, input_dict)))
 
     @staticmethod
     def create_session(onnx_path, device='cpu'):
@@ -953,7 +1053,7 @@ class InferenceOnnx:
             options.intra_op_num_threads = cpu_count
             print(f"INFO: 已启用CPU优化 (inter_op={options.inter_op_num_threads}, intra_op={options.intra_op_num_threads})")
 
-        return ort.InferenceSession(str(onnx_path), options, providers=enabled_providers)
+        return _ort_create_session(str(onnx_path), sess_options=options, providers=enabled_providers)
 
     def _get_device_info(self):
         """返回当前 session 实际使用的设备信息"""
@@ -968,9 +1068,23 @@ class InferenceOnnx:
         }
 
     def infer(self, non_lexical_phonemes, pad_times=1, pad_length=5, merge_phonemes=True, stop_event=None):
-        non_lexical_phonemes = [ph.strip() for ph in non_lexical_phonemes.split(",") if ph.strip()]
-        assert set(non_lexical_phonemes).issubset(set(self.vocab['non_lexical_phonemes'])), \
-            f"The non_lexical_phonemes contain elements that are not included in the vocab."
+        nll_phonemes, add_sp, unsupported = resolve_non_lexical(
+            non_lexical_phonemes, self.vocab.get('non_lexical_phonemes', []))
+        if unsupported:
+            msg = f"非语言音素 {', '.join(unsupported)} 不在模型词表中"
+            if add_sp and 'SP' in unsupported:
+                msg += "（SP 将用于补全空白区域）"
+            print(msg)
+            if self.progress_callback:
+                self.progress_callback(msg)
+        if not nll_phonemes and not add_sp:
+            msg = "未启用自动添加非语言音素（输出不含 AP/SP 标签）"
+        else:
+            msg = (f"自动添加非语言音素: NLL 检测={', '.join(nll_phonemes) or '无'}"
+                   f"，SP 补全空白={'是' if add_sp else '否'}")
+        print(msg)
+        if self.progress_callback:
+            self.progress_callback(msg)
 
         # ── 输出实际推理使用的设备信息 ──
         primary_device = self.device_info['primary_device']
@@ -1013,81 +1127,111 @@ class InferenceOnnx:
                 if self.progress_callback:
                     self.progress_callback(msg)
 
-            # 按需加载当前音频
-            wav, sr = librosa.load(wav_path, sr=self.mel_cfg['sample_rate'], mono=True)
-            wav_length = len(wav) / self.mel_cfg['sample_rate']
+            # 单个文件处理（封装成函数，便于设备丢失后重试）
+            def _run_one(wav_path=wav_path, ph_seq=ph_seq, word_seq=word_seq,
+                         ph_idx_to_word_idx=ph_idx_to_word_idx):
+                # 按需加载当前音频
+                wav, sr = librosa.load(wav_path, sr=self.mel_cfg['sample_rate'], mono=True)
+                wav_length = len(wav) / self.mel_cfg['sample_rate']
 
-            words_list: list[WordList] = []
-            all_warning_logs = []
+                words_list: list[WordList] = []
+                all_warning_logs = []
 
-            for pl, padded_samples, padded_frames in pad_params:
-                padded_wav = np.pad(wav, (padded_samples, 0), mode='constant', constant_values=0)
+                for pl, padded_samples, padded_frames in pad_params:
+                    padded_wav = np.pad(wav, (padded_samples, 0), mode='constant', constant_values=0)
 
-                words, non_lexical_words, warning_log = self._infer(
-                    padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx,
-                    wav_length, non_lexical_phonemes)
-                if warning_log:
-                    all_warning_logs.extend(warning_log)
-                for _words in non_lexical_words:
-                    for word in _words:
-                        words.add_AP(word)
-                words.clear_language_prefix()
-                words_list.append(words)
+                    words, non_lexical_words, warning_log = self._infer(
+                        padded_wav, padded_frames, word_seq, ph_seq, ph_idx_to_word_idx,
+                        wav_length, nll_phonemes)
+                    if warning_log:
+                        all_warning_logs.extend(warning_log)
+                    for _words in non_lexical_words:
+                        for word in _words:
+                            words.add_AP(word)
+                    words.clear_language_prefix()
+                    words_list.append(words)
 
-            if all_warning_logs:
-                wav_name = os.path.basename(wav_path)
-                warning_msg = f"{wav_name}:\n" + "\n".join(all_warning_logs)
-                print(warning_msg)
-                if self.progress_callback:
-                    self.progress_callback(warning_msg)
-
-            # 多轮推理结果一致性检查与合并
-            if len(words_list) == 1:
-                # pad_times=1 时无需去重，直接使用
-                result_word = words_list[0]
-            else:
-                ph_list = [words.phonemes for words in words_list]
-                duplicate_indices = find_all_duplicate_phonemes(ph_list)
-
-                if len(duplicate_indices) == 0:
+                if all_warning_logs:
                     wav_name = os.path.basename(wav_path)
-                    warning_msg = f"{wav_name}: 多次推理结果不一致，使用第一次推理的结果"
+                    warning_msg = f"{wav_name}:\n" + "\n".join(all_warning_logs)
                     print(warning_msg)
                     if self.progress_callback:
                         self.progress_callback(warning_msg)
-                    words_list = [words_list[0]]
+
+                # 多轮推理结果一致性检查与合并
+                if len(words_list) == 1:
+                    # pad_times=1 时无需去重，直接使用
+                    result_word = words_list[0]
                 else:
-                    words_list = [words_list[i] for i in duplicate_indices]
+                    ph_list = [words.phonemes for words in words_list]
+                    duplicate_indices = find_all_duplicate_phonemes(ph_list)
 
-                phonemes_all = []
-                result_word = WordList()
-                for w_idx in range(len(words_list[0])):
-                    phonemes = []
-                    for ph_idx in range(len(words_list[0][w_idx].phonemes)):
-                        ph_start = remove_outliers_per_position(
-                            [[words[w_idx].phonemes[ph_idx].start for words in words_list]])[0]
-                        ph_end = remove_outliers_per_position(
-                            [[words[w_idx].phonemes[ph_idx].end for words in words_list]])[0]
-                        ph_start = max(ph_start, phonemes_all[-1].end if len(phonemes_all) > 0 else 0)
-                        ph_end = max(ph_start + 0.0001, ph_end)
-                        phonemes.append(Phoneme(ph_start, ph_end, words_list[0][w_idx].phonemes[ph_idx].text))
-                        phonemes_all.append(Phoneme(ph_start, ph_end, words_list[0][w_idx].phonemes[ph_idx].text))
-                    word = Word(phonemes[0].start, phonemes[-1].end, words_list[0][w_idx].text)
-                    for ph in phonemes:
-                        word.append_phoneme(ph)
-                    result_word.append(word)
+                    if len(duplicate_indices) == 0:
+                        wav_name = os.path.basename(wav_path)
+                        warning_msg = f"{wav_name}: 多次推理结果不一致，使用第一次推理的结果"
+                        print(warning_msg)
+                        if self.progress_callback:
+                            self.progress_callback(warning_msg)
+                        words_list = [words_list[0]]
+                    else:
+                        words_list = [words_list[i] for i in duplicate_indices]
 
-            if merge_phonemes:
-                result_word.merge_duplicate_phonemes(min_duration=0.05)
+                    phonemes_all = []
+                    result_word = WordList()
+                    for w_idx in range(len(words_list[0])):
+                        phonemes = []
+                        for ph_idx in range(len(words_list[0][w_idx].phonemes)):
+                            ph_start = remove_outliers_per_position(
+                                [[words[w_idx].phonemes[ph_idx].start for words in words_list]])[0]
+                            ph_end = remove_outliers_per_position(
+                                [[words[w_idx].phonemes[ph_idx].end for words in words_list]])[0]
+                            ph_start = max(ph_start, phonemes_all[-1].end if len(phonemes_all) > 0 else 0)
+                            ph_end = max(ph_start + 0.0001, ph_end)
+                            phonemes.append(Phoneme(ph_start, ph_end, words_list[0][w_idx].phonemes[ph_idx].text))
+                            phonemes_all.append(Phoneme(ph_start, ph_end, words_list[0][w_idx].phonemes[ph_idx].text))
+                        word = Word(phonemes[0].start, phonemes[-1].end, words_list[0][w_idx].text)
+                        for ph in phonemes:
+                            word.append_phoneme(ph)
+                        result_word.append(word)
 
-            # 获取后处理日志并推送到前端
-            warning_log = result_word.log()
-            if warning_log:
-                warnings.warn(warning_log)
-                if self.progress_callback:
-                    self.progress_callback(warning_log)
+                # 先闭合词与词之间的小缝隙（同原版 post_processing），
+                # 避免后续 add_SP 生成 10ms 级别的碎片 SP
+                result_word.fill_small_gaps(wav_length)
 
-            self.predictions.append((wav_path, wav_length, result_word))
+                if add_sp:
+                    result_word.add_SP(wav_length, "SP")
+
+                if merge_phonemes:
+                    result_word.merge_duplicate_phonemes(min_duration=0.05)
+
+                # 获取后处理日志并推送到前端
+                warning_log = result_word.log()
+                if warning_log:
+                    warnings.warn(warning_log)
+                    if self.progress_callback:
+                        self.progress_callback(warning_log)
+
+                self.predictions.append((wav_path, wav_length, result_word))
+
+            # 单个文件失败不影响其余文件；设备丢失时重建 session 后重试
+            attempt = 0
+            while True:
+                try:
+                    _run_one()
+                    break
+                except StopInference:
+                    raise
+                except Exception as e:
+                    if attempt < 2 and _ort_is_device_lost(e) and self._recover_from_device_lost():
+                        attempt += 1
+                        continue
+                    tb = traceback.format_exc()
+                    self.failed_files.append((str(wav_path), tb))
+                    fail_msg = f"❌ 推理失败: {Path(wav_path).absolute()}\n{tb}"
+                    print(fail_msg)
+                    if self.progress_callback:
+                        self.progress_callback(fail_msg)
+                    break
 
         # ── 输出推理总耗时 ──
         elapsed = time.time() - _infer_start_time
@@ -1095,6 +1239,15 @@ class InferenceOnnx:
         print(time_msg)
         if self.progress_callback:
             self.progress_callback(time_msg)
+
+        # ── 汇总失败文件 ──
+        if self.failed_files:
+            failed_names = "\n".join(
+                f"  {i + 1}. {Path(p).absolute()}" for i, (p, _) in enumerate(self.failed_files))
+            summary = (f"⚠ 共 {len(self.failed_files)}/{total} 个音频推理失败:\n{failed_names}")
+            print(summary)
+            if self.progress_callback:
+                self.progress_callback(summary)
 
     def export(self, output_folder, output_format=None):
         if output_format is None:
@@ -1105,10 +1258,11 @@ class InferenceOnnx:
         if self.progress_callback:
             self.progress_callback(msg)
 
-    def _export_textgrid(self, output_folder):
+    def _export_textgrid(self, output_folder=None):
         for wav_path, wav_length, words in self.predictions:
-            relative_path = wav_path.relative_to(output_folder)
-            tg_path = Path(output_folder) / relative_path.with_suffix('.TextGrid')
+            # TextGrid 一律写在各自 wav 同目录下，
+            # 这样无论输入是文件夹还是零散选择的文件都能正确定位。
+            tg_path = Path(wav_path).with_suffix('.TextGrid')
             
             phonemes = []
             for word in words:
@@ -1167,10 +1321,11 @@ def find_all_duplicate_phonemes(ph_list):
 
 
 class DictionaryG2P:
-    def __init__(self, language, dictionary_path, silent_phonemes=None):
+    def __init__(self, language, dictionary_path, silent_phonemes=None, insert_sp=True):
         self.language = language
         self.dictionary_path = dictionary_path
         self.silent_phonemes = set(silent_phonemes) if silent_phonemes else set()
+        self.insert_sp = insert_sp
         self.dictionary = self._load_dictionary()
 
     def _load_dictionary(self):
@@ -1185,23 +1340,38 @@ class DictionaryG2P:
         return dictionary
 
     def __call__(self, text):
+        # 与原版 HubertFA 保持一致：首尾以及每个词之间都插入 SP 音素。
+        # 这些 SP 会让强制对齐把静音/换气段分配给 SP，而不是硬塞进相邻的音节，
+        # 这样 NLL 检测到的 AP 才不会被单词覆盖而被裁掉。
         words = text.split()
-        ph_seq = []
+        ph_seq = ["SP"] if self.insert_sp else []
         word_seq = []
-        ph_idx_to_word_idx = []
+        ph_idx_to_word_idx = [-1] if self.insert_sp else []
 
-        for word_idx, word in enumerate(words):
+        for word in words:
             if word in self.dictionary:
                 # 语言前缀已直接写在词典文件里(如 ja/j), 不再自动补充
-                phonemes = self.dictionary[word]
-                ph_seq.extend(phonemes)
-                word_seq.append(word)
-                for _ in phonemes:
-                    ph_idx_to_word_idx.append(word_idx)
+                phonemes = [ph for ph in self.dictionary[word] if ph]
+                # 词首/词尾的静音音素不参与对齐（同原版行为）
+                while phonemes and phonemes[0] in self.silent_phonemes:
+                    phonemes.pop(0)
+                while phonemes and phonemes[-1] in self.silent_phonemes:
+                    phonemes.pop()
             else:
-                ph_seq.append(word)
-                word_seq.append(word)
-                ph_idx_to_word_idx.append(word_idx)
+                # 未收录的词：直接把原词当音素使用，避免整句丢失
+                phonemes = [word]
+
+            if not phonemes:
+                continue
+
+            word_idx = len(word_seq)
+            word_seq.append(word)
+            ph_seq.extend(phonemes)
+            ph_idx_to_word_idx.extend([word_idx] * len(phonemes))
+
+            if self.insert_sp and ph_seq and ph_seq[-1] != "SP":
+                ph_seq.append("SP")
+                ph_idx_to_word_idx.append(-1)
 
         return ph_seq, word_seq, ph_idx_to_word_idx
 
@@ -1249,18 +1419,30 @@ def parallel_worker(worker_id, onnx_path_str, wav_folder_str, language, dict_pat
 
     inference.set_progress_callback(lambda m: _send(f"[Worker {worker_id}] {m}"))
 
-    _send(f"[Worker {worker_id}] Loading {len(wav_files_list)} files...")
-    inference.get_dataset_from_list(
-        wav_files_list, language=language,
-        g2p="dictionary", dictionary_path=dict_path_str, in_format="lab"
-    )
-    inference.infer(
-        non_lexical_phonemes=non_lexical_phonemes,
-        pad_times=pad_times, pad_length=pad_length,
-        merge_phonemes=merge_phonemes
-    )
-    inference.export(str(wav_folder))
-    _send(f"[Worker {worker_id}] ✅ 完成处理 {len(wav_files_list)} 个文件")
+    try:
+        _send(f"[Worker {worker_id}] Loading {len(wav_files_list)} files...")
+        inference.get_dataset_from_list(
+            wav_files_list, language=language,
+            g2p="dictionary", dictionary_path=dict_path_str, in_format="lab",
+            insert_sp=bool(str(non_lexical_phonemes or "").strip())
+        )
+        inference.infer(
+            non_lexical_phonemes=non_lexical_phonemes,
+            pad_times=pad_times, pad_length=pad_length,
+            merge_phonemes=merge_phonemes
+        )
+        inference.export(str(wav_folder))
+    except Exception:
+        tb = traceback.format_exc()
+        _send(f"❌ [Worker {worker_id}] 推理失败:\n{tb}")
+        return
+
+    if inference.failed_files:
+        failed_names = "\n".join(
+            f"  {i + 1}. {Path(p).absolute()}" for i, (p, _) in enumerate(inference.failed_files))
+        _send(f"⚠ [Worker {worker_id}] 共 {len(inference.failed_files)} 个音频推理失败:\n{failed_names}")
+
+    _send(f"[Worker {worker_id}] ✅ 完成处理 {len(wav_files_list)} 个文件，成功 {len(inference.predictions)} 个")
 
 
 # 兼容旧名称

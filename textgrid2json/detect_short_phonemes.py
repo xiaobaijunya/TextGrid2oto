@@ -11,11 +11,15 @@
 可直接粘贴到 Windows 资源管理器搜索框定位对应文件。
 
 用法（命令行）:
-    python detect_short_phonemes.py <TextGrid文件夹> [阈值ms]
+    python detect_short_phonemes.py <TextGrid文件夹> [阈值ms] [--ignore-edge-sp]
 """
 import re
 import sys
 from pathlib import Path
+
+
+# 被视为「静音/填充音素」、可忽略首尾的名字（不区分大小写）
+EDGE_SP_NAMES = {'SP'}
 
 
 # ── 读取 ────────────────────────────────────────────────────
@@ -73,11 +77,12 @@ def _neighbor_texts(intervals, index):
 
 
 # ── 检测 ────────────────────────────────────────────────────
-def detect_textgrid(file_path, threshold_ms):
+def detect_textgrid(file_path, threshold_ms, ignore_edge_sp=False):
     """检测单个 TextGrid 文件中时长过短的音素
 
     :param file_path: TextGrid 文件路径
     :param threshold_ms: 判定阈值（毫秒），时长小于该值的音素视为过短
+    :param ignore_edge_sp: 是否忽略音素层开头/结尾处的 SP（中间的 SP 仍检测）
     :return: 过短音素信息列表
     """
     content = read_textgrid(file_path)
@@ -85,10 +90,21 @@ def detect_textgrid(file_path, threshold_ms):
 
     results = []
     for tier_name, intervals in tiers:
+        # 首个/末个「非 SP 的有效音素」位置：处于其外侧的 SP 即首尾填充 SP
+        content_idx = [
+            i for i, (_, _, text) in enumerate(intervals)
+            if text.strip() and text.strip().upper() not in EDGE_SP_NAMES
+        ]
+        first_content = content_idx[0] if content_idx else None
+        last_content = content_idx[-1] if content_idx else None
+
         for i, (xmin, xmax, text) in enumerate(intervals):
             phoneme = text.strip()
             if not phoneme:      # 空文本（无音素名）不计入
                 continue
+            if ignore_edge_sp and phoneme.upper() in EDGE_SP_NAMES:
+                if first_content is None or i < first_content or i > last_content:
+                    continue
             duration_ms = (xmax - xmin) * 1000
             if duration_ms < threshold_ms:
                 prev_text, next_text = _neighbor_texts(intervals, i)
@@ -115,11 +131,12 @@ def build_search_line(results):
     return ' OR '.join(stems)
 
 
-def run(input_dir, threshold_ms):
+def run(input_dir, threshold_ms, ignore_edge_sp=False):
     """遍历文件夹检测所有 TextGrid 文件
 
     :param input_dir: TextGrid 所在文件夹（递归查找）
     :param threshold_ms: 判定阈值（毫秒）
+    :param ignore_edge_sp: 是否忽略音素层开头/结尾处的 SP
     :return: (results, file_count)
              results 为过短音素信息列表（按文件、时间顺序排列）
     """
@@ -129,7 +146,7 @@ def run(input_dir, threshold_ms):
 
     for file_path in sorted(Path(input_dir).rglob('*.TextGrid')):
         try:
-            items = detect_textgrid(file_path, threshold_ms)
+            items = detect_textgrid(file_path, threshold_ms, ignore_edge_sp)
         except Exception as e:
             print(f"处理文件 {file_path.name} 时出错，已跳过: {e}")
             continue
@@ -156,7 +173,8 @@ def run(input_dir, threshold_ms):
 
 
 if __name__ == '__main__':
-    # 用法: python detect_short_phonemes.py <TextGrid文件夹> [阈值ms]
-    folder = sys.argv[1] if len(sys.argv) > 1 else r'E:\OpenUtau\Singers\白锋_02\E3\TextGrid'
-    threshold = float(sys.argv[2]) if len(sys.argv) > 2 else 50
-    run(folder, threshold)
+    # 用法: python detect_short_phonemes.py <TextGrid文件夹> [阈值ms] [--ignore-edge-sp]
+    args = [a for a in sys.argv[1:] if a != '--ignore-edge-sp']
+    folder = args[0] if len(args) > 0 else r'E:\OpenUtau\Singers\白锋_02\E3\TextGrid'
+    threshold = float(args[1]) if len(args) > 1 else 50
+    run(folder, threshold, ignore_edge_sp='--ignore-edge-sp' in sys.argv)
