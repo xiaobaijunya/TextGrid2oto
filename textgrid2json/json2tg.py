@@ -8,12 +8,13 @@
                                           再用它把每个词切成 SV 音素写入 phones 层
 
 输出 ``<folder>/<name>.TextGrid``，遍历方式与「生成 json」一致：
-先处理根文件夹，再处理第一层子文件夹。
+先处理根文件夹，再处理第一层子文件夹；``recursive=True`` 时递归所有子目录。
 """
 
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 from typing import Callable, Optional
 
@@ -170,8 +171,9 @@ def build_textgrid(phones_item: Optional[dict], words_item: Optional[dict],
 
 
 def run(folder, overwrite: bool = True, dictionary=None, tail_ratio: float = 50.0,
-        progress_callback: Optional[Callable[[str], None]] = None) -> dict:
-    """把 ``folder`` 及第一层子文件夹里的 json 生成 TextGrid。
+        progress_callback: Optional[Callable[[str], None]] = None,
+        recursive: bool = False) -> dict:
+    """把 ``folder`` 里的 json 生成 TextGrid。
 
     Args:
         folder: 声库根目录（每个样本目录下有 ``json/``）。
@@ -179,6 +181,7 @@ def run(folder, overwrite: bool = True, dictionary=None, tail_ratio: float = 50.
         dictionary: 可选的 SV 字典路径；给定后用词 + 字典生成 phones 层。
         tail_ratio: 音尾比例（用于 ai/an 等双音素词的切分），与 SVDB 生成一致。
         progress_callback: 进度回调。
+        recursive: True 时递归所有子目录；False 只处理根目录与第一层子文件夹。
 
     Returns:
         统计字典：total / written / skipped / failed / output_dir。
@@ -248,8 +251,16 @@ def run(folder, overwrite: bool = True, dictionary=None, tail_ratio: float = 50.
         return written
 
     process(root)
-    for sub in sorted(p for p in root.iterdir() if p.is_dir() and p.name != "json"):
-        process(sub, sub.name)
+    if recursive:
+        for current, dirs, _files in os.walk(root):
+            dirs[:] = sorted(d for d in dirs if d != "json")
+            current_path = pathlib.Path(current)
+            if current_path == root:
+                continue
+            process(current_path, str(current_path.relative_to(root)))
+    else:
+        for sub in sorted(p for p in root.iterdir() if p.is_dir() and p.name != "json"):
+            process(sub, sub.name)
 
     log(f"完成：共 {stats['total']} 项，写出 {stats['written']}，"
         f"跳过 {stats['skipped']}，失败 {stats['failed']} → {root}")

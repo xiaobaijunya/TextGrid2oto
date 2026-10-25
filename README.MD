@@ -98,6 +98,10 @@ pip install -r requirements-wxui.txt
 > - **macOS / Linux** → `onnxruntime-webgpu`（DirectML 仅提供 Windows 轮子）
 >
 > 如需改用 CPU 版，请将这两行替换为 `onnxruntime`。
+>
+> ASR 识别使用内置的官方 `qwen_asr` 包（**torch + transformers**）。`requirements-wxui.txt`
+> 已包含 `torch / transformers / accelerate`，但 PyTorch 建议先手动安装对应 CUDA 版本：
+> `pip install torch --index-url https://download.pytorch.org/whl/cu128`（CPU 用户可跳过，直接用默认轮子）。
 
 <sub>旧的已废弃方案对应的依赖（**无需安装**，仅存档参考）：`legacy/webui/requirements-webui-onnx.txt`（ONNX 版 WebUI）、`requirements.txt`（完整依赖，含 torch、训练、Gradio 等，体积较大）。</sub>
 
@@ -159,13 +163,15 @@ python GUI.py
 4. **生成 oto**：选择录音方案（CV / CVVC / VCV / ARPAsing）生成 `oto.ini`
 5. **标记生成**：
    - 「OTO生成」：选择音源文件夹与参数生成 `oto.ini`；
-   - 「SVDB生成」：选择声库文件夹与字典生成 SVDB 标记；旁边的「生成TextGrid」按钮
+   - 「SVDB生成」：选择声库文件夹与字典生成 SVDB 标记；勾选「包含子文件夹（递归）」可处理
+     多层目录（每个含 `json/word_phone.json` 与 wav 的目录各生成一份）；旁边的「生成TextGrid」按钮
      可把 json 反向写成 TextGrid（`words` 层来自 `word_phone.json`；选了字典时
-     用词 + 字典 + 音尾比例生成 SV 音素写入 `phones` 层）；
+     用词 + 字典 + 音尾比例生成 SV 音素写入 `phones` 层），并使用同一递归设置；
    - 「多音阶OTO」：以子文件夹名作为音阶后缀批量生成；
    - 「transcriptions.csv 制作」子页：
      - 「从 phones 复原 words 层」：选择 TextGrid 文件夹与字典文件，可原地覆盖或输出到新文件夹；
-     - 「生成 transcriptions.csv」：选择 wav 文件夹、TextGrid 文件夹与数据集输出文件夹，对应命令
+     - 「生成 transcriptions.csv」：选择 wav 文件夹、TextGrid 文件夹（**可留空**，
+       留空时读每个 wav 同目录的同名 TextGrid）与数据集输出文件夹，对应命令
        `python build_dataset.py --wavs ... --tg ... --dataset ...`；音频处理可选「保持原始音频」
        或「量化到 16bit / 44.1kHz / 单声道」；勾选递归子文件夹时，
        样本名会自动加上文件夹前缀（`A4/01.wav` → `A4_01`），避免不同子文件夹同名覆盖；
@@ -186,12 +192,27 @@ python GUI.py
 > CSV 列名仍按 DiffSinger 规范使用 `ph_num` / `note_slur`。
 
 6. **其他**（顶级页面）：
-   - 「按AP/SP分割音频」：按静音音素（默认 SP,AP）和**空白音素**切分 wav，
-     相邻两段都完整包含切分处的区间，拼接不断开；每段音频默认同步生成同名
-     `<原名>_seg001.TextGrid`（各层按切分点裁剪、时间轴从 0 开始），取消勾选
-     「同时生成分段TextGrid」可只输出音频；
    - 「从tg的words层生成lab」：把 words 层拼成 `.lab`，默认不忽略任何音素，
-     需要时可勾选「启用忽略词」。
+     需要时可勾选「启用忽略词」；
+   - 「检测音量过低的音频」：扫描音量异常的音频，方便回查录音。
+
+7. **ASR→TG 标注流程**（顶级页面，排在标签最后，按顺序六个子页）：
+   - 「① ASR 识别 / 对齐」：Qwen3-ASR + Qwen3-ForcedAligner（官方 torch + transformers 实现）→ `{名}.txt` / `{名}.lab` / `{名}_ASR.json`。
+     运行模式三选一：**识别+对齐**（两个模型同时加载）、**只识别**（不加载 Aligner，省显存）、
+     **只对齐**（读已有同名 `.txt`/`.lab`，只加载 Aligner，补出 `_ASR.json`）；
+     另有「设备」（自动 / CUDA / CPU）、「精度」（自动 / bfloat16 / float16 / float32）与「批大小」，
+     音频按官方上限自动分段（开启时间戳时 180 秒），无需手动设置分块长度；
+   - 「② JSON 转 TextGrid」：`*_Aligner.json` → TextGrid，输出 `hanzi`（汉字）与
+     `words`（拼音）两层，零时长项自动延长 10ms 避免丢词；
+   - 「③ AP 标注」：呼吸检测，默认「在已有 TextGrid 上合并 AP」，把 `SP` 与**空白区间**
+     拆成 `SP` / `AP`，原有层名与顺序保留；
+   - 「④ 按 AP 分割」：按静音音素（默认 SP,AP）和**空白音素**切分 wav，相邻两段都完整
+     包含切分处的区间，拼接不断开；可同时导出每段 `<原名>_seg001.TextGrid`、`.lab`
+     （拼音，给 TIFA）与 `.txt`（第一行汉字、第二行拼音）；段内没有歌词内容时直接跳过；
+   - 「⑤ 音素检测 / 清理」：扫描每个音频的 TextGrid，统计异常音素数（过短 / 零时长 /
+     区间重叠），**异常数 ≥ 阈值**（默认 3）的音频列出来；可勾选同名 `.TextGrid` /
+     `.lab` / `.txt` / `_ASR.json` / `_lyrics.txt` 一并删除，用于清理废录音；
+   - 「⑥ TIFA 标记」：跳转到「2.TextGrid推理 → TIFA 推理」继续精标记。
 
 如需直接使用命令行对齐（调试用）：
 

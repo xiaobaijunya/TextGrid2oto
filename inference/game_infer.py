@@ -35,8 +35,13 @@ from __future__ import annotations
 import csv
 import json
 import math
+import multiprocessing as mp
+import os
 import pathlib
+import queue
+import threading
 import traceback
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from typing import Callable, Iterable, Optional
 
 import librosa
@@ -78,7 +83,11 @@ def _providers(device: str) -> list[str]:
     return ["CPUExecutionProvider"]
 
 
-def _create_session(path: pathlib.Path, device: str) -> ort.InferenceSession:
+def _create_session(
+    path: pathlib.Path,
+    device: str,
+    intra_op_threads: Optional[int] = None,
+) -> ort.InferenceSession:
     if not path.is_file():
         raise FileNotFoundError(f"GAME ONNX 模型不存在: {path}")
     options = ort.SessionOptions()
@@ -87,6 +96,10 @@ def _create_session(path: pathlib.Path, device: str) -> ort.InferenceSession:
     options.enable_mem_pattern = False
     options.enable_cpu_mem_arena = False
     options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    # 多个推理线程共享 session 时，限制每个 session 的算子内并行度，
+    # 避免 threads x intra_op 超订导致互相抢核
+    if intra_op_threads is not None and intra_op_threads > 0:
+        options.intra_op_num_threads = int(intra_op_threads)
     return _ort_create_session(str(path), sess_options=options, providers=_providers(device))
 
 
@@ -229,7 +242,7 @@ def _parse_uv_vocab(value) -> Optional[set[str]]:
 # ---------------------------------------------------------------------------
 
 class GameOnnxAligner:
-    def __init__(self, model_dir, device: str = "cpu"):
+    def __init__(self, model_dir, device: str = "cpu", intra_op_threads: Optional[int] = None):
         self.model_dir = pathlib.Path(model_dir)
         config_path = self.model_dir / "config.json"
         if not config_path.is_file():
@@ -243,17 +256,23 @@ class GameOnnxAligner:
         self.loop: bool = bool(config.get("loop", True))
 
         self.device = device or "cpu"
+        self.intra_op_threads = intra_op_threads
         self._cpu_fallback = False        # 是否已因设备丢失而永久回退 CPU
         self._device_recover_count = 0    # 设备丢失后已尝试恢复的次数
         self._load_sessions(self.device)
 
     def _load_sessions(self, device: str):
         """（重新）创建全部 ONNX session。"""
-        self.encoder = _create_session(self.model_dir / "encoder.onnx", device)
-        self.segmenter = _create_session(self.model_dir / "segmenter.onnx", device)
-        self.estimator = _create_session(self.model_dir / "estimator.onnx", device)
-        self.dur2bd = _create_session(self.model_dir / "dur2bd.onnx", device)
-        self.bd2dur = _create_session(self.model_dir / "bd2dur.onnx", device)
+        self.encoder = _create_session(
+            self.model_dir / "encoder.onnx", device, self.intra_op_threads)
+        self.segmenter = _create_session(
+            self.model_dir / "segmenter.onnx", device, self.intra_op_threads)
+        self.estimator = _create_session(
+            self.model_dir / "estimator.onnx", device, self.intra_op_threads)
+        self.dur2bd = _create_session(
+            self.model_dir / "dur2bd.onnx", device, self.intra_op_threads)
+        self.bd2dur = _create_session(
+            self.model_dir / "bd2dur.onnx", device, self.intra_op_threads)
 
         # onnxruntime 实际注册的 ExecutionProvider（供日志显示）
         self.providers = list(self.encoder.get_providers())
@@ -295,8 +314,7 @@ class GameOnnxAligner:
             raise ValueError(f"模型不支持语言 '{language}'，可选: {supported}")
         return int(self.languages[language])
 
-    def predict(
-        self,
+    def predict(        self,
         waveform: np.ndarray,
         known_durations: list[float],
         language_id: int = 0,
@@ -467,6 +485,187 @@ def _slice_audio(waveform: np.ndarray, samplerate: int, start_sec: float, end_se
     return chunk
 
 
+def _predict_with_retry(
+    aligner: GameOnnxAligner,
+    waveform: np.ndarray,
+    known_dur: list[float],
+    cfg: dict,
+    name: str,
+    emit: Optional[Callable[[str], None]] = None,
+):
+    """单块推理；GPU 设备丢失时尝试恢复一次后重试。"""
+    attempt = 0
+    while True:
+        try:
+            return aligner.predict(
+                waveform,
+                known_dur,
+                language_id=cfg["language_id"],
+                seg_threshold=cfg["seg_threshold"],
+                seg_radius=cfg["seg_radius"],
+                t0=cfg["t0"],
+                nsteps=cfg["nsteps"],
+                ts=cfg["ts"],
+                est_threshold=cfg["est_threshold"],
+            )
+        except Exception as error:
+            if attempt < 2 and _ort_is_device_lost(error) and aligner.recover_from_device_lost():
+                attempt += 1
+                if emit is not None:
+                    emit(f"⚠ GPU 设备已被驱动重置（设备丢失），"
+                         f"已切换到 {aligner.device.upper()}，重试 {name}")
+                continue
+            raise
+
+
+def _align_item(
+    aligner: GameOnnxAligner,
+    item: dict,
+    index: int,
+    cfg: dict,
+    stop_check: Optional[Callable[[], bool]] = None,
+    emit: Optional[Callable[[str], None]] = None,
+) -> str:
+    """处理一条 CSV 记录，把 note_seq / note_dur / note_slur 写回 ``item``。
+
+    只依赖传入的 ``aligner`` 与 ``cfg``，因此线程池和进程池都可以直接调用。
+    Returns: 一行摘要文本（块数 / 音符数）。
+    """
+    name = item.get("name") or f"#{index}"
+    ph_seq = item["ph_seq"].split()
+    ph_dur = [float(v) for v in item["ph_dur"].split()]
+    ph_num = [int(v) for v in item["ph_num"].split()]
+    validate_phones(ph_seq, ph_dur, ph_num)
+
+    words = _build_word_records(ph_num, ph_dur)
+    if not words:
+        raise ValueError("没有有效音素")
+    word_starts = np.cumsum([0.0] + [w["dur"] for w in words])
+
+    use_wb = bool(cfg["use_wb"])
+    uv_set = cfg["uv_set"]
+    uv_note_cond = cfg["uv_note_cond"]
+    samplerate = cfg["samplerate"]
+
+    # 对齐使用的词 v/uv（不合并）
+    if use_wb:
+        _, word_vuv = parse_words(
+            ph_seq, ph_dur, ph_num,
+            uv_vocab=uv_set,
+            uv_cond=cfg["uv_word_cond"],
+            merge_consecutive_uv=False,
+        )
+    else:
+        word_vuv = []
+
+    wav_path = _find_wav(cfg["csv_path"], name)
+    waveform, _ = librosa.load(str(wav_path), sr=samplerate, mono=True)
+
+    chunks = _split_word_chunks(words, word_vuv, cfg["max_chunk_sec"])
+    all_note_seq: list[str] = []
+    all_note_dur: list[float] = []
+    all_note_slur: list[int] = []
+
+    for chunk_indices in chunks:
+        if stop_check is not None and stop_check():
+            raise GameInferenceStopped()
+
+        w0, w1 = chunk_indices[0], chunk_indices[-1]
+        chunk_ph_dur = ph_dur[words[w0]["ph_start"]:words[w1]["ph_end"]]
+        chunk_word_dur = [words[i]["dur"] for i in chunk_indices]
+        chunk_word_vuv = [word_vuv[i] for i in chunk_indices] if use_wb else []
+
+        start_sec = float(word_starts[w0])
+        end_sec = float(word_starts[w1 + 1])
+        chunk_waveform = _slice_audio(waveform, samplerate, start_sec, end_sec)
+
+        if use_wb:
+            # 模型使用的词时长：与 GAME 一致，连续无声词会合并
+            if uv_set is not None:
+                chunk_known_dur, _ = merge_consecutive_uv_words(chunk_word_dur, chunk_word_vuv)
+            else:
+                chunk_known_dur = chunk_word_dur
+        else:
+            chunk_known_dur = [float(sum(chunk_ph_dur))]
+
+        note_dur_arr, presence_arr, scores_arr = _predict_with_retry(
+            aligner, chunk_waveform, chunk_known_dur, cfg, name, emit)
+
+        valid = note_dur_arr > 0
+        note_dur = note_dur_arr[valid].astype(float).tolist()
+        note_midi = scores_arr[valid].astype(float).tolist()
+        note_vuv = presence_arr[valid].astype(bool).tolist()
+
+        if use_wb:
+            if uv_note_cond == "follow":
+                note_seq = [_midi_to_note(midi) for midi in note_midi]
+            else:
+                note_seq = [
+                    _midi_to_note(midi) if vuv else "rest"
+                    for midi, vuv in zip(note_midi, note_vuv)
+                ]
+            note_seq, note_dur, note_slur = align_notes_to_words(
+                chunk_word_dur, chunk_word_vuv, note_seq, note_dur,
+                apply_word_uv=(uv_note_cond == "follow"),
+            )
+        else:
+            note_seq = [
+                _midi_to_note(midi) if vuv else "rest"
+                for midi, vuv in zip(note_midi, note_vuv)
+            ]
+            note_slur = None
+
+        all_note_seq.extend(note_seq)
+        all_note_dur.extend(note_dur)
+        if note_slur is not None:
+            all_note_slur.extend(note_slur)
+
+    item["note_seq"] = " ".join(all_note_seq)
+    # 保留 6 位小数（原来是 3 位，逐个四舍五入会让总时长与音素差几毫秒）
+    if all_note_dur:
+        delta = float(math.fsum(ph_dur)) - float(math.fsum(all_note_dur))
+        if abs(delta) <= 0.05:
+            all_note_dur[-1] = max(0.0, all_note_dur[-1] + delta)
+    item["note_dur"] = " ".join(f"{float(d):.6f}" for d in all_note_dur)
+    if use_wb:
+        item["note_slur"] = " ".join(str(v) for v in all_note_slur)
+    else:
+        item.pop("note_slur", None)
+    item.pop("note_glide", None)
+
+    return f"{len(chunks)} 块 / {len(all_note_seq)} 个音符"
+
+
+# ---------------------------------------------------------------------------
+# 多进程 worker：DirectML / CUDA 的 session 不支持并发 run（同进程多 session
+# 并发同样会闪退），只能像 HubertFA 那样一个进程一份模型。
+# ---------------------------------------------------------------------------
+
+_MP_STATE: dict = {}
+
+
+def _mp_init(model_dir, device, cfg, cancel_event):
+    _MP_STATE["aligner"] = GameOnnxAligner(model_dir, device=device)
+    _MP_STATE["cfg"] = cfg
+    _MP_STATE["cancel"] = cancel_event
+
+
+def _mp_task(index: int, item: dict):
+    aligner = _MP_STATE["aligner"]
+    cfg = _MP_STATE["cfg"]
+    cancel = _MP_STATE.get("cancel")
+    try:
+        detail = _align_item(
+            aligner, item, index, cfg,
+            stop_check=(cancel.is_set if cancel is not None else None),
+        )
+    except GameInferenceStopped:
+        return index, False, None, "已停止"
+    except Exception:  # noqa: BLE001 - 回传给主进程展示
+        return index, False, None, traceback.format_exc()
+    return index, True, item, detail
+
+
 def align_transcriptions(
     transcription,
     model_dir,
@@ -485,6 +684,7 @@ def align_transcriptions(
     ts=None,
     est_threshold: float = 0.2,
     max_chunk_sec: float = 30.0,
+    workers: int = 1,
     progress_callback: Optional[Callable[[str], None]] = None,
     stop_event=None,
 ):
@@ -493,9 +693,15 @@ def align_transcriptions(
     Args:
         max_chunk_sec: 长音频按词边界分块推理的最大秒数（优先在无声音素后切开）；
             <=0 表示不分块。分块可以显著降低显存峰值。
+        workers: 并行处理的条数。1 = 串行。
+            - CPU：线程池共享一份 session（``session.run`` 会释放 GIL，可真正并行）；
+            - DirectML / CUDA：单个 session 不能并发 ``run()``（会闪退），同进程
+              多个 session 并发同样会崩，因此改用**多进程**（每个进程一份模型，
+              思路同 HubertFA）。显存约为单实例的 workers 倍，进程启动时各自
+              加载一次模型，小数据集收益有限。
 
     Returns:
-        统计字典：total / updated / stopped / output / providers。
+        统计字典：total / updated / failed / stopped / output / providers / workers。
     """
     csv_path = pathlib.Path(transcription)
     if not csv_path.is_file():
@@ -503,9 +709,9 @@ def align_transcriptions(
     if not use_wb and uv_note_cond == "follow":
         raise ValueError("关闭词-音符对齐时不能使用 uv_note_cond=follow")
 
+    workers = max(1, min(int(workers or 1), 32))
+
     uv_set = _parse_uv_vocab(uv_vocab) if use_wb else None
-    aligner = GameOnnxAligner(model_dir, device=device)
-    language_id = aligner.language_id(language)
 
     def log(message: str):
         if progress_callback is not None:
@@ -513,7 +719,43 @@ def align_transcriptions(
         else:
             print(message)
 
+    aligner = GameOnnxAligner(model_dir, device=device)
+    samplerate = aligner.samplerate
+    language_id = aligner.language_id(language)
+
     log(f"ONNX ExecutionProvider: {', '.join(aligner.providers)}（请求设备: {device}）")
+
+    # DirectML / CUDA 的 InferenceSession 不能并发 run（同进程就算是不同 session
+    # 并发也会闪退），只能像 HubertFA 那样开多个进程、每进程一份模型。
+    gpu_providers = {"DmlExecutionProvider", "CUDAExecutionProvider", "TensorrtExecutionProvider"}
+    active_gpu = sorted(gpu_providers & set(aligner.providers))
+    use_processes = workers > 1 and bool(active_gpu)
+    if use_processes:
+        log(f"{'/'.join(active_gpu)} 的 session 不能并发推理，改用多进程："
+            f"{workers} 个进程各加载一份模型（显存约为单实例的 {workers} 倍，"
+            f"启动时每个进程都要加载一次模型）")
+    elif workers > 1:
+        log(f"并行线程数: {workers}（CPU 共享同一份 session）")
+
+    # 多线程下 worker 不直接往 GUI 写日志，统一投递到队列由主线程顺序输出
+    if workers <= 1:
+        def emit(message: str) -> None:
+            log(message)
+
+        def drain() -> None:
+            return None
+    else:
+        _msg_queue: "queue.Queue[str]" = queue.Queue()
+
+        def emit(message: str) -> None:
+            _msg_queue.put(message)
+
+        def drain() -> None:
+            while True:
+                try:
+                    log(_msg_queue.get_nowait())
+                except queue.Empty:
+                    return
 
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -532,146 +774,162 @@ def align_transcriptions(
 
     total = len(items)
     updated = 0
+    failed = 0
     stopped = False
 
-    for index, item in enumerate(items, 1):
-        if stop_event is not None and stop_event.is_set():
-            stopped = True
-            log("已请求停止，剩余文件未处理。")
-            break
+    lost_lock = threading.Lock()
 
-        name = item["name"]
-        ph_seq = item["ph_seq"].split()
-        ph_dur = [float(v) for v in item["ph_dur"].split()]
-        ph_num = [int(v) for v in item["ph_num"].split()]
-        validate_phones(ph_seq, ph_dur, ph_num)
+    # 传给线程 / 进程 worker 的运行参数
+    cfg = {
+        "csv_path": csv_path,
+        "use_wb": use_wb,
+        "uv_set": uv_set,
+        "uv_word_cond": uv_word_cond,
+        "uv_note_cond": uv_note_cond,
+        "language_id": language_id,
+        "seg_threshold": seg_threshold,
+        "seg_radius": seg_radius,
+        "t0": t0,
+        "nsteps": nsteps,
+        "ts": ts,
+        "est_threshold": est_threshold,
+        "max_chunk_sec": max_chunk_sec,
+        "samplerate": samplerate,
+    }
 
-        words = _build_word_records(ph_num, ph_dur)
-        if not words:
-            raise ValueError(f"'{name}' 没有有效音素")
-        word_starts = np.cumsum([0.0] + [w["dur"] for w in words])
+    def _process(index: int, item: dict) -> tuple[bool, str]:
+        """处理一条记录：只写 item 自身，不共享可变状态，可被多线程并发调用。"""
+        detail = _align_item(
+            aligner, item, index, cfg,
+            stop_check=(stop_event.is_set if stop_event is not None else None),
+            emit=emit,
+        )
+        return True, detail
 
-        # 对齐使用的词 v/uv（不合并）
-        if use_wb:
-            _, word_vuv = parse_words(
-                ph_seq, ph_dur, ph_num,
-                uv_vocab=uv_set,
-                uv_cond=uv_word_cond,
-                merge_consecutive_uv=False,
-            )
-        else:
-            word_vuv = []
+    def _report_failure(name: str, detail: str) -> None:
+        log(f"❌ {name} 生成 MIDI 失败（已跳过）：\n{detail}")
 
-        wav_path = _find_wav(csv_path, name)
-        waveform, _ = librosa.load(str(wav_path), sr=aligner.samplerate, mono=True)
-
-        chunks = _split_word_chunks(words, word_vuv, max_chunk_sec)
-        all_note_seq: list[str] = []
-        all_note_dur: list[float] = []
-        all_note_slur: list[int] = []
-        item_failed = False
-
-        for chunk_indices in chunks:
+    if workers <= 1:
+        for index, item in enumerate(items, 1):
             if stop_event is not None and stop_event.is_set():
                 stopped = True
+                log("已请求停止，剩余文件未处理。")
                 break
+            name = item.get("name") or f"#{index}"
+            try:
+                _, detail = _process(index, item)
+            except GameInferenceStopped:
+                stopped = True
+                log("已请求停止，剩余文件未处理。")
+                break
+            except Exception:
+                failed += 1
+                _report_failure(name, traceback.format_exc())
+                continue
+            updated += 1
+            log(f"({index}/{total}) {name} → {detail}")
+    elif use_processes:
+        # DirectML / CUDA：每个进程一份模型，进程间互不干扰（参考 HubertFA 的多进程）
+        ctx = mp.get_context("spawn")
+        cancel_event = ctx.Event()
+        watcher_done = threading.Event()
 
-            w0, w1 = chunk_indices[0], chunk_indices[-1]
-            chunk_ph_dur = ph_dur[words[w0]["ph_start"]:words[w1]["ph_end"]]
-            chunk_word_dur = [words[i]["dur"] for i in chunk_indices]
-            chunk_word_vuv = [word_vuv[i] for i in chunk_indices] if use_wb else []
+        def _watch_stop() -> None:
+            while not watcher_done.is_set():
+                if stop_event is not None and stop_event.is_set():
+                    cancel_event.set()
+                    return
+                watcher_done.wait(0.2)
 
-            start_sec = float(word_starts[w0])
-            end_sec = float(word_starts[w1 + 1])
-            chunk_waveform = _slice_audio(waveform, aligner.samplerate, start_sec, end_sec)
+        if stop_event is not None:
+            threading.Thread(target=_watch_stop, daemon=True).start()
 
-            if use_wb:
-                # 模型使用的词时长：与 GAME 一致，连续无声词会合并
-                if uv_set is not None:
-                    chunk_known_dur, _ = merge_consecutive_uv_words(chunk_word_dur, chunk_word_vuv)
-                else:
-                    chunk_known_dur = chunk_word_dur
-            else:
-                chunk_known_dur = [float(sum(chunk_ph_dur))]
-
-            attempt = 0
-            while True:
-                try:
-                    note_dur_arr, presence_arr, scores_arr = aligner.predict(
-                        chunk_waveform,
-                        chunk_known_dur,
-                        language_id=language_id,
-                        seg_threshold=seg_threshold,
-                        seg_radius=seg_radius,
-                        t0=t0,
-                        nsteps=nsteps,
-                        ts=ts,
-                        est_threshold=est_threshold,
-                    )
-                    break
-                except Exception as e:
-                    if attempt < 2 and _ort_is_device_lost(e) and aligner.recover_from_device_lost():
-                        attempt += 1
-                        log(f"⚠ GPU 设备已被驱动重置（设备丢失），已切换到 {aligner.device.upper()}，重试 {name}")
+        try:
+            with ProcessPoolExecutor(
+                max_workers=workers,
+                mp_context=ctx,
+                initializer=_mp_init,
+                initargs=(str(model_dir), str(device), cfg, cancel_event),
+            ) as pool:
+                future_map = {
+                    pool.submit(_mp_task, index, item): index
+                    for index, item in enumerate(items, 1)
+                }
+                pending = set(future_map)
+                done = 0
+                for future in as_completed(future_map):
+                    pending.discard(future)
+                    done += 1
+                    index = future_map[future]
+                    name = items[index - 1].get("name") or f"#{index}"
+                    try:
+                        res_index, ok, new_item, detail = future.result()
+                    except Exception:  # noqa: BLE001 - 子进程崩溃/超时等
+                        failed += 1
+                        _report_failure(name, traceback.format_exc())
                         continue
-                    log(f"❌ {name} 对齐失败（已跳过）：\n{traceback.format_exc()}")
-                    note_dur_arr = None
+                    if not ok:
+                        if detail == "已停止":
+                            stopped = True
+                            log("已请求停止，剩余文件未处理。")
+                            for rest in pending:
+                                rest.cancel()
+                            break
+                        failed += 1
+                        _report_failure(name, detail)
+                        continue
+                    items[res_index - 1] = new_item
+                    updated += 1
+                    log(f"({done}/{total}) {name} → {detail}")
+                    if stop_event is not None and stop_event.is_set():
+                        stopped = True
+                        log("已请求停止，剩余文件未处理。")
+                        for rest in pending:
+                            rest.cancel()
+                        break
+        finally:
+            watcher_done.set()
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            future_map = {
+                pool.submit(_process, index, item): (index, item)
+                for index, item in enumerate(items, 1)
+            }
+            pending = set(future_map)
+            done = 0
+            for future in as_completed(future_map):
+                pending.discard(future)
+                drain()
+                index, item = future_map[future]
+                name = item.get("name") or f"#{index}"
+                done += 1
+                try:
+                    _, detail = future.result()
+                except GameInferenceStopped:
+                    stopped = True
+                    for rest in pending:
+                        rest.cancel()
                     break
+                except Exception:
+                    failed += 1
+                    _report_failure(name, traceback.format_exc())
+                    if stop_event is not None and stop_event.is_set():
+                        stopped = True
+                        for rest in pending:
+                            rest.cancel()
+                        break
+                    continue
+                updated += 1
+                log(f"({done}/{total}) {name} → {detail}")
+                if stop_event is not None and stop_event.is_set():
+                    stopped = True
+                    for rest in pending:
+                        rest.cancel()
+                    break
+    drain()
 
-            if note_dur_arr is None:
-                item_failed = True
-                break
-
-            valid = note_dur_arr > 0
-            note_dur = note_dur_arr[valid].astype(float).tolist()
-            note_midi = scores_arr[valid].astype(float).tolist()
-            note_vuv = presence_arr[valid].astype(bool).tolist()
-
-            if use_wb:
-                if uv_note_cond == "follow":
-                    note_seq = [_midi_to_note(midi) for midi in note_midi]
-                else:
-                    note_seq = [
-                        _midi_to_note(midi) if vuv else "rest"
-                        for midi, vuv in zip(note_midi, note_vuv)
-                    ]
-                note_seq, note_dur, note_slur = align_notes_to_words(
-                    chunk_word_dur, chunk_word_vuv, note_seq, note_dur,
-                    apply_word_uv=(uv_note_cond == "follow"),
-                )
-            else:
-                note_seq = [
-                    _midi_to_note(midi) if vuv else "rest"
-                    for midi, vuv in zip(note_midi, note_vuv)
-                ]
-                note_slur = None
-
-            all_note_seq.extend(note_seq)
-            all_note_dur.extend(note_dur)
-            if note_slur is not None:
-                all_note_slur.extend(note_slur)
-
-        if stopped:
-            break
-        if item_failed:
-            continue
-
-        item["note_seq"] = " ".join(all_note_seq)
-        # 保留 6 位小数（原来是 3 位，逐个四舍五入会让总时长与音素差几毫秒）
-        if all_note_dur:
-            delta = float(math.fsum(ph_dur)) - float(math.fsum(all_note_dur))
-            if abs(delta) <= 0.05:
-                all_note_dur[-1] = max(0.0, all_note_dur[-1] + delta)
-        item["note_dur"] = " ".join(f"{float(d):.6f}" for d in all_note_dur)
-        if use_wb:
-            item["note_slur"] = " ".join(str(v) for v in all_note_slur)
-        else:
-            item.pop("note_slur", None)
-        item.pop("note_glide", None)
-
-        updated += 1
-        suffix = f"{len(chunks)} 块 / {len(all_note_seq)} 个音符"
-        log(f"({index}/{total}) {name} → {suffix}")
+    if stopped:
+        log("已请求停止，剩余文件未处理。")
 
     # 输出路径
     if overwrite:
@@ -696,11 +954,15 @@ def align_transcriptions(
         writer.writeheader()
         writer.writerows(items)
 
-    log(f"完成：共处理 {updated}/{total} 条 → {save_path}")
+    log(f"完成：共处理 {updated}/{total} 条"
+        + (f"，失败 {failed} 条" if failed else "")
+        + f" → {save_path}")
     return {
         "total": total,
         "updated": updated,
+        "failed": failed,
         "stopped": stopped,
+        "workers": workers,
         "output": str(save_path),
         "providers": list(aligner.providers),
     }
@@ -716,6 +978,8 @@ def main() -> int:
     parser.add_argument("-m", "--model", required=True, help="GAME ONNX model directory")
     parser.add_argument("--language", default=None, help="Language code, e.g. zh / ja / en")
     parser.add_argument("--device", default="cpu", choices=["cpu", "dml", "cuda"])
+    parser.add_argument("--workers", type=int, default=1,
+                        help="Number of audio files processed in parallel (CPU: 2~4 recommended)")
     parser.add_argument("--output", default=None, help="Output CSV path")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite the input CSV")
     parser.add_argument("--no-wb", action="store_true", help="Disable word-note alignment")
@@ -748,6 +1012,7 @@ def main() -> int:
         nsteps=args.nsteps,
         est_threshold=args.est_threshold,
         max_chunk_sec=args.max_chunk_sec,
+        workers=args.workers,
     )
     return 0
 

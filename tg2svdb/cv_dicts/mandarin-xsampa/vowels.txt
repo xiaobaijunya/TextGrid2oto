@@ -1,1 +1,65 @@
-a A o @ e 7 U u i i\ i` y AU @U ia iA iAU ie iE iU i@U y{ yE ua uA u@ ue uo :\i r\` :n N pau sil br
+# 普通话韵母（X-SAMPA）。每行一个韵母；一行写多个音素表示它们是一个组合韵母。
+# 命名规则：add_ph_num 会用这些行做最长匹配，把 iU N / a :\i 这类韵母当作整体。
+
+# --- 单音素韵母 ---
+a
+A
+o
+@
+e
+7
+U
+u
+i
+i\        # 舌尖前（zi ci si）
+i`        # 舌尖后（zhi chi shi ri）
+y
+AU
+@U
+ia
+iA
+iAU
+ie
+iE
+iU
+i@U
+y{
+yE
+ua
+uA
+u@
+ue
+uo
+:\i
+r\`
+:n
+N
+
+# --- 静音 / 呼吸 / 停顿 ---
+pau
+sil
+br
+
+# --- 组合韵母（多音素） ---
+@ :n
+@ N
+A N
+U N
+a :\i
+a :n
+a r\`
+e :\i
+i :n
+i N
+iA N
+iE :n
+iU N
+ia :\i
+u@ :n
+u@ N
+uA N
+ua :\i
+ua :n
+ue :\i
+yE :n
+y{ :n

@@ -1,1 +1,14 @@
-a e i o u U I y pau sil br
+# 西班牙语韵母（X-SAMPA）。每行一个韵母；一行写多个音素表示它们是一个组合韵母。
+a
+e
+i
+o
+u
+U
+I
+y
+
+# --- 静音 / 呼吸 / 停顿 ---
+pau
+sil
+br

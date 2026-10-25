@@ -1,4 +1,5 @@
 import json
+import os
 
 def dic_read(dic_path):
     """读取 SV 字典：``词<TAB>音素 音素 ...``（DiffSinger 规范）。
@@ -66,7 +67,11 @@ def run(dic_path,json_path,wav_path,num):
     data = word_phone_json_read(json_path)
 
     for wavname, content in data.items():
-        wavname = wavname.split('.')[0]
+        # json 的 key 已经是文件名（不含扩展名）；只兼容旧数据里可能带的后缀
+        for ext in (".wav", ".WAV", ".TextGrid", ".textgrid"):
+            if wavname.endswith(ext):
+                wavname = wavname[: -len(ext)]
+                break
         phonemes = []
         boundaries = []
         for i in content['phones'].values():

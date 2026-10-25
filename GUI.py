@@ -1,6 +1,7 @@
 import wx
 import os
 import sys
+import csv
 import json
 import time
 import traceback
@@ -27,7 +28,7 @@ from inference import tifa_infer
 from inference import game_infer
 from textgrid2json import del_SP, TextGrid2ds_json, ds_json2filter, ds_json2word
 from textgrid2json import detect_short_phonemes
-from textgrid2json import json2tg
+from textgrid2json import json2tg, aligner_json2tg
 from build_diffdataset import words_from_phones
 from build_diffdataset import add_ph_num as phnum_builder
 from build_diffdataset import csv2tg
@@ -39,6 +40,7 @@ sys.path.append(str(ROOT / 'tg2svdb'))
 from tg2svdb import tg2sv_change
 from i18n import _, register
 from oto.oto_param_panel import OtoParamPanel
+from asr_lab.asr_panel_ui import AsrPanelMixin
 
 def append_output(text_ctrl, text):
     """在 GUI 线程内追加文本并滚到底部（必须在主线程调用）。
@@ -122,7 +124,7 @@ class TextRedirector:
         if pending:
             wx.CallAfter(self._flush)
 
-class MainFrame(wx.Frame):
+class MainFrame(AsrPanelMixin, wx.Frame):
     def __init__(self):
         super().__init__(None, title=_('window.title'), size=(850, 760))
         from i18n import register
@@ -135,6 +137,7 @@ class MainFrame(wx.Frame):
         panel = wx.Panel(self)
         
         notebook = wx.Notebook(panel)
+        self.main_notebook = notebook
         
         lab_panel = wx.Panel(notebook)
         lab_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -278,23 +281,17 @@ class MainFrame(wx.Frame):
 
         lab_index_panel.SetSizer(lab_index_sizer)
 
-        # 第三个标签页：使用 ASR 识别歌词生成lab
-        lab_asr_panel = wx.Panel(lab_notebook)
-        self._build_asr_lab_panel(lab_asr_panel)
-
-        # 添加两个标签页到notebook
         lab_notebook.AddPage(lab_wav_panel, _('lab.tab.wavname'))
         register(lab_notebook, 'lab.tab.wavname', 'notebook_tab', 0)
         lab_notebook.AddPage(lab_index_panel, _('lab.tab.index'))
         register(lab_notebook, 'lab.tab.index', 'notebook_tab', 1)
-        lab_notebook.AddPage(lab_asr_panel, _('lab.tab.asr'))
-        register(lab_notebook, 'lab.tab.asr', 'notebook_tab', 2)
         
         lab_sizer.Add(lab_notebook, 1, wx.EXPAND | wx.ALL, 5)
         lab_panel.SetSizer(lab_sizer)
         
         textgrid_outer_panel = wx.Panel(notebook)
         textgrid_notebook = wx.Notebook(textgrid_outer_panel)
+        self.textgrid_notebook = textgrid_notebook
 
         # 第一个标签页：TIFA 推理
         tifa_panel = wx.Panel(textgrid_notebook)
@@ -561,6 +558,10 @@ class MainFrame(wx.Frame):
 
         detect_panel.SetSizer(detect_sizer)
 
+        # 标注流程面板（ASR→TG → AP标注 → 按AP分割）
+        pipeline_panel = wx.Panel(notebook)
+        self._build_pipeline_panel(pipeline_panel)
+
         # JSON生成面板
         json_panel = wx.Panel(notebook)
         json_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -736,6 +737,15 @@ class MainFrame(wx.Frame):
         svdb_tail_ratio_sizer.Add(svdb_tail_ratio_percent, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         svdb_box_sizer.Add(svdb_tail_ratio_sizer, 0, wx.ALL, 3)
 
+        svdb_recursive_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.svdb_recursive_check = wx.CheckBox(svdb_panel, label=_('mark.svdb.recursive'))
+        self.svdb_recursive_check.SetValue(True)
+        self.svdb_recursive_check.SetToolTip(_('mark.svdb.recursive.tooltip'))
+        register(self.svdb_recursive_check, 'mark.svdb.recursive.tooltip', 'tooltip')
+        register(self.svdb_recursive_check, 'mark.svdb.recursive', 'checkbox')
+        svdb_recursive_sizer.Add(self.svdb_recursive_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        svdb_box_sizer.Add(svdb_recursive_sizer, 0, wx.ALL, 3)
+
         svdb_btn_row = wx.BoxSizer(wx.HORIZONTAL)
         svdb_generate_btn = wx.Button(svdb_panel, label=_('mark.svdb.generate'))
         register(svdb_generate_btn, 'mark.svdb.generate', 'button')
@@ -829,11 +839,15 @@ class MainFrame(wx.Frame):
         notebook.AddPage(mark_panel, _('notebook.mark'))
         register(notebook, 'notebook.mark', 'notebook_tab', 4)
 
-        # ── 其他（音频分割 / words→lab）──
+        # ── 其他（words→lab / 音量检测）──
         other_panel = wx.Panel(notebook)
         self._build_other_panel(other_panel)
         notebook.AddPage(other_panel, _('notebook.other'))
         register(notebook, 'notebook.other', 'notebook_tab', 5)
+
+        # ── ASR→TG 标注流程（整个流程放最后）──
+        notebook.AddPage(pipeline_panel, _('notebook.pipeline'))
+        register(notebook, 'notebook.pipeline', 'notebook_tab', 6)
 
         # 底部：语言选择栏
         lang_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -990,6 +1004,7 @@ class MainFrame(wx.Frame):
         svdb_path = self.svdb_path_text.GetValue().strip()
         dict_file = self.svdb_dict_choice.GetStringSelection()
         tail_ratio_str = self.svdb_tail_ratio_text.GetValue().strip()
+        recursive = self.svdb_recursive_check.GetValue()
         
         if not svdb_path:
             wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
@@ -1018,29 +1033,53 @@ class MainFrame(wx.Frame):
                 wx.CallAfter(self.svdb_result_text.AppendText, _('log.start_generate_svdb'))
                 
                 dict_path = str(ROOT / 'tg2svdb' / 'dicts' / dict_file)
-                
-                def process_folder(folder_path, folder_name=""):
+
+                def has_source(folder_path):
+                    """该目录是否是一个可生成 SVDB 的样本目录。"""
                     json_path = os.path.join(folder_path, 'json', 'word_phone.json')
-                    wav_files = [f for f in os.listdir(folder_path) if f.endswith('.wav')]
-                    
-                    if wav_files and os.path.exists(json_path):
-                        display_name = folder_name if folder_name else folder_path
-                        wx.CallAfter(self.svdb_result_text.AppendText, _('log.processing').format(folder=display_name))
-                        tg2sv_change.run(dict_path, json_path, folder_path,num)
-                        wx.CallAfter(self.svdb_result_text.AppendText, _('log.completed').format(folder=display_name))
-                        return True
-                    return False
-                
+                    if not os.path.exists(json_path):
+                        return False
+                    try:
+                        return any(name.lower().endswith('.wav')
+                                   for name in os.listdir(folder_path))
+                    except OSError:
+                        return False
+
+                def iter_targets():
+                    """根目录 + 子目录；recursive 时递归全部层级。"""
+                    if has_source(svdb_path):
+                        yield svdb_path, ""
+                    if recursive:
+                        for current, dirs, _files in os.walk(svdb_path):
+                            dirs[:] = sorted(d for d in dirs if d.lower() != 'json')
+                            if os.path.normcase(current) == os.path.normcase(svdb_path):
+                                continue
+                            if has_source(current):
+                                yield current, os.path.relpath(current, svdb_path)
+                    else:
+                        for name in sorted(os.listdir(svdb_path)):
+                            path = os.path.join(svdb_path, name)
+                            if not os.path.isdir(path) or name.lower() == 'json':
+                                continue
+                            if has_source(path):
+                                yield path, name
+
                 processed_count = 0
-                
-                if process_folder(svdb_path):
-                    processed_count += 1
-                
-                subfolders = [f for f in os.listdir(svdb_path) if os.path.isdir(os.path.join(svdb_path, f))]
-                for folder in subfolders:
-                    folder_path = os.path.join(svdb_path, folder)
-                    if process_folder(folder_path, folder):
+                for folder_path, folder_name in iter_targets():
+                    display_name = folder_name or folder_path
+                    wx.CallAfter(self.svdb_result_text.AppendText,
+                                 _('log.processing').format(folder=display_name))
+                    try:
+                        tg2sv_change.run(
+                            dict_path,
+                            os.path.join(folder_path, 'json', 'word_phone.json'),
+                            folder_path, num)
                         processed_count += 1
+                        wx.CallAfter(self.svdb_result_text.AppendText,
+                                     _('log.completed').format(folder=display_name))
+                    except Exception as error:  # noqa: BLE001 - 单个目录失败继续
+                        wx.CallAfter(append_output, self.svdb_result_text,
+                                     f"    ✗ {display_name}: {error}\n")
                 
                 wx.CallAfter(self.svdb_result_text.AppendText, _('log.svdb_complete').format(count=processed_count))
                 wx.CallAfter(wx.MessageBox, _('msg.ok.svgdb_complete').format(count=processed_count), _('msg.success'), wx.OK | wx.ICON_INFORMATION)
@@ -1057,6 +1096,7 @@ class MainFrame(wx.Frame):
         folder = self.svdb_path_text.GetValue().strip()
         dict_file = self.svdb_dict_choice.GetStringSelection()
         tail_ratio_str = self.svdb_tail_ratio_text.GetValue().strip()
+        recursive = self.svdb_recursive_check.GetValue()
 
         if not folder:
             wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
@@ -1090,7 +1130,7 @@ class MainFrame(wx.Frame):
                     wx.CallAfter(append_output, self.svdb_result_text, message + "\n")
 
                 stats = json2tg.run(folder, dictionary=dict_path, tail_ratio=tail_ratio,
-                                    progress_callback=progress)
+                                    progress_callback=progress, recursive=recursive)
 
                 wx.CallAfter(self.svdb_result_text.AppendText,
                              _('log.json2tg.complete').format(
@@ -1370,14 +1410,347 @@ class MainFrame(wx.Frame):
     # 其他（音频分割 / words → lab）
     # ══════════════════════════════════════════════════════════════
 
-    def _build_other_panel(self, parent):
-        """「其他」大页面：两个子标签页。"""
+    def _build_pipeline_panel(self, parent):
+        """顶层「标注流程」页：按 ASR → TG → AP → 分割 的顺序排列。"""
         sizer = wx.BoxSizer(wx.VERTICAL)
         nb = wx.Notebook(parent)
+
+        asr_page = wx.ScrolledWindow(nb, style=wx.VSCROLL)
+        asr_page.SetScrollRate(0, 10)
+        self._build_asr_panel(asr_page)
+
+        json2tg_page = wx.ScrolledWindow(nb, style=wx.VSCROLL)
+        json2tg_page.SetScrollRate(0, 10)
+        self._build_aligner_json2tg_page(json2tg_page)
+
+        ap_page = wx.ScrolledWindow(nb, style=wx.VSCROLL)
+        ap_page.SetScrollRate(0, 10)
+        self._build_ap_panel(ap_page)
 
         split_page = wx.ScrolledWindow(nb, style=wx.VSCROLL)
         split_page.SetScrollRate(0, 10)
         self._build_split_page(split_page)
+
+        audit_page = wx.ScrolledWindow(nb, style=wx.VSCROLL)
+        audit_page.SetScrollRate(0, 10)
+        self._build_phoneme_audit_page(audit_page)
+
+        tifa_page = wx.Panel(nb)
+        self._build_tifa_jump_page(tifa_page)
+
+        nb.AddPage(asr_page, _('pipeline.asr.tab'))
+        register(nb, 'pipeline.asr.tab', 'notebook_tab', 0)
+        nb.AddPage(json2tg_page, _('pipeline.json2tg.tab'))
+        register(nb, 'pipeline.json2tg.tab', 'notebook_tab', 1)
+        nb.AddPage(ap_page, _('pipeline.ap.tab'))
+        register(nb, 'pipeline.ap.tab', 'notebook_tab', 2)
+        nb.AddPage(split_page, _('pipeline.split.tab'))
+        register(nb, 'pipeline.split.tab', 'notebook_tab', 3)
+        nb.AddPage(audit_page, _('pipeline.audit.tab'))
+        register(nb, 'pipeline.audit.tab', 'notebook_tab', 4)
+        nb.AddPage(tifa_page, _('pipeline.tifa.tab'))
+        register(nb, 'pipeline.tifa.tab', 'notebook_tab', 5)
+
+        sizer.Add(nb, 1, wx.EXPAND | wx.ALL, 5)
+        parent.SetSizer(sizer)
+
+    # ══════════════════════════════════════════════════════════════
+    # ⑤ 音素检测 / 清理（按异常数挑出废录音并可删除）
+    # ══════════════════════════════════════════════════════════════
+    def _build_phoneme_audit_page(self, parent):
+        """构建音素检测页：统计每个音频的异常音素数，超阈值可一键清理。"""
+        self._audit_stop = threading.Event()
+        self._audit_flagged = []
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        box = wx.StaticBox(parent, label=_('pipeline.audit.settings'))
+        register(box, 'pipeline.audit.settings', 'label')
+        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('pipeline.audit.folder'))
+        register(label, 'pipeline.audit.folder')
+        self.audit_folder_text = wx.TextCtrl(parent, size=(400, -1))
+        browse_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(browse_btn, 'textgrid.browse_folder', 'button')
+        browse_btn.Bind(wx.EVT_BUTTON,
+                        lambda event: self.on_browse_folder(event, self.audit_folder_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.audit_folder_text, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        thr_label = wx.StaticText(parent, label=_('pipeline.audit.threshold'))
+        register(thr_label, 'pipeline.audit.threshold')
+        self.audit_threshold_spin = wx.SpinCtrl(parent, min=1, max=9999, initial=3,
+                                                size=(70, -1))
+        self.audit_threshold_spin.SetToolTip(_('pipeline.audit.threshold.tooltip'))
+        register(self.audit_threshold_spin, 'pipeline.audit.threshold.tooltip', 'tooltip')
+        thr_unit = wx.StaticText(parent, label=_('pipeline.audit.threshold.unit'))
+        register(thr_unit, 'pipeline.audit.threshold.unit')
+
+        ms_label = wx.StaticText(parent, label=_('pipeline.audit.min_ms'))
+        register(ms_label, 'pipeline.audit.min_ms')
+        self.audit_min_ms_spin = wx.SpinCtrl(parent, min=1, max=500, initial=30,
+                                             size=(70, -1))
+        self.audit_min_ms_spin.SetToolTip(_('pipeline.audit.min_ms.tooltip'))
+        register(self.audit_min_ms_spin, 'pipeline.audit.min_ms.tooltip', 'tooltip')
+
+        row.Add(thr_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.audit_threshold_spin, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(thr_unit, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 8)
+        row.Add(ms_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.audit_min_ms_spin, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.audit_ignore_silence_check = wx.CheckBox(
+            parent, label=_('pipeline.audit.ignore_silence'))
+        self.audit_ignore_silence_check.SetValue(True)
+        self.audit_ignore_silence_check.SetToolTip(_('pipeline.audit.ignore_silence.tooltip'))
+        register(self.audit_ignore_silence_check,
+                 'pipeline.audit.ignore_silence.tooltip', 'tooltip')
+        register(self.audit_ignore_silence_check,
+                 'pipeline.audit.ignore_silence', 'checkbox')
+        self.audit_recursive_check = wx.CheckBox(parent, label=_('lab.asr.recursive'))
+        register(self.audit_recursive_check, 'lab.asr.recursive', 'checkbox')
+        self.audit_recursive_check.SetValue(True)
+        row.Add(self.audit_ignore_silence_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.audit_recursive_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 8)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        hint = wx.StaticText(parent, label=_('pipeline.audit.hint'))
+        register(hint, 'pipeline.audit.hint')
+        hint.Wrap(620)
+        box_sizer.Add(hint, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        btn_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.audit_run_btn = wx.Button(parent, label=_('pipeline.audit.run'))
+        register(self.audit_run_btn, 'pipeline.audit.run', 'button')
+        self.audit_run_btn.Bind(wx.EVT_BUTTON, self.on_phoneme_audit)
+        self.audit_stop_btn = wx.Button(parent, label=_('textgrid.stop_infer'))
+        register(self.audit_stop_btn, 'textgrid.stop_infer', 'button')
+        self.audit_stop_btn.Bind(wx.EVT_BUTTON, self.on_phoneme_audit_stop)
+        self.audit_stop_btn.Disable()
+        btn_row.Add(self.audit_run_btn, 0, wx.ALL, 5)
+        btn_row.Add(self.audit_stop_btn, 0, wx.ALL, 5)
+        sizer.Add(btn_row, 0, wx.CENTER)
+
+        del_box = wx.StaticBox(parent, label=_('pipeline.audit.delete_section'))
+        register(del_box, 'pipeline.audit.delete_section', 'label')
+        del_sizer = wx.StaticBoxSizer(del_box, wx.VERTICAL)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.audit_del_tg_check = wx.CheckBox(parent, label=_('pipeline.audit.del_tg'))
+        register(self.audit_del_tg_check, 'pipeline.audit.del_tg', 'checkbox')
+        self.audit_del_tg_check.SetValue(True)
+        self.audit_del_lab_check = wx.CheckBox(parent, label=_('pipeline.audit.del_lab'))
+        register(self.audit_del_lab_check, 'pipeline.audit.del_lab', 'checkbox')
+        self.audit_del_lab_check.SetValue(True)
+        self.audit_del_txt_check = wx.CheckBox(parent, label=_('pipeline.audit.del_txt'))
+        register(self.audit_del_txt_check, 'pipeline.audit.del_txt', 'checkbox')
+        self.audit_del_txt_check.SetValue(True)
+        self.audit_del_json_check = wx.CheckBox(parent, label=_('pipeline.audit.del_json'))
+        register(self.audit_del_json_check, 'pipeline.audit.del_json', 'checkbox')
+        self.audit_del_json_check.SetValue(True)
+        self.audit_del_lyrics_check = wx.CheckBox(parent, label=_('pipeline.audit.del_lyrics'))
+        register(self.audit_del_lyrics_check, 'pipeline.audit.del_lyrics', 'checkbox')
+        self.audit_del_lyrics_check.SetValue(True)
+        row.Add(self.audit_del_tg_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.audit_del_lab_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.audit_del_txt_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.audit_del_json_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.audit_del_lyrics_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        del_sizer.Add(row, 0, wx.ALL, 3)
+
+        self.audit_delete_btn = wx.Button(parent, label=_('pipeline.audit.delete_btn'))
+        register(self.audit_delete_btn, 'pipeline.audit.delete_btn', 'button')
+        self.audit_delete_btn.Bind(wx.EVT_BUTTON, self.on_delete_audited)
+        self.audit_delete_btn.Disable()
+        del_sizer.Add(self.audit_delete_btn, 0, wx.ALL | wx.CENTER, 5)
+
+        del_hint = wx.StaticText(parent, label=_('pipeline.audit.delete_hint'))
+        register(del_hint, 'pipeline.audit.delete_hint')
+        del_sizer.Add(del_hint, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        sizer.Add(del_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        result_label = wx.StaticText(parent, label=_('pipeline.audit.result'))
+        register(result_label, 'pipeline.audit.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+        self.audit_result_text = wx.TextCtrl(
+            parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 300))
+        sizer.Add(self.audit_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+        parent.FitInside()
+
+    def on_phoneme_audit_stop(self, event):
+        """停止音素检测。"""
+        self._audit_stop.set()
+        self.audit_stop_btn.Disable()
+        self.audit_result_text.AppendText(_('log.infer_stop_requested'))
+
+    def on_phoneme_audit(self, event):
+        """扫描音频文件夹，列出异常音素数达到阈值的音频。"""
+        from asr_lab import phoneme_audit
+
+        folder = self.audit_folder_text.GetValue().strip()
+        if not folder:
+            wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isdir(folder):
+            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        threshold = int(self.audit_threshold_spin.GetValue())
+        min_ms = float(self.audit_min_ms_spin.GetValue())
+        recursive = self.audit_recursive_check.GetValue()
+        options = phoneme_audit.AuditOptions(
+            min_phoneme_ms=min_ms,
+            ignore_silence=self.audit_ignore_silence_check.GetValue(),
+        )
+
+        def worker():
+            try:
+                wx.CallAfter(self.audit_result_text.Clear)
+                self._audit_stop.clear()
+                self._audit_flagged = []
+                wx.CallAfter(self.audit_run_btn.Disable)
+                wx.CallAfter(self.audit_stop_btn.Enable)
+                wx.CallAfter(self.audit_delete_btn.Disable)
+
+                def progress(message):
+                    wx.CallAfter(append_output, self.audit_result_text, message + "\n")
+
+                progress(_('log.audit.start').format(threshold=threshold, min_ms=min_ms))
+                stats = phoneme_audit.scan_folder(
+                    folder,
+                    recursive=recursive,
+                    options=options,
+                    threshold=threshold,
+                    progress=progress,
+                    stop_event=self._audit_stop,
+                )
+
+                flagged = list(stats["flagged"])
+                self._audit_flagged = flagged
+                if stats["stopped"]:
+                    progress(_('pipeline.audit.stopped'))
+                progress(_('pipeline.audit.summary').format(
+                    total=stats["total"], checked=stats["checked"],
+                    skipped=len(stats["skipped"]), flagged=len(flagged),
+                    threshold=threshold))
+
+                if flagged:
+                    progress(_('pipeline.audit.file_list'))
+                    for audit in flagged:
+                        progress(f"  {audit.audio_path}")
+                    wx.CallAfter(self.audit_delete_btn.Enable)
+                else:
+                    progress(_('pipeline.audit.none'))
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(append_output, self.audit_result_text,
+                             _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.audit_stop_btn.Disable)
+                wx.CallAfter(self.audit_run_btn.Enable)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def on_delete_audited(self, event):
+        """删除上次检测出的问题音频及其勾选的同名文件。"""
+        from asr_lab import phoneme_audit
+
+        flagged = list(self._audit_flagged or [])
+        if not flagged:
+            wx.MessageBox(_('msg.err.audit_empty'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        answer = wx.MessageBox(
+            _('msg.confirm.audit_delete').format(count=len(flagged)),
+            _('msg.warning'), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING)
+        if answer != wx.YES:
+            return
+
+        remove_tg = self.audit_del_tg_check.GetValue()
+        remove_lab = self.audit_del_lab_check.GetValue()
+        remove_txt = self.audit_del_txt_check.GetValue()
+        remove_json = self.audit_del_json_check.GetValue()
+        remove_lyrics = self.audit_del_lyrics_check.GetValue()
+
+        def worker():
+            try:
+                wx.CallAfter(self.audit_delete_btn.Disable)
+
+                def progress(message):
+                    wx.CallAfter(append_output, self.audit_result_text, message + "\n")
+
+                result = phoneme_audit.delete_related(
+                    [audit.audio_path for audit in flagged],
+                    remove_tg=remove_tg,
+                    remove_lab=remove_lab,
+                    remove_txt=remove_txt,
+                    remove_json=remove_json,
+                    remove_lyrics=remove_lyrics,
+                    progress=progress,
+                )
+                progress(_('log.audit.deleted').format(
+                    audios=result["audios"], files=result["files"]))
+                if result["failed"]:
+                    for item in result["failed"]:
+                        progress(f"    ✗ {item}")
+
+                self._audit_flagged = []
+                wx.CallAfter(wx.MessageBox,
+                             _('msg.ok.audit_deleted').format(
+                                 audios=result["audios"], files=result["files"]),
+                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(append_output, self.audit_result_text,
+                             _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.audit_delete_btn.Disable)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _build_tifa_jump_page(self, parent):
+        """流程最后一步：提示并跳转到「2.TextGrid推理 → TIFA 推理」。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        title = wx.StaticText(parent, label=_('pipeline.tifa.title'))
+        register(title, 'pipeline.tifa.title')
+        sizer.Add(title, 0, wx.ALL, 8)
+
+        desc = wx.StaticText(parent, label=_('pipeline.tifa.desc'))
+        register(desc, 'pipeline.tifa.desc')
+        desc.Wrap(620)
+        sizer.Add(desc, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+        jump_btn = wx.Button(parent, label=_('pipeline.tifa.jump'))
+        register(jump_btn, 'pipeline.tifa.jump', 'button')
+        jump_btn.Bind(wx.EVT_BUTTON, self.on_jump_to_tifa)
+        sizer.Add(jump_btn, 0, wx.ALL, 8)
+
+        parent.SetSizer(sizer)
+
+    def on_jump_to_tifa(self, event):
+        """跳转到主页面「2.TextGrid推理」的第一个子标签（TIFA）。"""
+        self.main_notebook.SetSelection(1)
+        self.textgrid_notebook.SetSelection(0)
+
+    def _build_other_panel(self, parent):
+        """「其他」大页面：words→lab、音量检测等辅助工具。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        nb = wx.Notebook(parent)
 
         lab_page = wx.Panel(nb)
         self._build_lab_page(lab_page)
@@ -1385,18 +1758,16 @@ class MainFrame(wx.Frame):
         volume_page = wx.Panel(nb)
         self._build_volume_page(volume_page)
 
-        nb.AddPage(split_page, _('other.split.tab'))
-        register(nb, 'other.split.tab', 'notebook_tab', 0)
         nb.AddPage(lab_page, _('other.lab.tab'))
-        register(nb, 'other.lab.tab', 'notebook_tab', 1)
+        register(nb, 'other.lab.tab', 'notebook_tab', 0)
         nb.AddPage(volume_page, _('other.volume.tab'))
-        register(nb, 'other.volume.tab', 'notebook_tab', 2)
+        register(nb, 'other.volume.tab', 'notebook_tab', 1)
 
         sizer.Add(nb, 1, wx.EXPAND | wx.ALL, 5)
         parent.SetSizer(sizer)
 
     def _build_split_page(self, parent):
-        """子标签页一：按 AP/SP（含空白 mark）分割音频。"""
+        """流程第三步：按 AP/SP（含空白 mark）分割音频，可选导出 TextGrid / lab / txt。"""
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # ── 按 AP/SP 分割音频 ──
@@ -1447,7 +1818,7 @@ class MainFrame(wx.Frame):
         row = wx.BoxSizer(wx.HORIZONTAL)
         label = wx.StaticText(parent, label=_('mark.splitlab.silences'))
         register(label, 'mark.splitlab.silences')
-        self.split_silences_text = wx.TextCtrl(parent, value="SP,AP", size=(200, -1))
+        self.split_silences_text = wx.TextCtrl(parent, value="AP", size=(200, -1))
         self.split_silences_text.SetToolTip(_('mark.splitlab.silences.tooltip'))
         register(self.split_silences_text, 'mark.splitlab.silences.tooltip', 'tooltip')
         self.split_recursive_check = wx.CheckBox(parent, label=_('mark.splitlab.recursive'))
@@ -1462,6 +1833,25 @@ class MainFrame(wx.Frame):
         row.Add(self.split_silences_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         row.Add(self.split_recursive_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         row.Add(self.split_tg_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        split_sizer.Add(row, 0, wx.ALL, 3)
+
+        # 歌词导出：给 TIFA 用（lab = 拼音，txt = 汉字 + 拼音）
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.split_lab_check = wx.CheckBox(parent, label=_('mark.splitlab.export_lab'))
+        self.split_lab_check.SetToolTip(_('mark.splitlab.export_lab.tooltip'))
+        register(self.split_lab_check, 'mark.splitlab.export_lab.tooltip', 'tooltip')
+        register(self.split_lab_check, 'mark.splitlab.export_lab', 'checkbox')
+        self.split_lab_check.SetValue(True)
+        self.split_txt_check = wx.CheckBox(parent, label=_('mark.splitlab.export_txt'))
+        self.split_txt_check.SetToolTip(_('mark.splitlab.export_txt.tooltip'))
+        register(self.split_txt_check, 'mark.splitlab.export_txt.tooltip', 'tooltip')
+        register(self.split_txt_check, 'mark.splitlab.export_txt', 'checkbox')
+        self.split_txt_check.SetValue(True)
+        export_hint = wx.StaticText(parent, label=_('mark.splitlab.export_hint'))
+        register(export_hint, 'mark.splitlab.export_hint')
+        row.Add(self.split_lab_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.split_txt_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(export_hint, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         split_sizer.Add(row, 0, wx.ALL, 3)
 
         btn_row = wx.BoxSizer(wx.HORIZONTAL)
@@ -1489,7 +1879,7 @@ class MainFrame(wx.Frame):
         parent.FitInside()
 
     def _build_lab_page(self, parent):
-        """子标签页二：从 tg 的 words 层生成 lab。"""
+        """「其他」子标签页：从 tg 的 words 层生成 lab。"""
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # ── 从 tg 的 words 层生成 lab ──
@@ -1532,7 +1922,7 @@ class MainFrame(wx.Frame):
         register(self.lab_ignore_check, 'mark.splitlab.lab_ignore_enable.tooltip', 'tooltip')
         self.lab_ignore_check.SetValue(False)
         self.lab_ignore_check.Bind(wx.EVT_CHECKBOX, self.on_lab_ignore_toggled)
-        self.lab_ignore_text = wx.TextCtrl(parent, value="AP,SP,EP,R", size=(160, -1))
+        self.lab_ignore_text = wx.TextCtrl(parent, value="SP,EP,R", size=(160, -1))
         self.lab_ignore_text.SetToolTip(_('mark.splitlab.lab_ignore.tooltip'))
         register(self.lab_ignore_text, 'mark.splitlab.lab_ignore.tooltip', 'tooltip')
         self.lab_ignore_text.Enable(False)
@@ -1660,6 +2050,173 @@ class MainFrame(wx.Frame):
         sizer.Add(self.volume_result_text, 1, wx.EXPAND | wx.ALL, 5)
 
         parent.SetSizer(sizer)
+
+    def _build_aligner_json2tg_page(self, parent):
+        """子标签页四：把 *_Aligner.json 转成 Praat TextGrid。"""
+        self._json2tg_stop = threading.Event()
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        box = wx.StaticBox(parent, label=_('other.json2tg.section'))
+        register(box, 'other.json2tg.section', 'label')
+        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('other.json2tg.folder'))
+        register(label, 'other.json2tg.folder')
+        self.json2tg_folder_text = wx.TextCtrl(parent, size=(420, -1))
+        folder_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(folder_btn, 'textgrid.browse_folder', 'button')
+        folder_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.json2tg_folder_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.json2tg_folder_text, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(folder_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('other.json2tg.out_folder'))
+        register(label, 'other.json2tg.out_folder')
+        self.json2tg_out_text = wx.TextCtrl(parent, size=(420, -1))
+        out_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(out_btn, 'textgrid.browse_folder', 'button')
+        out_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.json2tg_out_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.json2tg_out_text, 1, wx.EXPAND | wx.ALL, 3)
+        row.Add(out_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        out_hint = wx.StaticText(parent, label=_('other.json2tg.out_hint'))
+        register(out_hint, 'other.json2tg.out_hint')
+        box_sizer.Add(out_hint, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        tier_label = wx.StaticText(parent, label=_('other.json2tg.tiers'))
+        register(tier_label, 'other.json2tg.tiers')
+        self.json2tg_tier_choice = wx.Choice(parent, size=(150, -1))
+        self.json2tg_tier_choice.Append(_('other.json2tg.tiers.both'), 'both')
+        self.json2tg_tier_choice.Append(_('other.json2tg.tiers.words'), 'words')
+        self.json2tg_tier_choice.Append(_('other.json2tg.tiers.phones'), 'phones')
+        self.json2tg_tier_choice.SetSelection(0)
+        register(self.json2tg_tier_choice, '', 'choice', [
+            ('other.json2tg.tiers.both', 'both'),
+            ('other.json2tg.tiers.words', 'words'),
+            ('other.json2tg.tiers.phones', 'phones'),
+        ])
+        self.json2tg_recursive_check = wx.CheckBox(parent, label=_('other.json2tg.recursive'))
+        register(self.json2tg_recursive_check, 'other.json2tg.recursive', 'checkbox')
+        self.json2tg_recursive_check.SetValue(True)
+        self.json2tg_overwrite_check = wx.CheckBox(parent, label=_('other.json2tg.overwrite'))
+        register(self.json2tg_overwrite_check, 'other.json2tg.overwrite', 'checkbox')
+        self.json2tg_overwrite_check.SetValue(True)
+        row.Add(tier_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.json2tg_tier_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.json2tg_recursive_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.json2tg_overwrite_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        min_label = wx.StaticText(parent, label=_('other.json2tg.min_interval'))
+        register(min_label, 'other.json2tg.min_interval')
+        self.json2tg_min_interval_text = wx.TextCtrl(parent, value="10", size=(70, -1))
+        self.json2tg_min_interval_text.SetToolTip(_('other.json2tg.min_interval.tooltip'))
+        register(self.json2tg_min_interval_text, 'other.json2tg.min_interval.tooltip', 'tooltip')
+        row.Add(min_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.json2tg_min_interval_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        btn_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.json2tg_run_btn = wx.Button(parent, label=_('other.json2tg.run'))
+        register(self.json2tg_run_btn, 'other.json2tg.run', 'button')
+        self.json2tg_run_btn.Bind(wx.EVT_BUTTON, self.on_convert_aligner_json)
+        self.json2tg_stop_btn = wx.Button(parent, label=_('textgrid.stop_infer'))
+        register(self.json2tg_stop_btn, 'textgrid.stop_infer', 'button')
+        self.json2tg_stop_btn.Bind(wx.EVT_BUTTON, self.on_aligner_json2tg_stop)
+        self.json2tg_stop_btn.Disable()
+        btn_row.Add(self.json2tg_run_btn, 0, wx.ALL, 5)
+        btn_row.Add(self.json2tg_stop_btn, 0, wx.ALL, 5)
+        box_sizer.Add(btn_row, 0, wx.CENTER)
+
+        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        result_label = wx.StaticText(parent, label=_('other.json2tg.result'))
+        register(result_label, 'other.json2tg.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+
+        self.json2tg_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 300))
+        sizer.Add(self.json2tg_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+        parent.FitInside()
+
+    def on_aligner_json2tg_stop(self, event):
+        """停止 JSON -> TextGrid 转换。"""
+        self._json2tg_stop.set()
+        self.json2tg_stop_btn.Disable()
+        self.json2tg_result_text.AppendText(_('log.infer_stop_requested'))
+
+    def on_convert_aligner_json(self, event):
+        """把文件夹里的 *_Aligner.json 批量转成 TextGrid。"""
+        folder = self.json2tg_folder_text.GetValue().strip()
+        out_dir = self.json2tg_out_text.GetValue().strip()
+        tier_mode = self.json2tg_tier_choice.GetClientData(self.json2tg_tier_choice.GetSelection()) or 'both'
+        recursive = self.json2tg_recursive_check.GetValue()
+        overwrite = self.json2tg_overwrite_check.GetValue()
+
+        try:
+            min_interval_ms = float(self.json2tg_min_interval_text.GetValue().strip() or "10")
+            if min_interval_ms < 0 or min_interval_ms > 5000:
+                raise ValueError
+        except ValueError:
+            wx.MessageBox(_('other.json2tg.min_interval.invalid'),
+                          _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        if not folder:
+            wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if not os.path.isdir(folder):
+            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+        if out_dir and not os.path.isdir(out_dir):
+            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        def worker():
+            try:
+                wx.CallAfter(self.json2tg_result_text.Clear)
+                self._json2tg_stop.clear()
+                wx.CallAfter(self.json2tg_run_btn.Disable)
+                wx.CallAfter(self.json2tg_stop_btn.Enable)
+
+                def progress(message):
+                    wx.CallAfter(append_output, self.json2tg_result_text, message + "\n")
+
+                stats = aligner_json2tg.convert_folder(
+                    folder,
+                    recursive=recursive,
+                    out_dir=out_dir,
+                    tier_mode=tier_mode,
+                    overwrite=overwrite,
+                    min_interval=min_interval_ms / 1000.0,
+                    progress_callback=progress,
+                    cancel_checker=self._json2tg_stop.is_set,
+                )
+                if stats['total'] == 0:
+                    wx.CallAfter(wx.MessageBox, _('other.json2tg.no_files'),
+                                 _('msg.error'), wx.OK | wx.ICON_ERROR)
+                else:
+                    wx.CallAfter(wx.MessageBox, _('other.json2tg.done').format(
+                        written=stats['written'], skipped=stats['skipped'], failed=stats['failed']),
+                        _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.json2tg_result_text.AppendText, _('log.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.json2tg_stop_btn.Disable)
+                wx.CallAfter(self.json2tg_run_btn.Enable)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def on_volume_unit_changed(self, event):
         """切换阈值单位时，把两个输入框里的数值换算成新单位。"""
@@ -1806,6 +2363,8 @@ class MainFrame(wx.Frame):
         out_dir = self.split_out_text.GetValue().strip()
         recursive = self.split_recursive_check.GetValue()
         write_tg = self.split_tg_check.GetValue()
+        export_lab = self.split_lab_check.GetValue()
+        export_txt = self.split_txt_check.GetValue()
         silences = (self.split_silences_text.GetValue().replace("，", ",")
                     .replace(",", " ").split())
 
@@ -1827,6 +2386,9 @@ class MainFrame(wx.Frame):
         if not silences:
             wx.MessageBox(_('msg.err.silence_empty'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
+        if not (write_tg or export_lab or export_txt):
+            wx.MessageBox(_('msg.err.split_nothing'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
 
         def worker():
             try:
@@ -1847,6 +2409,8 @@ class MainFrame(wx.Frame):
                     progress_callback=progress,
                     stop_event=self._split_stop,
                     write_tg=write_tg,
+                    export_lab=export_lab,
+                    export_txt=export_txt,
                 )
 
                 if stats['stopped']:
@@ -1855,6 +2419,15 @@ class MainFrame(wx.Frame):
                     if write_tg:
                         wx.CallAfter(self.split_result_text.AppendText,
                                      _('log.split.tg').format(tg=stats.get('tg_written', 0)))
+                    if export_lab:
+                        wx.CallAfter(self.split_result_text.AppendText,
+                                     _('log.split.lab').format(count=stats.get('lab_written', 0)))
+                    if export_txt:
+                        wx.CallAfter(self.split_result_text.AppendText,
+                                     _('log.split.txt').format(count=stats.get('txt_written', 0)))
+                    if stats.get('skipped_empty'):
+                        wx.CallAfter(self.split_result_text.AppendText,
+                                     _('log.split.empty').format(count=stats['skipped_empty']))
                     wx.CallAfter(self.split_result_text.AppendText,
                                  _('log.split.complete').format(count=stats['written']))
                     wx.CallAfter(wx.MessageBox,
@@ -2068,6 +2641,8 @@ class MainFrame(wx.Frame):
         label = wx.StaticText(parent, label=_('mark.csv.tg_folder'))
         register(label, 'mark.csv.tg_folder')
         self.csv_tg_text = wx.TextCtrl(parent, size=(420, -1))
+        self.csv_tg_text.SetToolTip(_('mark.csv.tg_folder.tooltip'))
+        register(self.csv_tg_text, 'mark.csv.tg_folder.tooltip', 'tooltip')
         tg_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
         register(tg_btn, 'textgrid.browse_folder', 'button')
         tg_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.csv_tg_text))
@@ -2320,9 +2895,16 @@ class MainFrame(wx.Frame):
 
                 wx.CallAfter(self.phnum_result_text.AppendText,
                              _('log.phnum.complete').format(count=stats['total']))
-                wx.CallAfter(wx.MessageBox,
-                             _('msg.ok.phnum_complete').format(count=stats['total']),
-                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+                failed = int(stats.get('failed') or 0)
+                if failed:
+                    wx.CallAfter(wx.MessageBox,
+                                 _('msg.ok.phnum_complete_with_errors').format(
+                                     count=stats['total'], failed=failed),
+                                 _('msg.warning'), wx.OK | wx.ICON_WARNING)
+                else:
+                    wx.CallAfter(wx.MessageBox,
+                                 _('msg.ok.phnum_complete').format(count=stats['total']),
+                                 _('msg.success'), wx.OK | wx.ICON_INFORMATION)
             except Exception:
                 tb = traceback.format_exc()
                 wx.CallAfter(self.phnum_result_text.AppendText, _('log.failed').format(error=tb))
@@ -2381,6 +2963,7 @@ class MainFrame(wx.Frame):
         self.game_device_choice.SetSelection(0)
         register(self.game_device_choice, '', 'choice',
                  [('textgrid.device.cpu', 'cpu'), ('textgrid.device.dml', 'dml')])
+        self.game_device_choice.Bind(wx.EVT_CHOICE, self.on_game_device_changed)
         row.Add(lang_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         row.Add(self.game_language_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         row.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
@@ -2459,6 +3042,7 @@ class MainFrame(wx.Frame):
             ('mark.game.nsteps', 'game_nsteps_text', '8'),
             ('mark.game.est_threshold', 'game_est_threshold_text', '0.2'),
             ('mark.game.max_chunk', 'game_max_chunk_text', '30'),
+            ('mark.game.workers', 'game_workers_text', '2'),
         ):
             label = wx.StaticText(parent, label=_(key))
             register(label, key)
@@ -2468,7 +3052,10 @@ class MainFrame(wx.Frame):
             row.Add(text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
         self.game_max_chunk_text.SetToolTip(_('mark.game.max_chunk.tooltip'))
         register(self.game_max_chunk_text, 'mark.game.max_chunk.tooltip', 'tooltip')
+        self.game_workers_text.SetToolTip(_('mark.game.workers.tooltip'))
+        register(self.game_workers_text, 'mark.game.workers.tooltip', 'tooltip')
         box_sizer.Add(row, 0, wx.ALL, 3)
+        self.on_game_device_changed(None)
 
         # 按钮
         btn_row = wx.BoxSizer(wx.HORIZONTAL)
@@ -2542,6 +3129,15 @@ class MainFrame(wx.Frame):
     def on_game_overwrite_changed(self, event):
         self.game_output_name_text.Enable(not self.game_overwrite_check.GetValue())
 
+    def on_game_device_changed(self, event):
+        """DML 并行会改用多进程（每个进程一份模型），提示显存开销。"""
+        if not hasattr(self, 'game_workers_text'):
+            return
+        device = self.game_device_choice.GetClientData(self.game_device_choice.GetSelection()) or 'cpu'
+        key = ('mark.game.workers.tooltip' if str(device).lower() == 'cpu'
+               else 'mark.game.workers.tooltip_gpu')
+        self.game_workers_text.SetToolTip(_(key))
+
     def on_game_stop(self, event):
         self._game_stop.set()
         self.game_stop_btn.Disable()
@@ -2586,8 +3182,10 @@ class MainFrame(wx.Frame):
             nsteps = int(self.game_nsteps_text.GetValue().strip())
             est_threshold = float(self.game_est_threshold_text.GetValue().strip())
             max_chunk_sec = float(self.game_max_chunk_text.GetValue().strip())
+            workers = int(self.game_workers_text.GetValue().strip())
             if not (0 < seg_threshold < 1 and 0 < est_threshold < 1 and 0 <= t0 < 1
-                    and nsteps > 0 and seg_radius > 0 and max_chunk_sec >= 0):
+                    and nsteps > 0 and seg_radius > 0 and max_chunk_sec >= 0
+                    and 1 <= workers <= 32):
                 raise ValueError
         except ValueError:
             wx.MessageBox(_('msg.err.game_params'), _('msg.error'), wx.OK | wx.ICON_ERROR)
@@ -2610,6 +3208,7 @@ class MainFrame(wx.Frame):
                                  lang=language or _('mark.game.language.auto'),
                                  device=str(device).upper(),
                                  chunk=f"{max_chunk_sec:g}",
+                                 workers=workers,
                                  output=output_display))
 
                 def progress(message):
@@ -2631,6 +3230,7 @@ class MainFrame(wx.Frame):
                     nsteps=nsteps,
                     est_threshold=est_threshold,
                     max_chunk_sec=max_chunk_sec,
+                    workers=workers,
                     progress_callback=progress,
                     stop_event=self._game_stop,
                 )
@@ -2873,10 +3473,8 @@ class MainFrame(wx.Frame):
         if not os.path.isdir(wav_folder):
             wx.MessageBox(_('msg.err.wav_folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
-        if not tg_folder:
-            wx.MessageBox(_('msg.err.select_tg_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-        if not os.path.isdir(tg_folder):
+        # TextGrid 文件夹可留空：留空时读每个 wav 同目录的同名 TextGrid
+        if tg_folder and not os.path.isdir(tg_folder):
             wx.MessageBox(_('msg.err.textgrid_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
             return
         if not dataset_folder:
@@ -3372,421 +3970,6 @@ class MainFrame(wx.Frame):
         thread = threading.Thread(target=generate_lab_from_index_thread)
         thread.start()
 
-    # ══════════════════════════════════════════════════════════════
-    # ASR 生成 lab（迁移自 Vocal2Midi 的 ASR / lab_only 流程）
-    # ══════════════════════════════════════════════════════════════
-
-    def _asr_candidate_dirs(self):
-        """ASR 模型目录的候选位置（可按需修改）。"""
-        qwen = [
-            ROOT / 'asr_model' / 'Qwen3-ASR-1.7B-dml',
-            ROOT / 'ASR_model' / 'Qwen3-ASR-1.7B-dml',
-            ROOT / 'models' / 'Qwen3-ASR-1.7B-dml',
-            Path(r'f:\aising\Vocal2Midi\experiments\Qwen3-ASR-1.7B-dml'),
-        ]
-        romaji = [
-            ROOT / 'asr_model' / 'romajiASR',
-            ROOT / 'ASR_model' / 'romajiASR',
-            Path(r'f:\aising\Vocal2Midi\experiments\romajiASR'),
-        ]
-        return qwen, romaji
-
-    @staticmethod
-    def _looks_like_qwen_model_dir(path) -> bool:
-        try:
-            p = Path(path)
-        except Exception:
-            return False
-        if not p.is_dir():
-            return False
-        has_llm = any((p / n).is_file() for n in ('qwen3_asr_llm.f16.gguf', 'qwen3_asr_llm.q4_k.gguf'))
-        has_encoder = any(
-            (p / f).is_file() and (p / b).is_file()
-            for f, b in (
-                ('qwen3_asr_encoder_frontend.fp16.onnx', 'qwen3_asr_encoder_backend.fp16.onnx'),
-                ('qwen3_asr_encoder_frontend.int4.onnx', 'qwen3_asr_encoder_backend.int4.onnx'),
-            )
-        )
-        return has_llm and has_encoder
-
-    @staticmethod
-    def _looks_like_romaji_model_dir(path) -> bool:
-        try:
-            p = Path(path)
-        except Exception:
-            return False
-        return p.is_dir() and (p / 'model.onnx').is_file() and (p / 'phoneme_vocab.json').is_file()
-
-    def _build_asr_lab_panel(self, parent):
-        """构建「ASR 生成 lab」标签页。"""
-        self._asr_lab_stop = threading.Event()
-
-        sizer = wx.BoxSizer(wx.VERTICAL)
-
-        box = wx.StaticBox(parent, label=_('lab.asr.settings'))
-        register(box, 'lab.asr.settings', 'label')
-        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
-
-        # 音源文件夹
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        label = wx.StaticText(parent, label=_('lab.asr.folder'))
-        register(label, 'lab.asr.folder')
-        self.asr_folder_text = wx.TextCtrl(parent, size=(420, -1))
-        browse_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
-        register(browse_btn, 'textgrid.browse_folder', 'button')
-        browse_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.asr_folder_text))
-        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_folder_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(browse_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
-
-        # Qwen3-ASR 模型目录
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        label = wx.StaticText(parent, label=_('lab.asr.model'))
-        register(label, 'lab.asr.model')
-        self.asr_model_text = wx.TextCtrl(parent, size=(420, -1))
-        self.asr_model_text.SetToolTip(_('lab.asr.model.tooltip'))
-        register(self.asr_model_text, 'lab.asr.model.tooltip', 'tooltip')
-        model_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
-        register(model_btn, 'textgrid.browse_folder', 'button')
-        model_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.asr_model_text))
-        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_model_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(model_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
-
-        # 语言 / 输出模式 / 设备 / 批大小
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        lang_label = wx.StaticText(parent, label=_('lab.asr.language'))
-        register(lang_label, 'lab.asr.language')
-        self.asr_language_choice = wx.Choice(parent, size=(110, -1))
-        self.asr_language_choice.Append('中文', 'zh')
-        self.asr_language_choice.Append('日本語', 'ja')
-        self.asr_language_choice.SetSelection(0)
-        self.asr_language_choice.Bind(wx.EVT_CHOICE, self.on_asr_language_changed)
-
-        mode_label = wx.StaticText(parent, label=_('lab.asr.output_mode'))
-        register(mode_label, 'lab.asr.output_mode')
-        self.asr_mode_choice = wx.Choice(parent, size=(120, -1))
-
-        device_label = wx.StaticText(parent, label=_('lab.asr.device'))
-        register(device_label, 'lab.asr.device')
-        self.asr_device_choice = wx.Choice(parent, size=(110, -1))
-        self.asr_device_choice.Append(_('textgrid.device.dml'), 'dml')
-        self.asr_device_choice.Append(_('textgrid.device.cpu'), 'cpu')
-        self.asr_device_choice.SetSelection(0)
-        register(self.asr_device_choice, '', 'choice',
-                 [('textgrid.device.dml', 'dml'), ('textgrid.device.cpu', 'cpu')])
-
-        batch_label = wx.StaticText(parent, label=_('lab.asr.batch'))
-        register(batch_label, 'lab.asr.batch')
-        self.asr_batch_choice = wx.Choice(parent, size=(70, -1))
-        for value in (1, 2, 4, 8):
-            self.asr_batch_choice.Append(str(value), value)
-        self.asr_batch_choice.SetSelection(0)
-
-        row.Add(lang_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_language_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(mode_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_mode_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(device_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_device_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(batch_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_batch_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        box_sizer.Add(row, 0, wx.ALL, 3)
-
-        # 罗马音 ASR 模型（日语可选）
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        label = wx.StaticText(parent, label=_('lab.asr.romaji_model'))
-        register(label, 'lab.asr.romaji_model')
-        self.asr_romaji_text = wx.TextCtrl(parent, size=(420, -1))
-        self.asr_romaji_text.SetToolTip(_('lab.asr.romaji_model.tooltip'))
-        register(self.asr_romaji_text, 'lab.asr.romaji_model.tooltip', 'tooltip')
-        romaji_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
-        register(romaji_btn, 'textgrid.browse_folder', 'button')
-        romaji_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.asr_romaji_text))
-        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_romaji_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(romaji_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
-
-        # 切片 / 递归 / 覆盖
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        self.asr_slice_check = wx.CheckBox(parent, label=_('lab.asr.slice'))
-        register(self.asr_slice_check, 'lab.asr.slice', 'checkbox')
-        self.asr_slice_check.SetToolTip(_('lab.asr.slice.tooltip'))
-        register(self.asr_slice_check, 'lab.asr.slice.tooltip', 'tooltip')
-        self.asr_slice_check.SetValue(True)
-        slice_min_label = wx.StaticText(parent, label=_('lab.asr.slice_min'))
-        register(slice_min_label, 'lab.asr.slice_min')
-        self.asr_slice_min_text = wx.TextCtrl(parent, value="5", size=(50, -1))
-        slice_max_label = wx.StaticText(parent, label=_('lab.asr.slice_max'))
-        register(slice_max_label, 'lab.asr.slice_max')
-        self.asr_slice_max_text = wx.TextCtrl(parent, value="10", size=(50, -1))
-        self.asr_recursive_check = wx.CheckBox(parent, label=_('lab.asr.recursive'))
-        register(self.asr_recursive_check, 'lab.asr.recursive', 'checkbox')
-        self.asr_recursive_check.SetValue(True)
-        self.asr_overwrite_check = wx.CheckBox(parent, label=_('lab.asr.overwrite'))
-        register(self.asr_overwrite_check, 'lab.asr.overwrite', 'checkbox')
-        self.asr_overwrite_check.SetValue(True)
-
-        row.Add(self.asr_slice_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(slice_min_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_slice_min_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(slice_max_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_slice_max_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_recursive_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_overwrite_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        box_sizer.Add(row, 0, wx.ALL, 3)
-
-        # 参考歌词
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        label = wx.StaticText(parent, label=_('lab.asr.lyrics'))
-        register(label, 'lab.asr.lyrics')
-        self.asr_lyrics_load_btn = wx.Button(parent, label=_('lab.asr.lyrics.load'))
-        register(self.asr_lyrics_load_btn, 'lab.asr.lyrics.load', 'button')
-        self.asr_lyrics_load_btn.Bind(wx.EVT_BUTTON, self.on_asr_load_lyrics)
-        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.AddStretchSpacer()
-        row.Add(self.asr_lyrics_load_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
-
-        self.asr_lyrics_text = wx.TextCtrl(
-            parent, style=wx.TE_MULTILINE, size=(-1, 90))
-        self.asr_lyrics_text.SetToolTip(_('lab.asr.lyrics.tooltip'))
-        register(self.asr_lyrics_text, 'lab.asr.lyrics.tooltip', 'tooltip')
-        box_sizer.Add(self.asr_lyrics_text, 0, wx.EXPAND | wx.ALL, 3)
-
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        self.asr_prompt_check = wx.CheckBox(parent, label=_('lab.asr.use_prompt'))
-        register(self.asr_prompt_check, 'lab.asr.use_prompt', 'checkbox')
-        self.asr_prompt_check.SetToolTip(_('lab.asr.use_prompt.tooltip'))
-        register(self.asr_prompt_check, 'lab.asr.use_prompt.tooltip', 'tooltip')
-        self.asr_prompt_check.SetValue(True)
-        self.asr_match_check = wx.CheckBox(parent, label=_('lab.asr.use_match'))
-        register(self.asr_match_check, 'lab.asr.use_match', 'checkbox')
-        self.asr_match_check.SetToolTip(_('lab.asr.use_match.tooltip'))
-        register(self.asr_match_check, 'lab.asr.use_match.tooltip', 'tooltip')
-        self.asr_match_check.SetValue(True)
-        row.Add(self.asr_prompt_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_match_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        box_sizer.Add(row, 0, wx.ALL, 3)
-
-        # 输出目录（可选）
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        label = wx.StaticText(parent, label=_('lab.asr.out_dir'))
-        register(label, 'lab.asr.out_dir')
-        self.asr_out_text = wx.TextCtrl(parent, size=(420, -1))
-        out_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
-        register(out_btn, 'textgrid.browse_folder', 'button')
-        out_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.asr_out_text))
-        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(self.asr_out_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        row.Add(out_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
-        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
-
-        hint = wx.StaticText(parent, label=_('lab.asr.out_hint'))
-        register(hint, 'lab.asr.out_hint')
-        box_sizer.Add(hint, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
-
-        # 按钮
-        btn_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.asr_run_btn = wx.Button(parent, label=_('lab.asr.run'))
-        register(self.asr_run_btn, 'lab.asr.run', 'button')
-        self.asr_run_btn.Bind(wx.EVT_BUTTON, self.on_asr_generate)
-        self.asr_stop_btn = wx.Button(parent, label=_('textgrid.stop_infer'))
-        register(self.asr_stop_btn, 'textgrid.stop_infer', 'button')
-        self.asr_stop_btn.Bind(wx.EVT_BUTTON, self.on_asr_stop)
-        self.asr_stop_btn.Disable()
-        btn_row.Add(self.asr_run_btn, 0, wx.ALL, 5)
-        btn_row.Add(self.asr_stop_btn, 0, wx.ALL, 5)
-        box_sizer.Add(btn_row, 0, wx.CENTER)
-
-        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
-
-        result_label = wx.StaticText(parent, label=_('lab.asr.result'))
-        register(result_label, 'lab.asr.result')
-        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
-
-        self.asr_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 300))
-        sizer.Add(self.asr_result_text, 1, wx.EXPAND | wx.ALL, 5)
-
-        parent.SetSizer(sizer)
-
-        # 初始化输出模式与模型路径
-        self.on_asr_language_changed(None)
-        qwen_dirs, romaji_dirs = self._asr_candidate_dirs()
-        for candidate in qwen_dirs:
-            if self._looks_like_qwen_model_dir(candidate) or self._looks_like_qwen_model_dir(candidate.with_name(candidate.name + '-dml')):
-                self.asr_model_text.SetValue(str(candidate))
-                break
-        for candidate in romaji_dirs:
-            if self._looks_like_romaji_model_dir(candidate):
-                self.asr_romaji_text.SetValue(str(candidate))
-                break
-
-    def on_asr_language_changed(self, event):
-        """按语言刷新输出模式下拉框。"""
-        modes = {
-            'zh': [('pinyin', _('lab.asr.mode.pinyin')), ('hanzi', _('lab.asr.mode.hanzi'))],
-            'ja': [('romaji', _('lab.asr.mode.romaji')), ('kana', _('lab.asr.mode.kana'))],
-        }
-        language = self.asr_language_choice.GetClientData(self.asr_language_choice.GetSelection()) or 'zh'
-        self.asr_mode_choice.Clear()
-        for value, label in modes.get(language, modes['zh']):
-            self.asr_mode_choice.Append(label, value)
-        if self.asr_mode_choice.GetCount():
-            self.asr_mode_choice.SetSelection(0)
-
-    def on_asr_load_lyrics(self, event):
-        """从 txt / lrc 文件导入参考歌词。"""
-        dialog = wx.FileDialog(
-            None, _('msg.select_file'),
-            wildcard="Lyrics (*.txt;*.lrc)|*.txt;*.lrc|Text (*.txt)|*.txt|LRC (*.lrc)|*.lrc",
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
-        if dialog.ShowModal() != wx.ID_OK:
-            dialog.Destroy()
-            return
-        path = dialog.GetPath()
-        dialog.Destroy()
-        try:
-            text = None
-            for encoding in ('utf-8-sig', 'utf-8', 'gb18030'):
-                try:
-                    text = Path(path).read_text(encoding=encoding)
-                    break
-                except UnicodeDecodeError:
-                    continue
-            if text is None:
-                text = Path(path).read_text(encoding='utf-8', errors='ignore')
-            self.asr_lyrics_text.SetValue(text)
-        except Exception:
-            wx.MessageBox(traceback.format_exc(), _('msg.error'), wx.OK | wx.ICON_ERROR)
-
-    def on_asr_stop(self, event):
-        """停止 ASR 批量生成。"""
-        self._asr_lab_stop.set()
-        self.asr_stop_btn.Disable()
-        self.asr_result_text.AppendText(_('log.infer_stop_requested'))
-
-    def on_asr_generate(self, event):
-        """使用 ASR 识别歌词并为文件夹内音频生成 .lab。"""
-        folder = self.asr_folder_text.GetValue().strip()
-        model_dir = self.asr_model_text.GetValue().strip()
-        out_dir = self.asr_out_text.GetValue().strip()
-        language = self.asr_language_choice.GetClientData(self.asr_language_choice.GetSelection()) or 'zh'
-        lyric_output_mode = self.asr_mode_choice.GetClientData(self.asr_mode_choice.GetSelection())
-        device = self.asr_device_choice.GetClientData(self.asr_device_choice.GetSelection()) or 'dml'
-        batch_size = self.asr_batch_choice.GetClientData(self.asr_batch_choice.GetSelection()) or 1
-        lyrics = self.asr_lyrics_text.GetValue()
-        use_lyrics_prompt = self.asr_prompt_check.GetValue()
-        use_lyrics_match = self.asr_match_check.GetValue()
-        slice_audio = self.asr_slice_check.GetValue()
-        recursive = self.asr_recursive_check.GetValue()
-        overwrite = self.asr_overwrite_check.GetValue()
-        romaji_model = self.asr_romaji_text.GetValue().strip()
-
-        if not folder:
-            wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-        if not os.path.isdir(folder):
-            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-        if not model_dir:
-            wx.MessageBox(_('msg.err.asr_model_missing').format(path=""),
-                          _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-        if out_dir and not os.path.isdir(out_dir):
-            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-        if use_lyrics_prompt and not lyrics.strip():
-            wx.MessageBox(_('msg.err.asr_lyrics_empty'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-
-        slice_min, slice_max = 5.0, 10.0
-        if slice_audio:
-            try:
-                slice_min = float(self.asr_slice_min_text.GetValue().strip())
-                slice_max = float(self.asr_slice_max_text.GetValue().strip())
-                if slice_min < 0 or slice_max <= 0 or slice_min > slice_max:
-                    raise ValueError
-            except ValueError:
-                wx.MessageBox(_('msg.err.asr_slice_bounds'), _('msg.error'), wx.OK | wx.ICON_ERROR)
-                return
-
-        # 延迟导入：避免启动 GUI 时加载 librosa / onnxruntime
-        from asr_lab import lab_generator
-
-        resolved_model = lab_generator.resolve_qwen_model_dir(model_dir)
-        if resolved_model is None:
-            wx.MessageBox(_('msg.err.asr_model_missing').format(path=model_dir),
-                          _('msg.error'), wx.OK | wx.ICON_ERROR)
-            return
-
-        if not romaji_model:
-            _, romaji_candidates = self._asr_candidate_dirs()
-            for candidate in romaji_candidates:
-                if self._looks_like_romaji_model_dir(candidate):
-                    romaji_model = str(candidate)
-                    break
-
-        options = lab_generator.AsrLabOptions(
-            folder=folder,
-            model_dir=str(resolved_model),
-            language=language,
-            lyric_output_mode=lyric_output_mode,
-            device=device,
-            lyrics=lyrics,
-            use_lyrics_prompt=use_lyrics_prompt,
-            use_lyrics_match=use_lyrics_match,
-            slice_audio=slice_audio,
-            slice_min_sec=slice_min,
-            slice_max_sec=slice_max,
-            asr_batch_size=int(batch_size),
-            recursive=recursive,
-            overwrite=overwrite,
-            out_dir=out_dir,
-            phoneme_asr_model_path=romaji_model,
-        )
-
-        def worker():
-            try:
-                wx.CallAfter(self.asr_result_text.Clear)
-                self._asr_lab_stop.clear()
-                wx.CallAfter(self.asr_run_btn.Disable)
-                wx.CallAfter(self.asr_stop_btn.Enable)
-                wx.CallAfter(self.asr_result_text.AppendText, _('log.asr.start'))
-
-                def progress(message):
-                    wx.CallAfter(append_output, self.asr_result_text, message + "\n")
-
-                stats = lab_generator.generate_labs_for_folder(
-                    options,
-                    progress_callback=progress,
-                    stop_event=self._asr_lab_stop,
-                )
-
-                if stats['stopped']:
-                    wx.CallAfter(self.asr_result_text.AppendText, _('log.asr.stopped'))
-                else:
-                    wx.CallAfter(self.asr_result_text.AppendText,
-                                 _('log.asr.complete').format(
-                                     written=stats['written'], failed=stats['failed']))
-                    wx.CallAfter(wx.MessageBox,
-                                 _('msg.ok.asr_complete').format(
-                                     written=stats['written'], failed=stats['failed']),
-                                 _('msg.success'), wx.OK | wx.ICON_INFORMATION)
-            except Exception:
-                tb = traceback.format_exc()
-                wx.CallAfter(self.asr_result_text.AppendText, _('log.failed').format(error=tb))
-                wx.CallAfter(wx.MessageBox, _('log.failed').format(error=tb),
-                             _('msg.error'), wx.OK | wx.ICON_ERROR)
-            finally:
-                wx.CallAfter(self.asr_stop_btn.Disable)
-                wx.CallAfter(self.asr_run_btn.Enable)
-
-        threading.Thread(target=worker, daemon=True).start()
-
     def on_nonlex_toggled(self, event):
         """是否自动添加 AP/SP 等非语言音素。"""
         self.nonlex_text.Enable(self.nonlex_checkbox.GetValue())
@@ -4078,6 +4261,240 @@ class MainFrame(wx.Frame):
 
         thread = threading.Thread(target=detect_thread)
         thread.start()
+
+    # ══════════════════════════════════════════════════════════════
+    # AP 标注（呼吸检测 → 生成 AP/SP 标记，供音频切分使用）
+    # ══════════════════════════════════════════════════════════════
+
+    def _build_ap_panel(self, parent):
+        """构建「AP 标注」页：直接对音频生成 AP/SP 标记。"""
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        title = wx.StaticText(parent, label=_('ap.title'))
+        register(title, 'ap.title')
+        sizer.Add(title, 0, wx.ALL | wx.CENTER, 5)
+
+        self.ap_file_list = []
+        self._ap_stop = threading.Event()
+
+        box = wx.StaticBox(parent, label=_('ap.settings'))
+        register(box, 'ap.settings', 'label')
+        box_sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+
+        # ── 音频来源 ──
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('ap.folder'))
+        register(label, 'ap.folder')
+        self.ap_folder_text = wx.TextCtrl(parent, size=(360, -1))
+        folder_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(folder_btn, 'textgrid.browse_folder', 'button')
+        folder_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_audio_folder(
+            event, self.ap_folder_text, 'ap_file_list'))
+        files_btn = wx.Button(parent, label=_('textgrid.browse_files'))
+        files_btn.SetToolTip(_('textgrid.browse_files.tooltip'))
+        register(files_btn, 'textgrid.browse_files', 'button')
+        register(files_btn, 'textgrid.browse_files.tooltip', 'tooltip')
+        files_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_audio_files(
+            event, self.ap_folder_text, 'ap_file_list'))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.ap_folder_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(folder_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(files_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # ── 输出目录 ──
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('ap.out_dir'))
+        register(label, 'ap.out_dir')
+        self.ap_out_text = wx.TextCtrl(parent, size=(360, -1))
+        out_btn = wx.Button(parent, label=_('textgrid.browse_folder'))
+        register(out_btn, 'textgrid.browse_folder', 'button')
+        out_btn.Bind(wx.EVT_BUTTON, lambda event: self.on_browse_folder(event, self.ap_out_text))
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.ap_out_text, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(out_btn, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        out_hint = wx.StaticText(parent, label=_('ap.out_hint'))
+        register(out_hint, 'ap.out_hint')
+        box_sizer.Add(out_hint, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+        # ── 生成方式 ──
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        label = wx.StaticText(parent, label=_('ap.mode'))
+        register(label, 'ap.mode')
+        self.ap_mode_choice = wx.Choice(parent, size=(240, -1))
+        self.ap_mode_choice.Append(_('ap.mode.new'), 'new')
+        self.ap_mode_choice.Append(_('ap.mode.merge'), 'merge')
+        # 流程里 TextGrid 已经由 Aligner JSON 生成，默认直接在原文件上合并 AP
+        self.ap_mode_choice.SetSelection(1)
+        register(self.ap_mode_choice, '', 'choice',
+                 [('ap.mode.new', 'new'), ('ap.mode.merge', 'merge')])
+        row.Add(label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.ap_mode_choice, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        mode_hint = wx.StaticText(parent, label=_('ap.mode.hint'))
+        register(mode_hint, 'ap.mode.hint')
+        row.Add(mode_hint, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 6)
+        box_sizer.Add(row, 0, wx.EXPAND | wx.ALL, 3)
+
+        # ── 非呼吸区间标记 ──
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        other_label = wx.StaticText(parent, label=_('ap.other_mark'))
+        register(other_label, 'ap.other_mark')
+        self.ap_other_mark_text = wx.TextCtrl(parent, value="V", size=(60, -1))
+        self.ap_other_mark_text.SetToolTip(_('ap.other_mark.tooltip'))
+        register(self.ap_other_mark_text, 'ap.other_mark.tooltip', 'tooltip')
+        row.Add(other_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.ap_other_mark_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        # ── 参数 ──
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        threshold_label = wx.StaticText(parent, label=_('ap.threshold'))
+        register(threshold_label, 'ap.threshold')
+        self.ap_threshold_text = wx.TextCtrl(parent, value="0.4", size=(60, -1))
+        min_label = wx.StaticText(parent, label=_('ap.min_dur'))
+        register(min_label, 'ap.min_dur')
+        self.ap_min_dur_text = wx.TextCtrl(parent, value="0.08", size=(60, -1))
+        sp_label = wx.StaticText(parent, label=_('ap.sp_dur'))
+        register(sp_label, 'ap.sp_dur')
+        self.ap_sp_dur_text = wx.TextCtrl(parent, value="0.10", size=(60, -1))
+        row.Add(threshold_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.ap_threshold_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(min_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.ap_min_dur_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(sp_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+        row.Add(self.ap_sp_dur_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 3)
+
+        self.ap_recursive_check = wx.CheckBox(parent, label=_('ap.recursive'))
+        register(self.ap_recursive_check, 'ap.recursive', 'checkbox')
+        self.ap_recursive_check.SetValue(True)
+        row.Add(self.ap_recursive_check, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 6)
+        box_sizer.Add(row, 0, wx.ALL, 3)
+
+        # ── 按钮 ──
+        btn_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.ap_run_btn = wx.Button(parent, label=_('ap.run'))
+        register(self.ap_run_btn, 'ap.run', 'button')
+        self.ap_run_btn.Bind(wx.EVT_BUTTON, self.on_generate_ap)
+        self.ap_stop_btn = wx.Button(parent, label=_('textgrid.stop_infer'))
+        register(self.ap_stop_btn, 'textgrid.stop_infer', 'button')
+        self.ap_stop_btn.Bind(wx.EVT_BUTTON, self.on_ap_stop)
+        self.ap_stop_btn.Disable()
+        btn_row.Add(self.ap_run_btn, 0, wx.ALL, 5)
+        btn_row.Add(self.ap_stop_btn, 0, wx.ALL, 5)
+        box_sizer.Add(btn_row, 0, wx.CENTER)
+
+        sizer.Add(box_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        result_label = wx.StaticText(parent, label=_('ap.result'))
+        register(result_label, 'ap.result')
+        sizer.Add(result_label, 0, wx.ALL | wx.LEFT, 5)
+
+        self.ap_result_text = wx.TextCtrl(parent, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 400))
+        sizer.Add(self.ap_result_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        parent.SetSizer(sizer)
+
+    def on_ap_stop(self, event):
+        """停止 AP 生成。"""
+        self._ap_stop.set()
+        self.ap_stop_btn.Disable()
+        self.ap_result_text.AppendText(_('log.infer_stop_requested'))
+
+    def on_generate_ap(self, event):
+        """对音频做呼吸检测，直接生成 AP/SP 标记的 TextGrid。"""
+        folder = self.ap_folder_text.GetValue().strip()
+        selected_files = self._selected_audio_files('ap_file_list')
+        out_dir = self.ap_out_text.GetValue().strip()
+        merge_existing = self.ap_mode_choice.GetClientData(
+            self.ap_mode_choice.GetSelection()) == 'merge'
+        other_mark = self.ap_other_mark_text.GetValue().strip() or 'V'
+        recursive = self.ap_recursive_check.GetValue()
+
+        if getattr(self, 'ap_file_list', None) and not selected_files:
+            wx.MessageBox(_('msg.err.file_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        if not selected_files:
+            if not folder:
+                wx.MessageBox(_('msg.err.select_folder'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                return
+            if not os.path.isdir(folder):
+                wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+                return
+
+        if out_dir and not os.path.isdir(out_dir):
+            wx.MessageBox(_('msg.err.folder_not_exist'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        try:
+            ap_threshold = float(self.ap_threshold_text.GetValue().strip())
+            ap_min_dur = float(self.ap_min_dur_text.GetValue().strip())
+            sp_dur = float(self.ap_sp_dur_text.GetValue().strip())
+            if not (0 < ap_threshold < 1) or ap_min_dur <= 0 or sp_dur < 0:
+                raise ValueError
+        except ValueError:
+            wx.MessageBox(_('msg.err.ap_params'), _('msg.error'), wx.OK | wx.ICON_ERROR)
+            return
+
+        # 延迟导入：避免启动 GUI 时加载 onnxruntime / librosa
+        from inference import ap_infer
+
+        def worker():
+            try:
+                wx.CallAfter(self.ap_result_text.Clear)
+                self._ap_stop.clear()
+                wx.CallAfter(self.ap_run_btn.Disable)
+                wx.CallAfter(self.ap_stop_btn.Enable)
+                wx.CallAfter(self.ap_result_text.AppendText, _('log.ap.start'))
+
+                def progress(message):
+                    wx.CallAfter(append_output, self.ap_result_text, message + "\n")
+
+                stats = ap_infer.run(
+                    wav_folder=folder or None,
+                    audio_files=list(selected_files) if selected_files else None,
+                    out_dir=out_dir or None,
+                    merge_existing=merge_existing,
+                    other_mark=other_mark,
+                    ap_threshold=ap_threshold,
+                    ap_min_dur=ap_min_dur,
+                    sp_dur=sp_dur,
+                    recursive=recursive,
+                    progress_callback=progress,
+                    stop_event=self._ap_stop,
+                )
+
+                if stats['total'] == 0:
+                    wx.CallAfter(self.ap_result_text.AppendText, _('msg.err.ap_no_audio'))
+                    wx.CallAfter(wx.MessageBox, _('msg.err.ap_no_audio'),
+                                 _('msg.error'), wx.OK | wx.ICON_ERROR)
+                    return
+
+                if stats['stopped']:
+                    wx.CallAfter(self.ap_result_text.AppendText, _('log.ap.stopped'))
+                    return
+
+                wx.CallAfter(self.ap_result_text.AppendText,
+                             _('log.ap.complete').format(
+                                 checked=stats['checked'],
+                                 written=stats['written'],
+                                 skipped=stats['skipped'],
+                                 failed=stats['failed']))
+                wx.CallAfter(wx.MessageBox,
+                             _('msg.ok.ap_complete').format(count=stats['written']),
+                             _('msg.success'), wx.OK | wx.ICON_INFORMATION)
+            except Exception:
+                tb = traceback.format_exc()
+                wx.CallAfter(self.ap_result_text.AppendText, _('log.ap.failed').format(error=tb))
+                wx.CallAfter(wx.MessageBox, _('log.ap.failed').format(error=tb),
+                             _('msg.error'), wx.OK | wx.ICON_ERROR)
+            finally:
+                wx.CallAfter(self.ap_stop_btn.Disable)
+                wx.CallAfter(self.ap_run_btn.Enable)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def on_generate_json(self, event):
         wav_folder = self.json_path_text.GetValue().strip()

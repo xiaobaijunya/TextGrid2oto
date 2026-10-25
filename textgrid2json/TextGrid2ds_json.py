@@ -62,8 +62,9 @@ def run(path_main,rec_preset):
                         continue
                 # 转换为JSON
                 data = textgrid_change(textgrid_content)
-                # json_data = dict(wav=file)
-                sum_data[file.split('.')[0]] = dict(wav_long=data[0],phones=data[1])
+                # 只去掉结尾的 .TextGrid（文件名本身可能带点，如 "1.song_seg001"）
+                stem = file[: -len(".TextGrid")]
+                sum_data[stem] = dict(wav_long=data[0], phones=data[1])
                 json_data.update(sum_data)
     # print(json_data)
     if rec_preset is not None:

@@ -189,7 +189,7 @@ def build_dataset(
 
     Args:
         wavs: 切片 wav 所在文件夹。
-        tg: 最终 TextGrid 所在文件夹。
+        tg: 最终 TextGrid 所在文件夹；**留空时直接读每个 wav 同目录的同名 TextGrid**。
         dataset: 输出数据集文件夹（会创建 ``wavs/`` 与 ``transcriptions.csv``）。
         wav_subtype: 统一格式时写出的 wav 子类型，如 ``PCM_16`` / ``PCM_24`` / ``FLOAT``。
         progress_callback: 进度回调，接收一行文本。
@@ -204,12 +204,12 @@ def build_dataset(
         统计字典：total / processed / missing_tg / failed / duplicates / stopped / csv。
     """
     wavs_path = pathlib.Path(wavs)
-    tg_dir = pathlib.Path(tg)
+    tg_dir = pathlib.Path(tg) if str(tg or "").strip() else None
     dataset_path = pathlib.Path(dataset)
 
     if not wavs_path.is_dir():
         raise FileNotFoundError(f"wav 文件夹不存在: {wavs_path}")
-    if not tg_dir.is_dir():
+    if tg_dir is not None and not tg_dir.is_dir():
         raise FileNotFoundError(f"TextGrid 文件夹不存在: {tg_dir}")
 
     filelist = sorted(wavs_path.rglob("*.wav") if recursive else wavs_path.glob("*.wav"))
@@ -247,9 +247,13 @@ def build_dataset(
             break
 
         rel_wav = wavfile.relative_to(wavs_path)
-        # 递归模式下优先按相对路径匹配 TextGrid，避免不同子文件夹的同名文件串用
-        rel_tgfile = tg_dir / rel_wav.with_suffix(".TextGrid")
-        tgfile = rel_tgfile if rel_tgfile.exists() else tg_dir / wavfile.with_suffix(".TextGrid").name
+        if tg_dir is None:
+            # 未指定 TextGrid 文件夹：直接用 wav 旁边的同名 TextGrid
+            tgfile = wavfile.with_suffix(".TextGrid")
+        else:
+            # 递归模式下优先按相对路径匹配 TextGrid，避免不同子文件夹的同名文件串用
+            rel_tgfile = tg_dir / rel_wav.with_suffix(".TextGrid")
+            tgfile = rel_tgfile if rel_tgfile.exists() else tg_dir / wavfile.with_suffix(".TextGrid").name
 
         # 数据集样本名：递归模式下加文件夹前缀（A4/01.wav -> A4_01）
         name = _dataset_stem(wavfile, wavs_path, recursive)

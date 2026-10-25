@@ -21,18 +21,76 @@ from typing import Callable, Optional
 import soundfile as sf
 from textgrid import IntervalTier, PointTier, TextGrid
 
-try:  # 包内导入
-    from .words_from_phones import _find_phones_tier
-except ImportError:  # 直接运行脚本
-    from words_from_phones import _find_phones_tier
-
 
 # 切分点按采样点取整后的误差远小于 1ms；短于该值的边缘残片视为取整碎片
 _EDGE_TOLERANCE = 1e-3
+# 这些 mark 不会被写进分段歌词
+_SILENCE_MARKS = {"SP", "AP", "EP", "R", ""}
 
 
 def _plain(mark) -> str:
     return str(mark or "").split("/")[-1].strip()
+
+
+def _tier_name(tier) -> str:
+    return str(getattr(tier, "name", "")).strip().lower()
+
+
+def _interval_tiers(grid) -> list:
+    return [tier for tier in grid.tiers if hasattr(tier, "intervals")]
+
+
+def _find_phoneme_tier(grid):
+    """找切分用的「音素/拼音」层。
+
+    优先 ``phones``/``phone``；不存在时用 Aligner 生成的 ``words``（拼音）；
+    再退到最后一层，保证新旧 TextGrid 都能切分。
+    """
+    tiers = _interval_tiers(grid)
+    if not tiers:
+        raise ValueError("TextGrid 中没有 IntervalTier，无法切分")
+    for wanted in ("phones", "phone"):
+        for tier in tiers:
+            if _tier_name(tier) == wanted:
+                return tier
+    for tier in tiers:
+        name = _tier_name(tier)
+        if name in ("words", "word") or name.startswith("word"):
+            return tier
+    return tiers[-1]
+
+
+def _find_lyric_tier(grid, phone_tier):
+    """找汉字/歌词层（hanzi / text）；没有则回退到非 phone 的 words 层。"""
+    tiers = _interval_tiers(grid)
+    for wanted in ("hanzi", "hanzi_text", "text"):
+        for tier in tiers:
+            if _tier_name(tier) == wanted:
+                return tier
+    for tier in tiers:
+        if tier is phone_tier:
+            continue
+        name = _tier_name(tier)
+        if name in ("words", "word") or name.startswith("word"):
+            return tier
+    return None
+
+
+def _marks_in_range(tier, start: float, end: float, skip: set[str]) -> list[str]:
+    """取出与 [start, end) 有交集、且不是静音/空白的 mark（保持顺序、去重相邻重复）。"""
+    if tier is None:
+        return []
+    marks: list[str] = []
+    for interval in tier:
+        if interval.maxTime <= start or interval.minTime >= end:
+            continue
+        mark = _plain(interval.mark)
+        if not mark or mark.upper() in skip:
+            continue
+        if marks and marks[-1] == mark:
+            continue
+        marks.append(mark)
+    return marks
 
 
 def silence_ranges(phones_tier, silences) -> list[tuple[float, float]]:
@@ -136,8 +194,8 @@ def segments_from_ranges(ranges: list[tuple[float, float]], duration: float) -> 
 
 def run(wav_dir, tg_dir=None, out_dir=None, silences=("SP", "AP"), recursive: bool = False,
         progress_callback: Optional[Callable[[str], None]] = None, stop_event=None,
-        write_tg: bool = True) -> dict:
-    """按静音音素切分 wav（可选同步生成分段 TextGrid）。
+        write_tg: bool = True, export_lab: bool = False, export_txt: bool = False) -> dict:
+    """按静音音素切分 wav，可选同步生成分段 TextGrid / .lab / .txt。
 
     Args:
         wav_dir: wav 文件夹。
@@ -148,9 +206,13 @@ def run(wav_dir, tg_dir=None, out_dir=None, silences=("SP", "AP"), recursive: bo
         progress_callback: 进度回调。
         stop_event: ``threading.Event``，置位后停止。
         write_tg: 是否为每段音频写出同名 TextGrid（默认开启）。
+        export_lab: 是否按 ``words``/``phones`` 层生成每段 ``.lab``（拼音，给 TIFA 用）。
+        export_txt: 是否生成每段 ``.txt``（第一行汉字、第二行拼音）。
+            启用歌词导出时，段内没有任何歌词内容的片段会被直接跳过。
 
     Returns:
-        统计字典：total / written / tg_written / skipped / failed / stopped / output_dir。
+        统计字典：total / written / tg_written / lab_written / txt_written /
+        skipped / skipped_empty / failed / stopped / output_dir。
     """
     wav_root = pathlib.Path(wav_dir)
     if not wav_root.is_dir():
@@ -171,7 +233,9 @@ def run(wav_dir, tg_dir=None, out_dir=None, silences=("SP", "AP"), recursive: bo
             print(message)
 
     files = sorted(wav_root.rglob("*.wav") if recursive else wav_root.glob("*.wav"))
-    stats = {"total": len(files), "written": 0, "tg_written": 0, "skipped": 0,
+    stats = {"total": len(files), "written": 0, "tg_written": 0,
+             "lab_written": 0, "txt_written": 0,
+             "skipped": 0, "skipped_empty": 0,
              "failed": 0, "stopped": False, "output_dir": str(out_root)}
 
     for index, wav_file in enumerate(files, 1):
@@ -190,8 +254,11 @@ def run(wav_dir, tg_dir=None, out_dir=None, silences=("SP", "AP"), recursive: bo
         try:
             grid = TextGrid()
             grid.read(str(tg_file))
-            phones_tier = _find_phones_tier(grid)
+            phones_tier = _find_phoneme_tier(grid)
+            lyric_tier = _find_lyric_tier(grid, phones_tier)
             ranges = silence_ranges(phones_tier, silences)
+            skip_marks = {str(item).strip().upper() for item in silences if str(item).strip()}
+            skip_marks |= _SILENCE_MARKS
 
             data, samplerate = sf.read(str(wav_file), dtype="float32", always_2d=True)
             duration = data.shape[0] / float(samplerate)
@@ -207,7 +274,10 @@ def run(wav_dir, tg_dir=None, out_dir=None, silences=("SP", "AP"), recursive: bo
 
             written = 0
             tg_written = 0
-            for seg_index, (start, end) in enumerate(pieces, 1):
+            lab_written = 0
+            txt_written = 0
+            written_index = 0
+            for start, end in pieces:
                 if stop_event is not None and stop_event.is_set():
                     stats["stopped"] = True
                     break
@@ -215,26 +285,57 @@ def run(wav_dir, tg_dir=None, out_dir=None, silences=("SP", "AP"), recursive: bo
                 finish = min(data.shape[0], int(round(end * samplerate)))
                 if finish <= begin:
                     continue
-                stem = f"{wav_file.stem}_seg{seg_index:03d}"
+
+                seg_start = begin / float(samplerate)
+                seg_end = finish / float(samplerate)
+                lab_tokens = _marks_in_range(phones_tier, seg_start, seg_end, skip_marks)
+                hanzi_chars = _marks_in_range(lyric_tier, seg_start, seg_end, skip_marks)
+
+                # 有没有歌词：有汉字层时以汉字层为准，否则退到拼音/音素层
+                has_lyrics = bool(hanzi_chars) if lyric_tier is not None else bool(lab_tokens)
+
+                # 段内没有任何歌词内容 → 直接跳过（不写 wav / tg / lab / txt）
+                if (export_lab or export_txt) and not has_lyrics:
+                    stats["skipped_empty"] += 1
+                    continue
+
+                written_index += 1
+                stem = f"{wav_file.stem}_seg{written_index:03d}"
                 out_file = target_dir / f"{stem}.wav"
                 sf.write(str(out_file), data[begin:finish], samplerate, subtype=subtype)
                 written += 1
 
+                if export_lab:
+                    (target_dir / f"{stem}.lab").write_text(
+                        " ".join(lab_tokens), encoding="utf-8")
+                    lab_written += 1
+                if export_txt:
+                    hanzi_text = "".join(hanzi_chars)
+                    pinyin_text = " ".join(lab_tokens)
+                    (target_dir / f"{stem}.txt").write_text(
+                        f"{hanzi_text}\n{pinyin_text}", encoding="utf-8")
+                    txt_written += 1
+
                 if write_tg:
-                    # 用实际写出的采样点时间裁剪，保证 TextGrid 与音频严格对齐
-                    seg_start = begin / float(samplerate)
-                    seg_end = finish / float(samplerate)
                     try:
                         seg_grid = _slice_grid(grid, seg_start, seg_end)
                         seg_grid.write(str(target_dir / f"{stem}.TextGrid"))
                         tg_written += 1
                     except Exception as exc:  # noqa: BLE001 - 单个 TextGrid 失败不影响音频
-                        log(f"[警告] {rel} 第 {seg_index} 段 TextGrid 写入失败: "
+                        log(f"[警告] {rel} 第 {written_index} 段 TextGrid 写入失败: "
                             f"{type(exc).__name__}: {exc}")
 
             stats["written"] += written
             stats["tg_written"] += tg_written
+            stats["lab_written"] += lab_written
+            stats["txt_written"] += txt_written
             suffix = f"，TextGrid {tg_written} 个" if write_tg else ""
+            if export_lab:
+                suffix += f"，lab {lab_written} 个"
+            if export_txt:
+                suffix += f"，txt {txt_written} 个"
+            if stats["skipped_empty"]:
+                suffix += f"，空歌词跳过 {stats['skipped_empty']} 段"
             log(f"({index}/{len(files)}) {rel} → {written} 段{suffix}")
             if stats["stopped"]:
                 break
@@ -243,6 +344,12 @@ def run(wav_dir, tg_dir=None, out_dir=None, silences=("SP", "AP"), recursive: bo
             log(f"[失败] {rel}: {type(exc).__name__}: {exc}")
 
     suffix = f"，TextGrid {stats['tg_written']} 个" if write_tg else ""
+    if export_lab:
+        suffix += f"，lab {stats['lab_written']} 个"
+    if export_txt:
+        suffix += f"，txt {stats['txt_written']} 个"
+    if stats["skipped_empty"]:
+        suffix += f"，空歌词跳过 {stats['skipped_empty']} 段"
     log(f"完成：共 {stats['total']} 个 wav，写出 {stats['written']} 段{suffix}，"
         f"跳过 {stats['skipped']}，失败 {stats['failed']} → {out_root}")
     return stats
