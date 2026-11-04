@@ -19,8 +19,19 @@ a = Analysis(
     ['GUI.py'],
     pathex=[],
     binaries=[],
-    datas=[],          # 可见资源不在这里声明，见文件末尾的复制步骤
-    hiddenimports=[],
+    datas=[
+        # ASR：LyricFA 词典（G2P 用）与官方 qwen_asr 的分词词表，
+        # 运行时通过 Path(__file__) 相对定位，必须保持在各自包内。
+        ('asr_lab/LyricFA/Dicts', 'asr_lab/LyricFA/Dicts'),
+        ('qwen_asr/inference/assets', 'qwen_asr/inference/assets'),
+    ],
+    hiddenimports=[
+        # 官方 Qwen3-ASR（torch + transformers 后端，内置在项目根目录）
+        'qwen_asr',
+        'qwen_asr.inference.qwen3_asr',
+        'qwen_asr.inference.qwen3_forced_aligner',
+        'qwen_asr.core.transformers_backend',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

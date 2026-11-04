@@ -1,0 +1,29 @@
+
+
+# ONNX Runtime 执行后端（按平台自动选择，Python ≥ 3.11）
+#   Windows   → DirectML（GPU 加速，实测最快）
+#   非 Windows → WebGPU（DirectML 只提供 Windows 轮子）
+onnxruntime-directml
+numpy
+librosa
+soundfile
+textgrid
+PyYAML
+wxpython
+
+# 可选：ASR + Aligner（1.LAB生成 → ASR识别）
+#   推理使用项目内置的官方 qwen_asr 包（qwen_asr/ 目录，torch + transformers 后端），
+#   不需要安装 qwen-asr，也不需要 onnxruntime / llama.cpp。
+#   GPU（推荐）：先装 CUDA 版 PyTorch
+#     pip install torch --index-url https://download.pytorch.org/whl/cu128
+#   CPU（很慢）：pip install torch --index-url https://download.pytorch.org/whl/cpu
+transformers==4.57.6
+accelerate
+# 官方 ForceAligner 的分词依赖：日语 nagisa、韩语 soynlp（中/英不需要，装上更稳）
+nagisa
+soynlp
+# 模型权重（放在 ASR_model/ 下即可，支持 ModelScope 缓存布局）：
+#   Qwen/Qwen3-ASR-1.7B
+#   Qwen/Qwen3-ForcedAligner-0.6B
+# 日语汉字的假名转换需要 pyopenjtalk；未安装时会退化为按假名/罗马音直接输出。
+# pyopenjtalk

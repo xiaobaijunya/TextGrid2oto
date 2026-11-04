@@ -718,8 +718,11 @@ class TifaInference:
           * 所有未覆盖区间（含首尾、以及解码器留下的中间空白）都用
             ``boundary_label``（默认 SP）填满，使 Tier 首尾相接、完整覆盖
             [0, 音频时长]；``fill_gaps=False`` 时只补首尾（TIFA 原版行为）；
+          * 任何空白（空串 / 纯空白）标签都统一改写为 ``boundary_label``（默认 SP），
+            保证 TextGrid 里不会出现 ``text = ""``；
           * 不再输出冗余的 texts 层（与 words 层内容重复）。
         """
+        boundary_label = (boundary_label or "SP").strip() or "SP"
         eps = 0.001
         N = len(spans_sec)
         total = round(float(wav_length), 3)
@@ -799,8 +802,18 @@ class TifaInference:
                     out[-1] = (out[-1][0], total, out[-1][2])
             return out
 
-        phone_intervals = fill(phone_intervals)
-        words_tier = fill(words_tier)
+        # ── 空白标签归一 ──
+        # 被跳过 / 词表里没有的音素在解码结果里可能是空串，直接写进 TextGrid 会变成
+        # ``text = ""``（下游会当成未知音素）。这里统一按 SP 输出。
+        def normalize(intervals):
+            out = []
+            for onset, offset, label in intervals:
+                text = str(label).strip() if label is not None else ""
+                out.append((onset, offset, text or boundary_label))
+            return out
+
+        phone_intervals = normalize(fill(phone_intervals))
+        words_tier = normalize(fill(words_tier))
 
         return {
             "total_duration": total,
@@ -847,10 +860,13 @@ class TifaInference:
             for i, (onset, offset, label) in enumerate(intervals, start=1):
                 onset = min(max(float(onset), 0.0), total)
                 offset = min(max(float(offset), onset), total)
+                # 兜底：任何空白标签都写成 SP，避免出现 text = ""
+                text = str(label).strip() if label is not None else ""
+                text = (text or "SP").replace('"', "'")
                 lines.append(f"        intervals [{i}]:")
                 lines.append(f"            xmin = {self._fmt(onset)}")
                 lines.append(f"            xmax = {self._fmt(offset)}")
-                lines.append(f'            text = "{label}"')
+                lines.append(f'            text = "{text}"')
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")

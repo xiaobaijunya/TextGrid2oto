@@ -24,3 +24,11 @@ torchaudio
 pandas
 transformers
 openai-whisper
+
+# ── ASR 页面「官方 Transformers 后端」（可选）──
+# GGUF 后端只需 onnxruntime + 内置 llama.cpp DLL，无需下面这些。
+# 官方后端要求 transformers 锁定 4.57.6（自定义 modeling 代码依赖其内部 API）：
+# transformers==4.57.6
+# accelerate==1.12.0
+# nagisa
+# soynlp
