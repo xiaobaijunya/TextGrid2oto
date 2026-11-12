@@ -136,6 +136,18 @@ TextGrid2oto/                    # 项目根目录
 2. 每个模型文件夹内必须同时包含 `model.onnx`、`vocab.json` 以及对应语言的字典文件（如 `zh.txt`、`en-arpasing.txt`、`ja-hira-假名.txt` 等）。
 3. 在 GUI 中选择模型时，请选择到 **具体的模型文件夹**（例如 `HubertFA_model/1218_hfa_model`），而不是 `HubertFA_model` 这一层。
 
+其他模型目录同理（**仓库和安装包里都只有目录结构、配置和 `README.md`，权重需自行下载**）：
+
+| 目录 | 用途 | 需补的权重 | 指引 |
+| --- | --- | --- | --- |
+| `HubertFA_model/` | 强制对齐 | `model.onnx` | `HubertFA_model/README.md` |
+| `TIFA_model/` | TIFA 对齐 | `model.onnx`、`spectrogram.onnx` 等 | `TIFA_model/README.md` |
+| `GAME_model/` | 生成 MIDI 标注 | 各子目录的 5 个 `*.onnx` | `GAME_model/README.md` |
+| `ASR_model/` | Qwen3-ASR 识别 | `config.json` + `*.safetensors` | `ASR_model/README.md` |
+
+> 打好的安装包（`dist/TextGrid2oto/`）属于“可直接运行但缺权重”的形态：
+> 目录和说明都在，把下载到的权重复制进去即可；不用的模型目录可以留空或删除。
+
 ### 4. 配置参数
 
 旧版命令行参数可参考 `legacy/cli/config.txt`（wav 路径、字典、presamp、忽略音素、录音方案、oto 参数等）；GUI 无需此文件。

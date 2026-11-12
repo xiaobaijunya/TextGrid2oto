@@ -4,8 +4,10 @@
 # ── 最终目录布局 ────────────────────────────────────────────
 #   dist/TextGrid2oto/
 #   ├── TextGrid2oto.exe
+#   ├── README.MD
 #   ├── i18n/  config/  img/  presamp/  tg2svdb/dicts/   ← 用户可见，与 exe 同级
-#   ├── HubertFA_model/                                  ← 用户自行下载放入
+#   ├── HubertFA_model/  TIFA_model/  GAME_model/        ← 目录结构 + README + 配置/字典
+#   ├── ASR_model/README.md                             ← ASR 权重指引（权重不入包）
 #   └── _internal/                                       ← Python 依赖与 DLL，用户无需关心
 #
 # 程序通过 get_app_root()（sys.executable 的父目录）查找上述资源，
@@ -101,4 +103,48 @@ for _rel in VISIBLE_DIRS:
         continue
     shutil.rmtree(_dst, ignore_errors=True)
     shutil.copytree(_src, _dst, ignore=_ignore_junk)
+    print(f'[OK] {_rel}  ->  {_dst}')
+
+# ── 模型目录：只带「目录结构 + README + 配置/字典」，不带权重 ──
+# 权重（*.onnx / *.safetensors / …）体积过大，由用户从 Release 单独下载
+# 后放进对应目录；包内保留目录结构和 README 指引，避免用户不知道放哪里。
+
+MODEL_DIRS = [
+    'HubertFA_model',
+    'TIFA_model',
+    'GAME_model',
+]
+
+# 视为「权重」，不打包
+MODEL_WEIGHT_SUFFIXES = (
+    '.onnx', '.onnx_data', '.ort', '.gguf',
+    '.safetensors', '.bin', '.pt', '.pth', '.ckpt',
+)
+
+
+def _ignore_weights(_dir, names):
+    ignored = _ignore_junk(_dir, names)
+    ignored += [n for n in names if n.lower().endswith(MODEL_WEIGHT_SUFFIXES)]
+    return ignored
+
+
+for _rel in MODEL_DIRS:
+    _src = os.path.join(SPECPATH, _rel)
+    _dst = os.path.join(coll.name, _rel)
+    if not os.path.isdir(_src):
+        print(f'[WARN] 模型目录不存在，已跳过: {_src}')
+        continue
+    shutil.rmtree(_dst, ignore_errors=True)
+    shutil.copytree(_src, _dst, ignore=_ignore_weights)
+    print(f'[OK] {_rel}（不含权重）  ->  {_dst}')
+
+# 根目录说明文档 + ASR 模型指引（ASR 权重太大，只带 README）
+for _rel in ('README.MD', 'ASR_model/README.md'):
+    _src = os.path.join(SPECPATH, _rel)
+    _dst = os.path.join(coll.name, _rel)
+    if not os.path.isfile(_src):
+        print(f'[WARN] 说明文档不存在，已跳过: {_src}')
+        continue
+    os.makedirs(os.path.dirname(_dst), exist_ok=True)
+    shutil.copy2(_src, _dst)
     print(f'[OK] {_rel}  ->  {_dst}')
