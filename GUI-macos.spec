@@ -13,6 +13,8 @@ VISIBLE_DIRS = [
     'img',
     'presamp',
     'tg2svdb/dicts',
+    # 「添加ph_num」页的预设 C+V 字典（各语言 vowels.txt / consonants.txt）
+    'tg2svdb/cv_dicts',
 ]
 
 a = Analysis(
@@ -121,7 +123,7 @@ for _rel in MODEL_DIRS:
     print(f'[OK] {_rel}（不含权重）  ->  {_dst}')
 
 # 根目录说明文档 + ASR 模型指引（ASR 权重太大，只带 README）
-for _rel in ('README.MD', 'ASR_model/README.md'):
+for _rel in ('README.MD', 'ASR_model/README.md', 'docs/AI数据集制作指南.md'):
     _src = os.path.join(SPECPATH, _rel)
     _dst = os.path.join(coll.name, _rel)
     if not os.path.isfile(_src):

@@ -39,6 +39,13 @@ flowchart LR
 - 支持批量处理、录音预设、oto 预设
 - 多语言界面（中文 / English / 日本語）
 
+> 📘 **想用本工具制作训练数据集（`transcriptions.csv`）？**
+> 请参考 **[docs/AI数据集制作指南.md](docs/AI数据集制作指南.md)**，里面有从音频到「音素 + 音高」完整数据集的详细流程。
+> 开始前请注意：音频需为 **wav / 44.1kHz / 16bit**，且**单条不超过 1 分钟**（HFA / TIFA 处理更长音频会出现对齐 bug）；
+> `lab` 目前本工具无法生成（ASR 暂不可用、也不支持手动标注），建议用
+> [openvpi/MakeDiffSinger](https://github.com/openvpi/MakeDiffSinger) 生成后再回到本工具。
+> AP（呼吸）标注所需的 FoxBreatheLabeler ONNX 推理也尚未完成。
+
 ## 目录结构（主要部分）
 
 ```
